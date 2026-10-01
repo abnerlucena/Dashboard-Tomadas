@@ -31,6 +31,29 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Prévia da UI nova (prototype/) em /nova/.
+      # Isolada: se falhar, o app antigo sai do mesmo jeito, sem /nova/.
+      # Dados: demonstração, a menos que a variável do repositório NOVA_DATA_SOURCE
+      # seja "supabase" (Settings → Secrets and variables → Actions). Aí a prévia lê o
+      # banco, só leitura, com os segredos VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.
+      # Qualquer outro valor cai na demonstração (nunca no Apps Script).
+      - name: Build da UI nova (prévia)
+        id: proto
+        continue-on-error: true
+        env:
+          VITE_DATA_SOURCE: ${{ vars.NOVA_DATA_SOURCE == 'supabase' && 'supabase' || '' }}
+          VITE_SUPABASE_URL: ${{ vars.NOVA_DATA_SOURCE == 'supabase' && secrets.VITE_SUPABASE_URL || '' }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.NOVA_DATA_SOURCE == 'supabase' && secrets.VITE_SUPABASE_ANON_KEY || '' }}
+        run: npm run proto:build
+
+      - name: Copiar a prévia para dist/nova
+        if: steps.proto.outcome == 'success'
+        run: cp -r prototype/dist dist/nova
+
+      - name: Aviso se a prévia falhou
+        if: steps.proto.outcome != 'success'
+        run: echo "::warning::A prévia da UI nova não foi gerada; o app antigo segue publicado sem /nova/."
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

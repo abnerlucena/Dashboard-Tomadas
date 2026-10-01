@@ -198,6 +198,8 @@ const KEY = "dash-proto.session";
 export const demoClient: AccessClient = {
   kind: "demo",
   emailAccess: true,
+  // Produção de demonstração: a de machines.ts, sem servidor
+  reads: null,
   auth: {
     async login(identifier, password, badgeNumber) {
       await wait();

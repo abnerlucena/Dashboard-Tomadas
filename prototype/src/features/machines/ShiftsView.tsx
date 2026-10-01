@@ -44,10 +44,13 @@ export function ShiftsView({ machines, state, focus, activeId, onRowActivate, em
         </span>
       ),
       value: noData ? "—" : formatNumber(t.produced),
-      aside: noData ? undefined : (
+      aside: noData ? undefined : t.target ? (
         <Lozenge appearance={meta.appearance}>
           {percent}% · {meta.label}
         </Lozenge>
+      ) : (
+        // Turno só com hora extra: produz, mas não tem meta (D27)
+        <Lozenge>sem meta</Lozenge>
       ),
       footer: noData
         ? "Sem dados no período"

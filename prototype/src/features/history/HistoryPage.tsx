@@ -3,18 +3,21 @@ import { useMemo, useState } from "react";
 import {
   ALL_ORDERS,
   DATA_END,
+  DATA_ORIGIN,
   DATA_START,
   MACHINES,
   SHIFTS,
   SHIFT_META,
   STATUS_META,
-  WORKING_DAYS,
   endOfMonth,
   fromIsoDate,
+  goodQuantity,
   isWeekendDate as isWeekend,
   machineById,
+  opLabel,
   sameDay,
   statusFor,
+  targetOn,
   toIsoDate,
   type ProductionOrder,
   type Shift,
@@ -37,12 +40,8 @@ import { DateField } from "@/components/ui/DateField";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { useAccess } from "@/features/access/AccessContext";
 
-const PLANT_TARGET = MACHINES.reduce((s, m) => s + m.target, 0);
-const DAILY_TARGET = PLANT_TARGET / WORKING_DAYS;
 const time = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" });
 const monthTitle = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" });
-/** Limites de navegação: da janela de dados até o fim do mês do último dado (dias futuros aparecem, sem ação) */
-const LAST_DAY = endOfMonth(DATA_END);
 const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
 /** Dia a abrir ao trocar de mês: o último com dados, ou o último dia útil do mês */
 function landingDay(year: number, month: number) {
@@ -60,12 +59,19 @@ type Dialog =
 
 export function HistoryPage({ notify }: { notify: Notify }) {
   const [orders, setOrders] = useState<ProductionOrder[]>(ALL_ORDERS);
-  // O que cada perfil pode corrigir (a tela esconde; quem barra de verdade é o banco)
-  const { can, session } = useAccess();
+  // O que cada perfil pode corrigir (a tela esconde; quem barra de verdade é o banco).
+  // Com dados do banco, por ora, só leitura: as correções ainda não gravam lá.
+  const { can: canDo, session } = useAccess();
+  const readOnly = DATA_ORIGIN === "backend";
+  const can = (p: Parameters<typeof canDo>[0]) => !readOnly && canDo(p);
   const canEdit = (o: ProductionOrder) => can("production.edit") || (can("production.edit_own") && o.operator === session?.nome);
   const canDelete = can("production.delete");
   const canBulkEdit = can("production.bulk_edit");
   const canBulkDelete = can("production.bulk_delete");
+  /** Limites de navegação: da janela de dados até o fim do mês do último dado (dias futuros aparecem, sem ação) */
+  const LAST_DAY = endOfMonth(DATA_END);
+  /** Meta do dia: com o banco, a soma das metas dos turnos apontados; na demonstração, a meta diária da fábrica */
+  const dayTarget = (d: Date) => targetOn(MACHINES, d);
   // Dia aberto (data completa: o calendário navega entre os meses da janela de dados)
   const [date, setDate] = useState<Date>(DATA_END);
   const year = date.getFullYear();
@@ -83,13 +89,12 @@ export function HistoryPage({ notify }: { notify: Notify }) {
 
   const allDayOrders = (byDay.get(toIsoDate(date)) ?? []).slice().sort((a, b) => a.shift - b.shift || a.machineId.localeCompare(b.machineId));
   const dayOrders = shiftFilter === "all" ? allDayOrders : allDayOrders.filter((o) => o.shift === shiftFilter);
-  const dayTotal = allDayOrders.reduce((s, o) => s + o.quantity, 0);
-  const visibleTotal = dayOrders.reduce((s, o) => s + o.quantity, 0);
-  const byShift = Object.fromEntries(SHIFTS.map((sh) => [sh, allDayOrders.filter((o) => o.shift === sh).reduce((q, o) => q + o.quantity, 0)])) as Record<
-    Shift,
-    number
-  >;
-  const dayPct = Math.round((dayTotal / DAILY_TARGET) * 100);
+  // Produção = só a boa (D11); o retrabalho continua listado, com a marca
+  const dayTotal = goodQuantity(allDayOrders);
+  const visibleTotal = goodQuantity(dayOrders);
+  const byShift = Object.fromEntries(SHIFTS.map((sh) => [sh, goodQuantity(allDayOrders.filter((o) => o.shift === sh))])) as Record<Shift, number>;
+  const openTarget = dayTarget(date);
+  const dayPct = openTarget ? Math.round((dayTotal / openTarget) * 100) : 0;
   const isFuture = date > DATA_END;
 
   const selectDate = (d: Date) => {
@@ -195,12 +200,15 @@ export function HistoryPage({ notify }: { notify: Notify }) {
       id: "op",
       header: "OP e material",
       cell: (o) => (
-        <span className="flex flex-col py-075" title={`${o.opId} · material ${o.material} · ${o.product}`}>
-          <span className="font-code text-default">{o.opId.replace("OP ", "")}</span>
-          <span className="flex items-baseline gap-075 font-body-small text-subtlest">
-            <span className="font-code">{o.material}</span>
-            <span className="max-w-column-text truncate">{o.product}</span>
-          </span>
+        <span className="flex flex-col py-075" title={o.material ? `${o.opId} · material ${o.material} · ${o.product}` : undefined}>
+          <span className="font-code text-default">{opLabel(o)}</span>
+          {/* Material: o banco ainda não guarda (lacuna 1) */}
+          {o.material && (
+            <span className="flex items-baseline gap-075 font-body-small text-subtlest">
+              <span className="font-code">{o.material}</span>
+              <span className="max-w-column-text truncate">{o.product}</span>
+            </span>
+          )}
         </span>
       ),
     },
@@ -219,7 +227,7 @@ export function HistoryPage({ notify }: { notify: Notify }) {
         o.rework || o.note ? (
           <span className="flex items-center gap-100">
             {o.rework && (
-              <Tooltip content={`Motivo: ${o.reworkReason}`}>
+              <Tooltip content={`Motivo: ${o.reworkReason ?? "não informado"}`}>
                 <span tabIndex={0}>
                   <Lozenge appearance="warning">Retrabalho</Lozenge>
                 </span>
@@ -296,7 +304,14 @@ export function HistoryPage({ notify }: { notify: Notify }) {
 
   return (
     <>
-      <PageHeader title="Histórico" description="Confira e corrija os apontamentos de cada dia. Escolha um dia no calendário ou navegue pelas setas." />
+      <PageHeader
+        title="Histórico"
+        description={
+          readOnly
+            ? "Confira os apontamentos de cada dia. Escolha um dia no calendário ou navegue pelas setas. Correções, por enquanto, pelo sistema atual."
+            : "Confira e corrija os apontamentos de cada dia. Escolha um dia no calendário ou navegue pelas setas."
+        }
+      />
       <PageBody>
         {/* Calendário em cima, na largura toda; o dia escolhido abre embaixo, com a tabela sem rolagem lateral */}
         <div className="flex flex-col gap-400">
@@ -334,20 +349,23 @@ export function HistoryPage({ notify }: { notify: Notify }) {
               getDay={(d) => {
                 const day = new Date(year, month, d);
                 const list = byDay.get(toIsoDate(day)) ?? [];
-                const total = list.reduce((s, o) => s + o.quantity, 0);
+                const total = goodQuantity(list);
                 const weekend = isWeekend(day);
                 const future = day > DATA_END;
-                const pct = Math.round((total / DAILY_TARGET) * 100);
-                const st = total ? statusFor(pct) : null;
+                const target = dayTarget(day);
+                const pct = target ? Math.round((total / target) * 100) : 0;
+                const st = total && target ? statusFor(pct) : null;
                 const when = formatLongDate(day);
                 return {
                   caption: total ? formatCompactShort(total) : undefined,
-                  percent: total ? pct : undefined,
+                  percent: st ? pct : undefined,
                   status: st,
                   muted: weekend || future || day < DATA_START,
-                  label: total
-                    ? `${when}: ${formatNumber(total)} unidades, ${pct}% da meta diária, ${STATUS_META[st!].label}`
-                    : `${when}: ${weekend ? "fim de semana" : future ? "dia futuro" : "sem apontamento"}`,
+                  label: st
+                    ? `${when}: ${formatNumber(total)} unidades, ${pct}% da meta diária, ${STATUS_META[st].label}`
+                    : total
+                      ? `${when}: ${formatNumber(total)} unidades, sem meta no dia`
+                      : `${when}: ${weekend ? "fim de semana" : future ? "dia futuro" : "sem apontamento"}`,
                 };
               }}
             />
@@ -381,9 +399,13 @@ export function HistoryPage({ notify }: { notify: Notify }) {
                     <span>
                       <span className="font-semibold tabular-nums text-default">{formatNumber(dayTotal)}</span> unidades em {plural(allDayOrders.length)}
                     </span>
-                    <Lozenge appearance={STATUS_META[statusFor(dayPct)].appearance}>
-                      {dayPct}% da meta diária · {STATUS_META[statusFor(dayPct)].label}
-                    </Lozenge>
+                    {openTarget > 0 ? (
+                      <Lozenge appearance={STATUS_META[statusFor(dayPct)].appearance}>
+                        {dayPct}% da meta diária · {STATUS_META[statusFor(dayPct)].label}
+                      </Lozenge>
+                    ) : (
+                      <Lozenge appearance="neutral">sem meta no dia</Lozenge>
+                    )}
                   </p>
                 )}
               </div>

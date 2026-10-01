@@ -1,10 +1,10 @@
 import {
+  COMPARISON_CUTOFF,
   ELAPSED_DATES,
   MACHINES,
   SHIFTS,
-  WORKING_DATES,
-  WORKING_DAYS,
   dayKey,
+  progressUntil,
   type Line,
   type Machine,
   type Shift,
@@ -70,8 +70,8 @@ export function shiftScores(machines: Machine[], ops: WorkOrder[]): ShiftScore[]
   const ids = new Set(machines.map((m) => m.id));
   const done = ops.filter((op) => ids.has(op.machineId) && op.stage === "done" && op.closedAt);
   const scores = SHIFTS.map((shift) => {
-    const withTarget = machines.filter((m) => m.hasTarget && shift <= m.regime);
-    const target = Math.round(withTarget.reduce((s, m) => s + m.target / m.regime, 0));
+    const withTarget = machines.filter((m) => m.hasTarget && m.targetByShift[shift] > 0);
+    const target = Math.round(withTarget.reduce((s, m) => s + m.targetByShift[shift], 0));
     const producedTarget = withTarget.reduce((s, m) => s + m.byShift[shift], 0);
     const produced = machines.reduce((s, m) => s + m.byShift[shift], 0);
     const minutes = machines.reduce((s, m) => s + m.minutesByShift[shift], 0);
@@ -103,12 +103,9 @@ export function shiftScores(machines: Machine[], ops: WorkOrder[]): ShiftScore[]
 }
 
 /* ---------- Ranking das máquinas (com variação desde a semana passada) ---------- */
-const CUTOFF = 20; // sexta, 20/03
-const DAYS_UNTIL_CUTOFF = WORKING_DATES.filter((d) => d.getDate() <= CUTOFF).length;
-
-const percentUntil = (m: Machine, cutoff?: number) => {
-  const produced = cutoff ? m.orders.filter((o) => o.date.getDate() <= cutoff).reduce((s, o) => s + o.quantity, 0) : m.produced;
-  const target = cutoff ? m.target * (DAYS_UNTIL_CUTOFF / WORKING_DAYS) : m.target;
+// "Semana passada" = COMPARISON_CUTOFF (demonstração: sexta, 20/03; com o banco, uma semana antes do último dado)
+const percentUntil = (m: Machine, cutoff: Date | null = null) => {
+  const { produced, target } = progressUntil(m, cutoff);
   return target ? (produced / target) * 100 : 0;
 };
 
@@ -123,10 +120,17 @@ export interface MachineRank {
 
 export function machineRanking(machines: Machine[]): MachineRank[] {
   const withTarget = machines.filter((m) => m.hasTarget);
-  const before = [...withTarget].sort((a, b) => percentUntil(b, CUTOFF) - percentUntil(a, CUTOFF)).map((m) => m.id);
+  const cutoff = COMPARISON_CUTOFF;
+  const before = [...withTarget].sort((a, b) => percentUntil(b, cutoff) - percentUntil(a, cutoff)).map((m) => m.id);
   return [...withTarget]
     .sort((a, b) => b.percent - a.percent)
-    .map((m, i) => ({ machine: m, position: i + 1, move: before.indexOf(m.id) - i, percent: m.percent, perMinute: machinePerMinute(m) }));
+    .map((m, i) => ({
+      machine: m,
+      position: i + 1,
+      move: cutoff ? before.indexOf(m.id) - i : 0,
+      percent: m.percent,
+      perMinute: machinePerMinute(m),
+    }));
 }
 
 /* ---------- Máquina a máquina ---------- */
@@ -175,7 +179,7 @@ export function highlights(machines: Machine[], months: MachineMonth[], scores: 
   const climber = [...ranked].sort((a, b) => b.move - a.move)[0];
   const improved = machines
     .filter((m) => m.hasTarget)
-    .map((m) => ({ m, gain: percentUntil(m) - percentUntil(m, CUTOFF) }))
+    .map((m) => ({ m, gain: COMPARISON_CUTOFF ? percentUntil(m) - percentUntil(m, COMPARISON_CUTOFF) : 0 }))
     .filter((x) => x.gain > 0)
     .sort((a, b) => b.gain - a.gain)[0];
   const record = [...months].filter((x) => x.bestDay).sort((a, b) => b.bestDay!.value - a.bestDay!.value)[0];

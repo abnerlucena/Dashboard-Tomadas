@@ -1,5 +1,5 @@
 import { Download, History, PackageOpen } from "lucide-react";
-import { STATUS_META, type Machine, type ProductionOrder } from "@/data/machines";
+import { STATUS_META, opLabel, type Machine, type ProductionOrder } from "@/data/machines";
 import { formatLongDate, formatNumber } from "@/lib/utils";
 import { Panel } from "@/components/layout/Panel";
 import { Button } from "@/components/ui/Button";
@@ -87,8 +87,8 @@ export function MachinePanel({ machine, open, scopeLabel, periodText, workingDay
                 {items.map((o) => (
                   <li key={o.id} className="flex min-h-row items-center gap-150 border-t px-150 py-075 first:border-t-0">
                     <div className="min-w-0 flex-1">
-                      <p className="font-code text-default">{o.opId}</p>
-                      <p className="truncate font-body-small text-subtle">{o.product}</p>
+                      <p className="font-code text-default">{opLabel(o)}</p>
+                      {o.product && <p className="truncate font-body-small text-subtle">{o.product}</p>}
                     </div>
                     <Lozenge>Turno {o.shift}</Lozenge>
                     <span className="w-800 text-right font-medium tabular-nums text-default">

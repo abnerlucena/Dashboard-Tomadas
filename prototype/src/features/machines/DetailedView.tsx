@@ -19,6 +19,7 @@ interface DetailedViewProps {
 }
 
 const WEEKDAY = new Intl.DateTimeFormat("pt-BR", { weekday: "short" });
+const MONTH = new Intl.DateTimeFormat("pt-BR", { month: "long" });
 
 /**
  * Visão detalhada: grade máquina × dia útil. Cada célula mostra a produção do
@@ -41,7 +42,7 @@ export function DetailedView({ rows, dates, state, activeId, onRowActivate, empt
     ...dates.map<Column<Machine>>((date, i) => ({
       id: `d${dayKey(date)}`,
       header: String(date.getDate()),
-      srHeader: ` de março, ${WEEKDAY.format(date)}`,
+      srHeader: ` de ${MONTH.format(date)}, ${WEEKDAY.format(date)}`,
       className: "text-center",
       cell: (m) => (
         <HeatCell

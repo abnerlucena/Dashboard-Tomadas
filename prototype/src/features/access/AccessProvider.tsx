@@ -22,9 +22,12 @@ export function AccessProvider({ children, fallback }: { children: ReactNode; fa
     let alive = true;
     loadAccessClient().then((c) => {
       if (!alive) return;
-      const saved = c.store.load();
+      // Quem chega pelo link de recuperação troca a senha primeiro: sessão guardada não vale
+      const recovering = c.recovery();
+      if (recovering) c.store.clear();
+      const saved = recovering ? null : c.store.load();
       setClient(c);
-      setRecovery(c.recovery());
+      setRecovery(recovering);
       setSession(saved);
       // A sessão guardada ainda vale? (usuário bloqueado, senha trocada, token vencido)
       if (saved)

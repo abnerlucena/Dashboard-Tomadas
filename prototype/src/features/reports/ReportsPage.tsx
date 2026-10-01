@@ -3,6 +3,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import {
   ALL_ORDERS,
   DATA_END,
+  DATA_ORIGIN,
   DATA_START,
   LINES,
   LINE_ACCENT,
@@ -10,7 +11,9 @@ import {
   MONTH_RANGE,
   SHIFTS,
   SHIFT_META,
+  goodQuantity,
   machineById,
+  opLabel,
   workingDatesIn,
   type DateRange,
   type Line,
@@ -94,7 +97,8 @@ function toCsv(orders: ProductionOrder[]) {
 
 export function ReportsPage({ notify }: { notify: Notify }) {
   const [type, setType] = useState<ReportType>("production");
-  const [range, setRange] = useState<DateRange>({ from: DATA_START, to: DATA_END });
+  // Padrão: do início do mês do último dado até ele (com o banco, a janela pode ter muitos meses)
+  const [range, setRange] = useState<DateRange>({ from: MONTH_RANGE.from < DATA_START ? DATA_START : MONTH_RANGE.from, to: DATA_END });
   const [machines, setMachines] = useState<Set<string>>(new Set(MACHINES.map((m) => m.id)));
   const [shifts, setShifts] = useState<Set<number>>(new Set(SHIFTS));
   const [format, setFormat] = useState<"PDF" | "CSV">("PDF");
@@ -104,7 +108,8 @@ export function ReportsPage({ notify }: { notify: Notify }) {
   // Máquinas: linhas abertas para escolher uma a uma, e busca por nome
   const [openLines, setOpenLines] = useState<Set<Line>>(new Set());
   const [query, setQuery] = useState("");
-  const [generated, setGenerated] = useState<Generated[]>([
+  // Na demonstração a lista começa com dois relatórios de exemplo; com o banco, vazia
+  const [generated, setGenerated] = useState<Generated[]>(DATA_ORIGIN === "backend" ? [] : [
     { id: "g2", name: "Produção mensal · fevereiro", period: "01/02/2026 a 27/02/2026", format: "PDF", createdAt: new Date(2026, 2, 2, 8, 30), size: "412 KB" },
     { id: "g1", name: "Apontamentos detalhados · fevereiro", period: "01/02/2026 a 27/02/2026", format: "CSV", createdAt: new Date(2026, 2, 2, 8, 31), size: "38 KB" },
   ]);
@@ -117,13 +122,13 @@ export function ReportsPage({ notify }: { notify: Notify }) {
     () => ALL_ORDERS.filter((o) => o.date >= range.from && o.date < endOfDay(range.to) && machines.has(o.machineId) && shifts.has(o.shift)),
     [range, machines, shifts],
   );
-  const produced = orders.reduce((s, o) => s + o.quantity, 0);
+  const produced = goodQuantity(orders);
   const reworkQty = orders.filter((o) => o.rework).reduce((s, o) => s + o.quantity, 0);
   const chosen = MACHINES.filter((m) => machines.has(m.id));
   const workingDays = workingDatesIn(range).length;
   // Meta do recorte: só os turnos escolhidos em que cada máquina trabalha, proporcional aos dias úteis do período
-  const target = chosen.reduce((s, m) => s + scopedTarget(m, [...shifts], workingDays), 0);
-  const producedWithTarget = orders.filter((o) => machineById(o.machineId).hasTarget).reduce((s, o) => s + o.quantity, 0);
+  const target = chosen.reduce((s, m) => s + scopedTarget(m, [...shifts], range), 0);
+  const producedWithTarget = goodQuantity(orders.filter((o) => machineById(o.machineId).hasTarget));
   const period = `${br(range.from)} a ${br(range.to)}`;
   const name = `${TYPES[type].title} · ${period}`;
 
@@ -165,6 +170,7 @@ export function ReportsPage({ notify }: { notify: Notify }) {
               orders,
               machines: chosen,
               shifts: [...shifts],
+              range,
               workingDays,
               sections,
             })
@@ -504,8 +510,8 @@ export function ReportsPage({ notify }: { notify: Notify }) {
                           <tr key={o.id} className="border-t text-default">
                             <td className="py-050 pr-150">{o.date.toLocaleDateString("pt-BR").slice(0, 5)}</td>
                             <td className="max-w-1000 truncate py-050 pr-150">{machineById(o.machineId).name}</td>
-                            <td className="py-050 pr-150">{o.opId.replace("OP ", "")}</td>
-                            <td className="py-050 pr-150">{o.material}</td>
+                            <td className="py-050 pr-150">{opLabel(o)}</td>
+                            <td className="py-050 pr-150">{o.material || "–"}</td>
                             <td className="py-050 text-right">{o.quantity}</td>
                           </tr>
                         ))}

@@ -5,6 +5,7 @@ import {
   TARGET_MACHINES,
   DEMAND_MACHINES,
   MACHINE_GROUPS,
+  PREVIOUS_MONTH_LABEL,
   PREVIOUS_MONTH_PRODUCED,
   SHIFTS,
   SHIFT_META,
@@ -176,7 +177,7 @@ export function MachinesPage({
   const onlyDefaults =
     Object.entries(DEFAULT_FILTERS).every(([k, v]) => filters[k as keyof typeof filters] === v) && !search && monthView;
 
-  // Comparação: mês inteiro × fevereiro; outro período × os mesmos dias úteis logo antes dele
+  // Comparação: mês inteiro × mês anterior; outro período × os mesmos dias úteis logo antes dele
   const previous = useMemo(() => {
     if (monthView) return null;
     const before = WORKING_DATES.filter((d) => d < range.from && d >= DATA_START).slice(-elapsedDays.length);
@@ -189,9 +190,11 @@ export function MachinesPage({
     ? previous.produced
       ? ((totals.produced - previous.produced) / previous.produced) * 100
       : 0
-    : ((totals.produced - PREVIOUS_MONTH_PRODUCED) / PREVIOUS_MONTH_PRODUCED) * 100;
-  const growthLabel = previous?.range ? `o período anterior (${rangeLabel(previous.range)})` : "fevereiro";
-  const showGrowth = previous ? !!previous.range : onlyDefaults && !groupId && !presetShift;
+    : PREVIOUS_MONTH_PRODUCED
+      ? ((totals.produced - PREVIOUS_MONTH_PRODUCED) / PREVIOUS_MONTH_PRODUCED) * 100
+      : 0;
+  const growthLabel = previous?.range ? `o período anterior (${rangeLabel(previous.range)})` : PREVIOUS_MONTH_LABEL;
+  const showGrowth = previous ? !!previous.range : onlyDefaults && !groupId && !presetShift && PREVIOUS_MONTH_PRODUCED > 0;
 
   const tableState: TableState =
     demoState === "loading" || periodLoading
@@ -289,7 +292,7 @@ export function MachinesPage({
       footer: noData ? (
         "Sem dados no período"
       ) : showGrowth ? (
-        // mês: contra fevereiro (só a fábrica inteira); outro período: contra os dias úteis logo antes
+        // mês: contra o mês anterior (só a fábrica inteira); outro período: contra os dias úteis logo antes
         <span className="flex flex-wrap items-center gap-x-050">
           <span className={`flex items-center gap-025 font-medium ${growth >= 0 ? "text-success" : "text-danger"}`}>
             {growth >= 0 ? <ArrowUp aria-hidden className="size-icon-small" /> : <ArrowDown aria-hidden className="size-icon-small" />}

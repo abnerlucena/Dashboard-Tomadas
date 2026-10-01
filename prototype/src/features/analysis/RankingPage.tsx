@@ -1,14 +1,17 @@
 import { ArrowDown, ArrowUp, Equal, Medal } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
+  COMPARISON_CUTOFF,
+  MONTH_RANGE,
   TARGET_MACHINES,
   SHIFTS,
   SHIFT_META,
   STATUS_META,
-  WORKING_DATES,
   WORKING_DAYS,
   groupOf,
+  progressUntil,
   scopeToShift,
+  workingDatesIn,
   statusFor,
   type Machine,
   type Shift,
@@ -21,6 +24,7 @@ import { Lozenge } from "@/components/ui/Lozenge";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 
 type Metric = "percent" | "produced" | "entries" | "rework";
+const cutoffLabel = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "numeric", month: "long" });
 
 const METRICS: Record<Metric, { label: string; hint: string; higherIsBetter: boolean }> = {
   percent: { label: "Atingimento", hint: "Produção sobre a meta do mês", higherIsBetter: true },
@@ -29,22 +33,19 @@ const METRICS: Record<Metric, { label: string; hint: string; higherIsBetter: boo
   rework: { label: "Retrabalho", hint: "Peças retrabalhadas sobre a produção — menor é melhor", higherIsBetter: false },
 };
 
-/** "Semana passada" = dados até sexta, 20/03 */
-const PREVIOUS_CUTOFF = 20;
-const DAYS_UNTIL_CUTOFF = WORKING_DATES.filter((d) => d.getDate() <= PREVIOUS_CUTOFF).length;
-
-function valueOf(m: Machine, metric: Metric, cutoff?: number) {
-  const orders = cutoff ? m.orders.filter((o) => o.date.getDate() <= cutoff) : m.orders;
-  const produced = orders.reduce((s, o) => s + o.quantity, 0);
-  const workingDays = cutoff ? DAYS_UNTIL_CUTOFF : WORKING_DAYS;
+/** "Semana passada" = dados até COMPARISON_CUTOFF (demonstração: sexta, 20/03) */
+function valueOf(m: Machine, metric: Metric, cutoff: Date | null = null) {
+  const orders = cutoff ? m.orders.filter((o) => o.date <= cutoff) : m.orders;
+  const { produced, target } = progressUntil(m, cutoff);
+  const workingDays = cutoff ? workingDatesIn({ from: MONTH_RANGE.from, to: cutoff }).length : WORKING_DAYS;
   switch (metric) {
     case "percent":
-      // na semana passada, compara contra a meta proporcional aos dias úteis até ali
-      return produced / (m.target * (workingDays / WORKING_DAYS)) * 100;
+      // na semana passada, compara contra a meta até ali
+      return target ? (produced / target) * 100 : 0;
     case "produced":
       return produced;
     case "entries":
-      return (new Set(orders.map((o) => o.date.getDate())).size / workingDays) * 100;
+      return (new Set(orders.map((o) => o.date.getDate())).size / Math.max(1, workingDays)) * 100;
     case "rework":
       return produced ? (orders.filter((o) => o.rework).reduce((s, o) => s + o.quantity, 0) / produced) * 100 : 0;
   }
@@ -67,13 +68,13 @@ export function RankingPage() {
 
   const ranked = useMemo<Ranked[]>(() => {
     const scoped = TARGET_MACHINES.map((m) => scopeToShift(m, shift));
-    const order = (cutoff?: number) =>
+    const order = (cutoff: Date | null = null) =>
       [...scoped]
         .map((m) => ({ m, v: valueOf(m, metric, cutoff) }))
         .sort((a, b) => (meta.higherIsBetter ? b.v - a.v : a.v - b.v))
         .map((x) => x.m.id);
     const now = order();
-    const before = order(PREVIOUS_CUTOFF);
+    const before = COMPARISON_CUTOFF ? order(COMPARISON_CUTOFF) : now;
     return now.map((id, i) => {
       const machine = scoped.find((m) => m.id === id)!;
       return { machine, value: valueOf(machine, metric), position: i + 1, previous: before.indexOf(id) + 1 };
@@ -148,7 +149,9 @@ export function RankingPage() {
     <>
       <PageHeader
         title="Ranking de máquinas"
-        description="Compare as máquinas por um critério. A posição anterior usa os dados até sexta, 20 de março."
+        description={`Compare as máquinas por um critério. ${
+          COMPARISON_CUTOFF ? `A posição anterior usa os dados até ${cutoffLabel.format(COMPARISON_CUTOFF)}.` : "Ainda não há uma semana de dados para comparar posições."
+        }`}
       />
       <PageBody>
         <div role="toolbar" aria-label="Critério e filtros" className="flex flex-wrap items-center gap-150">

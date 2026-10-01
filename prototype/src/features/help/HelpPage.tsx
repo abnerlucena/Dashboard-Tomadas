@@ -1,7 +1,7 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import { ChevronDown, ClipboardList, FileText, History, LifeBuoy, Search, SearchX, Target, type LucideIcon } from "lucide-react";
 import { useState } from "react";
-import { STATUS_META, WORKING_DAYS, type Status } from "@/data/machines";
+import { DATA_ORIGIN, PERIOD_LABEL, STATUS_META, WORKING_DAYS, type Status } from "@/data/machines";
 import { type Notify } from "@/lib/utils";
 import { PageBody, PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -187,7 +187,9 @@ export function HelpPage({ notify }: { notify: Notify }) {
                 ))}
               </ul>
               <p className="text-subtle">
-                Meta por dia = meta por turno × turnos ativos. Meta do mês = meta por dia × {WORKING_DAYS} dias úteis.
+                {DATA_ORIGIN === "backend"
+                  ? "A meta de um período é a soma das metas gravadas em cada turno apontado. Hora extra e dia anulado não entram, e o retrabalho não conta como produção."
+                  : `Meta por dia = meta por turno × turnos ativos. Meta do mês = meta por dia × ${WORKING_DAYS} dias úteis.`}
               </p>
             </section>
           </div>
@@ -199,7 +201,7 @@ export function HelpPage({ notify }: { notify: Notify }) {
             <h2 id="support" className="font-heading-small text-default">
               Precisa de mais ajuda?
             </h2>
-            <p className="mt-025 text-subtle">Fale com o suporte de TI da fábrica. Versão do protótipo 0.4 · dados de março de 2026.</p>
+            <p className="mt-025 text-subtle">Fale com o suporte de TI da fábrica. Versão do protótipo 0.4 · {DATA_ORIGIN === "backend" ? "dados reais, só leitura" : `dados de demonstração de ${PERIOD_LABEL}`}.</p>
           </div>
           <Button onClick={() => notify("Chamado aberto", "O suporte vai responder pelo seu e-mail corporativo (simulado).")}>
             Falar com o suporte

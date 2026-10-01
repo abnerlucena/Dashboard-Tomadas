@@ -15,6 +15,7 @@
     "proto:dev": "vite --config prototype/vite.config.ts",
     "proto:build": "tsc -p prototype && vite build --config prototype/vite.config.ts",
     "proto:typecheck": "tsc -p prototype",
+    "proto:test": "vitest run --config prototype/vitest.config.ts",
     "proto:html": "tsc -p prototype && vite build --config prototype/vite.config.ts --mode single && node prototype/scripts/single-file.mjs",
     "test:e2e": "playwright test"
   },

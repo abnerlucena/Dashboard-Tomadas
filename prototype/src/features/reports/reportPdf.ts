@@ -1,4 +1,16 @@
-import { LINES, REWORK_REASONS, WORKING_DATES, machineById, statusFor, STATUS_META, type Machine, type ProductionOrder } from "@/data/machines";
+import {
+  LINES,
+  REWORK_REASONS,
+  WORKING_DAYS,
+  goodQuantity,
+  machineById,
+  statusFor,
+  STATUS_META,
+  workingDatesIn,
+  type DateRange,
+  type Machine,
+  type ProductionOrder,
+} from "@/data/machines";
 import { formatNumber } from "@/lib/utils";
 
 /*
@@ -22,7 +34,9 @@ export interface ReportInput {
   machines: Machine[];
   /** turnos escolhidos (meta proporcional) */
   shifts: number[];
-  /** dias úteis do período (meta proporcional) */
+  /** período escolhido (meta do recorte) */
+  range: DateRange;
+  /** dias úteis do período (linha de meta diária) */
   workingDays: number;
   sections: Set<string>;
 }
@@ -49,11 +63,20 @@ const pct = (v: number) => `${Math.round(v)}%`;
 const dayMonth = (d: Date) => d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 
 /**
- * Meta de cada máquina no recorte: só os turnos escolhidos em que ela trabalha
- * (um centro de 2 turnos não tem meta no Turno 3) e só os dias úteis do período.
+ * Meta de cada máquina no recorte, só nos turnos escolhidos. Com o banco, a soma
+ * das metas efetivas dos turnos apontados (nunca meta × turnos × dias). Na
+ * demonstração, a meta do mês proporcional aos turnos em que o centro trabalha
+ * (um centro de 2 turnos não tem meta no Turno 3) e aos dias úteis do período.
  */
-export const scopedTarget = (m: Machine, shifts: number[], workingDays: number) =>
-  m.hasTarget ? Math.round((m.target / m.regime) * shifts.filter((s) => s <= m.regime).length * (workingDays / WORKING_DATES.length)) : 0;
+export function scopedTarget(m: Machine, shifts: number[], range: DateRange) {
+  if (!m.hasTarget) return 0;
+  if (m.backend)
+    return Math.round(
+      m.backend.targets.reduce((s, e) => s + (shifts.includes(e.shift) && e.date >= range.from && e.date <= range.to ? e.target : 0), 0),
+    );
+  const share = workingDatesIn(range).length / Math.max(1, WORKING_DAYS);
+  return Math.round((m.target / m.regime) * shifts.filter((s) => s <= m.regime).length * share);
+}
 
 export async function buildReportPdf(input: ReportInput): Promise<Blob> {
   const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
@@ -72,18 +95,16 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     surface: tokenColor("--ds-surface"),
   };
   const { orders, machines, sections } = input;
-  const produced = sum(orders, (o) => o.quantity);
+  // Produção = só a boa (D11); o retrabalho tem conta própria
+  const produced = goodQuantity(orders);
   const reworkQty = sum(
     orders.filter((o) => o.rework),
     (o) => o.quantity,
   );
-  const target = sum(machines, (m) => scopedTarget(m, input.shifts, input.workingDays));
+  const target = sum(machines, (m) => scopedTarget(m, input.shifts, input.range));
   // Atingimento só com as máquinas que têm meta (as "por demanda" produzem, mas não entram na conta)
   const withTarget = new Set(machines.filter((m) => m.hasTarget).map((m) => m.id));
-  const producedWithTarget = sum(
-    orders.filter((o) => withTarget.has(o.machineId)),
-    (o) => o.quantity,
-  );
+  const producedWithTarget = goodQuantity(orders.filter((o) => withTarget.has(o.machineId)));
   let y = 0;
 
   /* ---------- Cabeçalho ---------- */
@@ -154,8 +175,8 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       if (input.type !== "rework" && !withTarget.has(o.machineId)) continue;
       const k = o.date.toDateString();
       const e = byDay.get(k) ?? { date: o.date, qty: 0, rw: 0 };
-      e.qty += o.quantity;
       if (o.rework) e.rw += o.quantity;
+      else e.qty += o.quantity;
       byDay.set(k, e);
     }
     const days = [...byDay.values()].sort((a, b) => a.date.getTime() - b.date.getTime());
@@ -221,7 +242,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         ["Máquina", "Linha", "Produção", "Retrabalho", "Taxa", "Principal motivo"],
         ordered.map((m) => {
           const list = ofMachine(m);
-          const total = sum(list, (o) => o.quantity);
+          const total = goodQuantity(list);
           const rw = list.filter((o) => o.rework);
           const reasons = REWORK_REASONS.map((r) => ({ r, n: rw.filter((o) => o.reworkReason === r).length })).sort((a, b) => b.n - a.n);
           return [m.name, m.line, formatNumber(total), formatNumber(sum(rw, (o) => o.quantity)), total ? pct((sum(rw, (o) => o.quantity) / total) * 100) : "—", reasons[0]?.n ? reasons[0].r : "—"];
@@ -244,8 +265,8 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         ["Máquina", "Linha", "Dias", "Produção", "Meta", "Atingimento"],
         ordered.map((m) => {
           const list = ofMachine(m);
-          const total = sum(list, (o) => o.quantity);
-          const t = scopedTarget(m, input.shifts, input.workingDays);
+          const total = goodQuantity(list);
+          const t = scopedTarget(m, input.shifts, input.range);
           const p = t ? Math.round((total / t) * 100) : null;
           return [
             m.name,

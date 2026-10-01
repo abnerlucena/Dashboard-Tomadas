@@ -6,6 +6,7 @@ import {
   SHIFTS,
   SHIFT_META,
   machineById,
+  opLabel,
   type ProductionOrder,
 } from "@/data/machines";
 import { cn, formatDecimal, formatNumber, formatShortDate } from "@/lib/utils";
@@ -113,7 +114,7 @@ export function ReworkPage() {
         </span>
       ),
     },
-    { id: "op", header: "OP", cell: (o) => <span className="font-code text-default">{o.opId.replace("OP ", "")}</span> },
+    { id: "op", header: "OP", cell: (o) => <span className="font-code text-default">{opLabel(o)}</span> },
     {
       id: "qty",
       header: "Quantidade",

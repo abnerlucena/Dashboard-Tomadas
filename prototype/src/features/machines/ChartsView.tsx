@@ -1,17 +1,20 @@
 import { useMemo, type ReactNode } from "react";
-import { DATA_END, SHIFTS, STATUS_META, plantSeries, workingDatesIn, type DateRange, type Machine, type Shift } from "@/data/machines";
+import {
+  DATA_END,
+  DATA_ORIGIN,
+  SHIFTS,
+  STATUS_META,
+  plantSeries,
+  workingDatesIn,
+  type DateRange,
+  type Machine,
+  type Shift,
+} from "@/data/machines";
 import { formatDecimal, formatLongDate, formatNumber, formatShortDate, plural } from "@/lib/utils";
 import { ChartCard, MiniTable, type LegendItem } from "@/components/data/Chart";
 import { KpiStrip, type KpiItem } from "@/components/data/KpiStrip";
 import { SHIFT_FILL } from "@/components/data/shiftColors";
-import {
-  AttainmentBars,
-  BurnupChart,
-  ComboChart,
-  DailyColumns,
-  HBars,
-  type ComboSeries,
-} from "@/components/echarts";
+import { AttainmentBars, BurnupChart, ComboChart, DailyColumns, HBars, type ComboSeries } from "@/components/echarts";
 import { BURNUP_LEGEND, DAILY_LEGEND } from "@/components/echarts/legends";
 import { useOps } from "@/features/ops/OpsStore";
 import { REWORK_LIMIT, SHIFT_NAMES, insights } from "./insights";
@@ -106,39 +109,43 @@ export function ChartsView({
   const half = "flex-1 basis-chart-card-min";
   const shifts = shift === "all" ? SHIFTS : [shift];
 
-  const kpis: KpiItem[] = [
-    {
-      id: "rate",
-      label: "Ritmo médio",
-      value: formatDecimal(data.perMinuteTotal),
-      aside: <span className="text-subtle">peças/min</span>,
-      footer: `${formatNumber(data.produced)} peças em ${plural(data.entries, "apontamento", "apontamentos")}`,
-    },
-    {
-      id: "ops",
-      label: "OPs concluídas",
-      value: formatNumber(data.opsDone),
-      footer: data.opsDone ? `Em média ${days(data.avgLeadDays)} da liberação à conclusão` : "Nenhuma concluída no período",
-    },
-    {
-      id: "open",
-      label: "OPs em aberto agora",
-      value: formatNumber(data.opsOpen),
-      footer: data.opsPaused ? `${plural(data.opsPaused, "pausada", "pausadas")}` : "Nenhuma pausada",
-    },
-    {
-      id: "rework",
-      label: "Retrabalho",
-      value: pct(data.reworkRate),
-      footer: data.reworkRate > REWORK_LIMIT ? `Acima do limite de ${REWORK_LIMIT}%` : `Dentro do limite de ${REWORK_LIMIT}%`,
-    },
-    {
-      id: "notes",
-      label: "Observações dos operadores",
-      value: formatNumber(data.notes),
-      footer: data.entries ? `Em ${pct((data.notes / data.entries) * 100)} dos apontamentos` : "Sem apontamentos",
-    },
-  ];
+  // Com o banco, ritmo (minutos por OP) e OPs ainda não existem: fora, em vez de "0"
+  const known = DATA_ORIGIN === "demo";
+  const kpis: KpiItem[] = (
+    [
+      {
+        id: "rate",
+        label: "Ritmo médio",
+        value: formatDecimal(data.perMinuteTotal),
+        aside: <span className="text-subtle">peças/min</span>,
+        footer: `${formatNumber(data.produced)} peças em ${plural(data.entries, "apontamento", "apontamentos")}`,
+      },
+      {
+        id: "ops",
+        label: "OPs concluídas",
+        value: formatNumber(data.opsDone),
+        footer: data.opsDone ? `Em média ${days(data.avgLeadDays)} da liberação à conclusão` : "Nenhuma concluída no período",
+      },
+      {
+        id: "open",
+        label: "OPs em aberto agora",
+        value: formatNumber(data.opsOpen),
+        footer: data.opsPaused ? `${plural(data.opsPaused, "pausada", "pausadas")}` : "Nenhuma pausada",
+      },
+      {
+        id: "rework",
+        label: "Retrabalho",
+        value: pct(data.reworkRate),
+        footer: data.reworkRate > REWORK_LIMIT ? `Acima do limite de ${REWORK_LIMIT}%` : `Dentro do limite de ${REWORK_LIMIT}%`,
+      },
+      {
+        id: "notes",
+        label: "Observações dos operadores",
+        value: formatNumber(data.notes),
+        footer: data.entries ? `Em ${pct((data.notes / data.entries) * 100)} dos apontamentos` : "Sem apontamentos",
+      },
+    ] satisfies KpiItem[]
+  ).filter((k) => known || !["rate", "ops", "open"].includes(k.id));
 
   const shiftSeries: ComboSeries[] = shifts.map((s) => ({
     name: SHIFT_NAMES[s],
@@ -266,110 +273,119 @@ export function ChartsView({
           <AttainmentBars machines={rows} activeId={activeId} onSelect={onSelect} />
         </ChartCard>
 
-        <ChartCard
-          {...card}
-          className={half}
-          title="Ritmo por máquina"
-          subtitle="Peças por minuto produtivo apontado · clique para abrir a máquina"
-          table={
-            <MiniTable
-              caption="Peças por minuto por máquina"
-              columns={[{ header: "Máquina" }, { header: "Peças/min", align: "end" }, { header: "Produção", align: "end" }]}
-              rows={data.perMinute.map((x) => [x.machine.name, formatDecimal(x.value), formatNumber(x.machine.produced)])}
+        {/* Ritmo e OPs dependem de minutos por OP e do cadastro de OPs, que o banco ainda não tem */}
+        {known && (
+          <ChartCard
+            {...card}
+            className={half}
+            title="Ritmo por máquina"
+            subtitle="Peças por minuto produtivo apontado · clique para abrir a máquina"
+            table={
+              <MiniTable
+                caption="Peças por minuto por máquina"
+                columns={[{ header: "Máquina" }, { header: "Peças/min", align: "end" }, { header: "Produção", align: "end" }]}
+                rows={data.perMinute.map((x) => [x.machine.name, formatDecimal(x.value), formatNumber(x.machine.produced)])}
+              />
+            }
+          >
+            <HBars
+              items={data.perMinute.map((x) => ({
+                id: x.machine.id,
+                label: x.machine.name,
+                value: x.value,
+                display: formatDecimal(x.value),
+                detail: `${formatNumber(x.machine.produced)} peças no período`,
+              }))}
+              unit="peças/min"
+              activeId={activeId}
+              onSelect={(id) => {
+                const m = rows.find((r) => r.id === id);
+                if (m) onSelect(m);
+              }}
+              label={`Ritmo por máquina, em peças por minuto. ${
+                data.perMinute[0]
+                  ? `Mais rápida: ${data.perMinute[0].machine.name}, ${formatDecimal(data.perMinute[0].value)} peças/min.`
+                  : ""
+              }`}
             />
-          }
-        >
-          <HBars
-            items={data.perMinute.map((x) => ({
-              id: x.machine.id,
-              label: x.machine.name,
-              value: x.value,
-              display: formatDecimal(x.value),
-              detail: `${formatNumber(x.machine.produced)} peças no período`,
-            }))}
-            unit="peças/min"
-            activeId={activeId}
-            onSelect={(id) => {
-              const m = rows.find((r) => r.id === id);
-              if (m) onSelect(m);
-            }}
-            label={`Ritmo por máquina, em peças por minuto. ${
-              data.perMinute[0]
-                ? `Mais rápida: ${data.perMinute[0].machine.name}, ${formatDecimal(data.perMinute[0].value)} peças/min.`
-                : ""
-            }`}
-          />
-        </ChartCard>
+          </ChartCard>
+        )}
       </Section>
 
-      <Section title="Ordens de produção" hint="OPs das máquinas filtradas concluídas no período, contadas pela data de conclusão">
-        <ChartCard
-          {...card}
-          className={half}
-          title="OPs concluídas por dia"
-          subtitle="Quantidade e tempo médio da liberação à conclusão"
-          legend={OPS_LEGEND}
-          table={
-            <MiniTable
-              caption="OPs concluídas e tempo médio por dia"
-              columns={[{ header: "Dia" }, { header: "Concluídas", align: "end" }, { header: "Tempo médio", align: "end" }]}
-              rows={data.opsByDay.map((d) => [formatShortDate(d.date), formatNumber(d.count), d.avgDays == null ? "—" : days(d.avgDays)])}
+      {known && (
+        <Section title="Ordens de produção" hint="OPs das máquinas filtradas concluídas no período, contadas pela data de conclusão">
+          <ChartCard
+            {...card}
+            className={half}
+            title="OPs concluídas por dia"
+            subtitle="Quantidade e tempo médio da liberação à conclusão"
+            legend={OPS_LEGEND}
+            table={
+              <MiniTable
+                caption="OPs concluídas e tempo médio por dia"
+                columns={[{ header: "Dia" }, { header: "Concluídas", align: "end" }, { header: "Tempo médio", align: "end" }]}
+                rows={data.opsByDay.map((d) => [formatShortDate(d.date), formatNumber(d.count), d.avgDays == null ? "—" : days(d.avgDays)])}
+              />
+            }
+          >
+            <ComboChart
+              categories={categories}
+              titles={titles}
+              integer
+              series={[
+                {
+                  name: "OPs concluídas",
+                  kind: "bar",
+                  color: "brand",
+                  data: data.opsByDay.map((d) => d.count),
+                },
+                {
+                  name: "tempo médio",
+                  kind: "line",
+                  color: "c2",
+                  right: true,
+                  format: days,
+                  data: data.opsByDay.map((d) => d.avgDays),
+                },
+              ]}
+              rightFormat={(v) => formatDecimal(v)}
+              label={`OPs concluídas por dia. ${formatNumber(data.opsDone)} no período, em média ${days(data.avgLeadDays)} cada.`}
             />
-          }
-        >
-          <ComboChart
-            categories={categories}
-            titles={titles}
-            integer
-            series={[
-              {
-                name: "OPs concluídas",
-                kind: "bar",
-                color: "brand",
-                data: data.opsByDay.map((d) => d.count),
-              },
-              {
-                name: "tempo médio",
-                kind: "line",
-                color: "c2",
-                right: true,
-                format: days,
-                data: data.opsByDay.map((d) => d.avgDays),
-              },
-            ]}
-            rightFormat={(v) => formatDecimal(v)}
-            label={`OPs concluídas por dia. ${formatNumber(data.opsDone)} no período, em média ${days(data.avgLeadDays)} cada.`}
-          />
-        </ChartCard>
+          </ChartCard>
 
-        <ChartCard
-          {...card}
-          className={half}
-          title="Tempo das OPs"
-          subtitle="Da liberação à conclusão, por faixa"
-          table={
-            <MiniTable
-              caption="OPs concluídas por faixa de tempo"
-              columns={[{ header: "Faixa" }, { header: "OPs", align: "end" }, { header: "% do total", align: "end" }]}
-              rows={data.leadBuckets.map((b) => [b.label, formatNumber(b.count), data.opsDone ? pct((b.count / data.opsDone) * 100) : "—"])}
+          <ChartCard
+            {...card}
+            className={half}
+            title="Tempo das OPs"
+            subtitle="Da liberação à conclusão, por faixa"
+            table={
+              <MiniTable
+                caption="OPs concluídas por faixa de tempo"
+                columns={[{ header: "Faixa" }, { header: "OPs", align: "end" }, { header: "% do total", align: "end" }]}
+                rows={data.leadBuckets.map((b) => [
+                  b.label,
+                  formatNumber(b.count),
+                  data.opsDone ? pct((b.count / data.opsDone) * 100) : "—",
+                ])}
+              />
+            }
+          >
+            <ComboChart
+              categories={data.leadBuckets.map((b) => b.label)}
+              integer
+              series={[
+                {
+                  name: "OPs concluídas",
+                  kind: "bar",
+                  color: "brand",
+                  data: data.leadBuckets.map((b) => b.count),
+                },
+              ]}
+              label={`Tempo das OPs por faixa. ${data.leadBuckets.map((b) => `${b.count} ${b.label}`).join(", ")}.`}
             />
-          }
-        >
-          <ComboChart
-            categories={data.leadBuckets.map((b) => b.label)}
-            integer
-            series={[
-              {
-                name: "OPs concluídas",
-                kind: "bar",
-                color: "brand",
-                data: data.leadBuckets.map((b) => b.count),
-              },
-            ]}
-            label={`Tempo das OPs por faixa. ${data.leadBuckets.map((b) => `${b.count} ${b.label}`).join(", ")}.`}
-          />
-        </ChartCard>
-      </Section>
+          </ChartCard>
+        </Section>
+      )}
 
       <Section title="Qualidade" hint="Apontamentos marcados como retrabalho e os motivos informados">
         <ChartCard

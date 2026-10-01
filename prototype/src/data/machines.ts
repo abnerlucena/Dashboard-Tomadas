@@ -1,4 +1,13 @@
 /*
+ * Fonte única das telas: centros, apontamentos, OPs, calendário e período.
+ *
+ * Começa com os dados de DEMONSTRAÇÃO (abaixo). Com backend configurado, depois
+ * do login, `installBackendData()` troca tudo pelos dados reais (convertidos em
+ * ./fromBackend.ts). As constantes são `export let`: em ESM a importação é uma
+ * ligação viva, então as telas leem o conjunto em uso sem mudar de assinatura.
+ * Quem deriva algo destes valores deve fazê-lo na hora do uso, não no topo do
+ * módulo (o topo roda antes do login).
+ *
  * Dados de demonstração — março/2026 (22 dias úteis, referência 27/03).
  *
  * Centros de trabalho: os 22 centros ativos da planilha "Capacidade vs Pessoas"
@@ -49,25 +58,31 @@ export const LINE_ACCENT: Record<string, Accent> = {
   "Por demanda": "gray",
 };
 
+/* ---------- Origem dos dados ---------- */
+/** "demo" = gerados aqui; "backend" = lidos do banco depois do login (só leitura, por ora) */
+export let DATA_ORIGIN: "demo" | "backend" = "demo";
+
 /* ---------- Calendário ---------- */
 const YEAR = 2026;
 const MONTH = 2; // março (0-based)
-export const REFERENCE_DAY = 27;
-export const PERIOD_LABEL = "março de 2026";
+const REFERENCE_DAY = 27;
+/** Mês padrão das telas, por extenso */
+export let PERIOD_LABEL = "março de 2026";
 
-/** Dias úteis (seg–sex) de março/2026 */
-export const WORKING_DATES: Date[] = Array.from({ length: 31 }, (_, i) => new Date(YEAR, MONTH, i + 1)).filter(
+/** Dias úteis da janela de dados (seg–sex; com o banco, menos feriados e mais os dias com produção) */
+export let WORKING_DATES: Date[] = Array.from({ length: 31 }, (_, i) => new Date(YEAR, MONTH, i + 1)).filter(
   (d) => d.getDay() !== 0 && d.getDay() !== 6,
 );
-export const WORKING_DAYS = WORKING_DATES.length; // 22
+/** Dias úteis do mês padrão */
+export let WORKING_DAYS = WORKING_DATES.length; // 22
 /** Dias úteis já transcorridos até a data de referência */
-export const ELAPSED_DATES = WORKING_DATES.filter((d) => d.getDate() <= REFERENCE_DAY);
-export const REFERENCE_DATE = new Date(YEAR, MONTH, REFERENCE_DAY);
+export let ELAPSED_DATES = WORKING_DATES.filter((d) => d.getDate() <= REFERENCE_DAY);
+export let REFERENCE_DATE = new Date(YEAR, MONTH, REFERENCE_DAY);
 /** "Agora" do protótipo: manhã seguinte à data de referência (turnos do dia 27 já fechados) */
-export const NOW = new Date(YEAR, MONTH, REFERENCE_DAY + 1, 7, 0);
+export let NOW = new Date(YEAR, MONTH, REFERENCE_DAY + 1, 7, 0);
 
-/** Chave do dia (mês e dia): períodos que cruzam meses não misturam 05/02 com 05/03 */
-export const dayKey = (d: Date) => d.getMonth() * 100 + d.getDate();
+/** Chave do dia (ano, mês e dia): períodos longos não misturam 05/03/2025 com 05/03/2026 */
+export const dayKey = (d: Date) => d.getFullYear() * 10000 + d.getMonth() * 100 + d.getDate();
 
 /* ---------- Tipos ---------- */
 export interface OrderNote {
@@ -137,6 +152,23 @@ export interface Machine {
   /** null quando não há apontamento no recorte (ex.: turno sem produção) */
   lastEntry: { date: Date; shift: Shift } | null;
   orders: ProductionOrder[];
+  /** meta do recorte em cada turno (a soma dá `target`) */
+  targetByShift: Record<Shift, number>;
+  /**
+   * Só com dados do banco: tudo o que veio, sem recorte. A meta não é
+   * multiplicada: é a soma da meta efetiva de cada turno apontado que conta
+   * para meta (D08; hora extra e dia anulado já vêm de fora).
+   */
+  backend?: { orders: ProductionOrder[]; targets: TargetEntry[] };
+  /** Só com dados do banco: as metas dos turnos apontados DENTRO do recorte */
+  targetEntries?: TargetEntry[];
+}
+
+/** Meta efetiva de um turno apontado (vem do banco, uma por apontamento que conta para meta) */
+export interface TargetEntry {
+  date: Date;
+  shift: Shift;
+  target: number;
 }
 
 // PRNG determinístico (mulberry32)
@@ -258,8 +290,8 @@ function buildMachine(raw: RawCenter, index: number): Machine {
   const extra = rng(index * 104729 + 7);
   const hasTarget = raw.perShift != null;
   const target = hasTarget ? raw.perShift! * raw.regime * WORKING_DAYS : 0;
-  const produced = hasTarget ? Math.round(target * raw.attainment!) : raw.demandVolume!;
-  const percent = hasTarget ? Math.round((produced / target) * 100) : 0;
+  // Volume apontado (boa + retrabalho); a produção é só a boa (D11), somada abaixo
+  const volume = hasTarget ? Math.round(target * raw.attainment!) : raw.demandVolume!;
   // Peso de cada turno: o T3 só existe no regime 3 (hoje, hora extra)
   const shiftProfile: [number, number, number] = raw.regime === 3 ? [0.4, 0.36, 0.24] : [0.52, 0.48, 0];
 
@@ -273,7 +305,7 @@ function buildMachine(raw: RawCenter, index: number): Machine {
   const entryDates = [lastDate, ...shuffled.slice(0, raw.days - 1)].sort((a, b) => b.getTime() - a.getTime());
 
   const perDay = split(
-    produced,
+    volume,
     entryDates.map(() => 0.7 + random() * 0.6),
   );
 
@@ -286,7 +318,6 @@ function buildMachine(raw: RawCenter, index: number): Machine {
   let seq = 0;
 
   entryDates.forEach((date, d) => {
-    daily.set(dayKey(date), perDay[d]);
     let shifts = SHIFTS.filter((s) => shiftProfile[s - 1] > 0 && random() < 0.55 + shiftProfile[s - 1]);
     if (shifts.length === 0) shifts = [1];
     const quantities = split(
@@ -294,12 +325,16 @@ function buildMachine(raw: RawCenter, index: number): Machine {
       shifts.map((s) => shiftProfile[s - 1] * (0.8 + random() * 0.4)),
     );
     shifts.forEach((shift, i) => {
-      byShift[shift] += quantities[i];
       ordersByShift[shift] += 1;
       // tempo produtivo do turno: tempo útil menos paradas (fictício)
       const worked = Math.round(USEFUL[shift] * (0.72 + extra() * 0.22));
       minutesByShift[shift] += worked;
       const rework = extra() < raw.reworkRate;
+      // Retrabalho não é produção nova (D11): fica fora do total e da tendência
+      if (!rework) {
+        byShift[shift] += quantities[i];
+        daily.set(dayKey(date), (daily.get(dayKey(date)) ?? 0) + quantities[i]);
+      }
       const operators = OPERATORS[shift];
       const operator = operators[(index + Math.floor(extra() * operators.length)) % operators.length];
       const minutes = 5 + Math.floor(extra() * 45);
@@ -342,6 +377,8 @@ function buildMachine(raw: RawCenter, index: number): Machine {
   const last = orders[0]; // entryDates já está do mais recente para o mais antigo
   const lastDayOrders = orders.filter((o) => o.date.getTime() === last.date.getTime());
   const lastShift = lastDayOrders[lastDayOrders.length - 1].shift;
+  const produced = SHIFTS.reduce((s, sh) => s + byShift[sh], 0);
+  const percent = hasTarget ? Math.round((produced / target) * 100) : 0;
 
   return {
     id: raw.id,
@@ -350,7 +387,7 @@ function buildMachine(raw: RawCenter, index: number): Machine {
     lines: hasTarget ? [raw.line] : [raw.line, "Por demanda"],
     hasTarget,
     regime: raw.regime,
-    days: raw.days,
+    days: daily.size,
     produced,
     target,
     percent,
@@ -363,6 +400,7 @@ function buildMachine(raw: RawCenter, index: number): Machine {
     minutesByShift,
     lastEntry: { date: last.date, shift: lastShift },
     orders,
+    targetByShift: { 1: target / raw.regime, 2: target / raw.regime, 3: raw.regime === 3 ? target / raw.regime : 0 },
   };
 }
 
@@ -544,19 +582,18 @@ function buildWorkOrders(m: Machine, index: number, products: string[]): WorkOrd
   return ops;
 }
 
-export const MACHINES: Machine[] = RAW.map(buildMachine);
+export let MACHINES: Machine[] = RAW.map(buildMachine);
 export const machineById = (id: string) => MACHINES.find((m) => m.id === id)!;
 /** Centros com meta: são os que entram no atingimento (Dashboard, gráficos, TV, ranking) */
-export const TARGET_MACHINES = MACHINES.filter((m) => m.hasTarget);
-export const DEMAND_MACHINES = MACHINES.filter((m) => !m.hasTarget);
+export let TARGET_MACHINES = MACHINES.filter((m) => m.hasTarget);
+export let DEMAND_MACHINES = MACHINES.filter((m) => !m.hasTarget);
 
-/** Todas as OPs do mês (inclusive as que aguardam liberação) */
-export const WORK_ORDERS: WorkOrder[] = MACHINES.flatMap((m, i) => buildWorkOrders(m, i, RAW[i].products));
+/** Todas as OPs do mês (inclusive as que aguardam liberação). Com o banco: vazio, ainda não há tabela de OP */
+export let WORK_ORDERS: WorkOrder[] = MACHINES.flatMap((m, i) => buildWorkOrders(m, i, RAW[i].products));
 
-/** Todos os apontamentos do mês, do mais recente para o mais antigo */
-export const ALL_ORDERS: ProductionOrder[] = MACHINES.flatMap((m) => m.orders).sort(
-  (a, b) => b.recordedAt.getTime() - a.recordedAt.getTime(),
-);
+const byRecency = (a: ProductionOrder, b: ProductionOrder) => b.recordedAt.getTime() - a.recordedAt.getTime();
+/** Todos os apontamentos da janela de dados, do mais recente para o mais antigo */
+export let ALL_ORDERS: ProductionOrder[] = MACHINES.flatMap((m) => m.orders).sort(byRecency);
 
 /* ---------- Linhas ---------- */
 export interface MachineGroup {
@@ -564,18 +601,16 @@ export interface MachineGroup {
   label: Line;
   machineIds: string[];
 }
-export const MACHINE_GROUPS: MachineGroup[] = LINES.map((line) => ({
-  id: line.toLowerCase(),
-  label: line,
-  machineIds: MACHINES.filter((m) => m.line === line).map((m) => m.id),
-}));
+const groupsOf = (machines: Machine[]): MachineGroup[] =>
+  LINES.map((line) => ({ id: line.toLowerCase(), label: line, machineIds: machines.filter((m) => m.line === line).map((m) => m.id) }));
+export let MACHINE_GROUPS: MachineGroup[] = groupsOf(MACHINES);
 export const groupOf = (machineId: string) => MACHINE_GROUPS.find((g) => g.machineIds.includes(machineId))!;
 
 /* ---------- Metas ---------- */
 export const ACTIVE_SHIFTS = 3;
-export const META_EFFECTIVE_FROM = new Date(YEAR, MONTH, 1);
-/** Meta por turno derivada da meta do mês (meta/mês = meta/turno × turnos do centro × dias úteis) */
-export const metaPerShift = (m: Machine, shifts: number = m.regime) => Math.round(m.target / (WORKING_DAYS * shifts));
+export let META_EFFECTIVE_FROM = new Date(YEAR, MONTH, 1);
+/** Meta por turno (a meta por dia dividida pelos turnos do centro) */
+export const metaPerShift = (m: Machine, shifts: number = m.regime) => Math.round(m.dailyTarget / shifts);
 
 export interface MetaChange {
   id: string;
@@ -583,37 +618,36 @@ export interface MetaChange {
   author: string;
   summary: string;
 }
-export const META_CHANGES: MetaChange[] = [
+export let META_CHANGES: MetaChange[] = [
   { id: "c3", date: new Date(YEAR, MONTH, 1, 8, 12), author: MANAGER, summary: `Metas de março publicadas para ${TARGET_MACHINES.length} centros` },
   { id: "c2", date: new Date(YEAR, 1, 24, 16, 40), author: MANAGER, summary: "Embaladora vertical módulos nº 1: meta por turno de 11.000 para 11.600" },
   { id: "c1", date: new Date(YEAR, 1, 2, 9, 5), author: LEADERS[1], summary: "Composé nº 1 e tomadas Composé passam a rodar no 3º turno" },
 ];
 
 /* ---------- Feedbacks (observações dos apontamentos) ---------- */
-export const FEEDBACKS = ALL_ORDERS.filter((o) => o.note);
+export let FEEDBACKS = ALL_ORDERS.filter((o) => o.note);
 /** As 12 mensagens mais recentes de operadores começam como não lidas */
-export const INITIAL_UNREAD = WORK_ORDERS.flatMap((op) => op.messages)
+export let INITIAL_UNREAD = WORK_ORDERS.flatMap((op) => op.messages)
   .filter((msg) => msg.role === "operator")
   .sort((a, b) => b.at.getTime() - a.at.getTime())
   .slice(0, 12)
   .map((msg) => msg.id);
 
 /* ---------- Período de análise ---------- */
-/** Intervalo de datas (inclusivo). Os dados do protótipo cobrem março/2026 até o dia 27. */
+/** Intervalo de datas (inclusivo) */
 export interface DateRange {
   from: Date;
   to: Date;
 }
-/** Mês inteiro (dias futuros contam só na meta) — é o recorte padrão */
-export const MONTH_RANGE: DateRange = { from: new Date(YEAR, MONTH, 1), to: new Date(YEAR, MONTH, 31) };
+/** Mês padrão inteiro (dias futuros contam só na meta) — é o recorte padrão */
+export let MONTH_RANGE: DateRange = { from: new Date(YEAR, MONTH, 1), to: new Date(YEAR, MONTH, 31) };
 /*
  * Janela de dados: primeiro e último dia com apontamentos. É a ÚNICA fonte
  * dos limites de data da interface (calendários, seletores de período,
- * navegação entre meses). Com o backend, estes dois valores passam a vir do
- * banco (menor e maior data de apontamento) e a navegação libera sozinha.
+ * navegação entre meses). Com o banco, vem da menor e da maior data apontada.
  */
-export const DATA_START = new Date(YEAR, MONTH, 1);
-export const DATA_END = REFERENCE_DATE;
+export let DATA_START = new Date(YEAR, MONTH, 1);
+export let DATA_END = REFERENCE_DATE;
 
 /** "2026-03-27" ↔ Date local (meia-noite do próprio dia, sem fuso) */
 export const toIsoDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -630,39 +664,66 @@ const inRange = (d: Date, r: DateRange) => d >= r.from && d <= r.to;
 export const workingDatesIn = (r: DateRange) => WORKING_DATES.filter((d) => inRange(d, r));
 export const isMonthRange = (r: DateRange) => r.from.getTime() === MONTH_RANGE.from.getTime() && r.to.getTime() === MONTH_RANGE.to.getTime();
 
+/** Número da OP para exibir ("4510000"); sem OP (o banco não explicou a quantidade) = "–" */
+export const opLabel = (o: Pick<ProductionOrder, "opId">) => o.opId.replace("OP ", "") || "–";
+
+/** Produção de um conjunto de apontamentos: só a boa, retrabalho fica de fora (D11) */
+export const goodQuantity = (orders: ProductionOrder[]) => orders.reduce((s, o) => s + (o.rework ? 0 : o.quantity), 0);
+
 /**
  * Recorta o centro por turno e por período: produção, dias, ordens, turnos,
- * minutos e tendência só do recorte. A meta acompanha: a do turno (meta ÷
- * turnos do centro) e proporcional aos dias úteis do período.
+ * minutos e tendência só do recorte.
+ *
+ * A meta acompanha o recorte. Com o banco, é a SOMA da meta efetiva dos turnos
+ * apontados no recorte (nunca meta × turnos × dias). Na demonstração, a meta do
+ * mês proporcional aos dias úteis do período.
  */
 export function scopeMachine(m: Machine, shift: Shift | "all", range: DateRange = MONTH_RANGE): Machine {
   if (shift === "all" && isMonthRange(range)) return m;
-  const orders = m.orders.filter((o) => (shift === "all" || o.shift === shift) && inRange(o.date, range));
+  return computeScope(m, shift, range);
+}
+
+function computeScope(m: Machine, shift: Shift | "all", range: DateRange): Machine {
+  const inScope = (date: Date, s: Shift) => (shift === "all" || s === shift) && inRange(date, range);
+  const orders = (m.backend?.orders ?? m.orders).filter((o) => inScope(o.date, o.shift));
   const daily = new Map<number, number>();
   const byShift: Record<Shift, number> = { 1: 0, 2: 0, 3: 0 };
   const ordersByShift: Record<Shift, number> = { 1: 0, 2: 0, 3: 0 };
   const minutesByShift: Record<Shift, number> = { 1: 0, 2: 0, 3: 0 };
+  let last: ProductionOrder | null = null;
   for (const o of orders) {
-    daily.set(dayKey(o.date), (daily.get(dayKey(o.date)) ?? 0) + o.quantity);
-    byShift[o.shift] += o.quantity;
     ordersByShift[o.shift] += 1;
     minutesByShift[o.shift] += o.minutes;
+    if (!last || o.date > last.date || (o.date.getTime() === last.date.getTime() && o.shift > last.shift)) last = o;
+    if (o.rework) continue;
+    daily.set(dayKey(o.date), (daily.get(dayKey(o.date)) ?? 0) + o.quantity);
+    byShift[o.shift] += o.quantity;
   }
-  const produced = orders.reduce((s, o) => s + o.quantity, 0);
-  const monthTarget = shift === "all" ? m.target : shift <= m.regime ? m.target / m.regime : 0;
-  const target = Math.round(monthTarget * (workingDatesIn(range).length / WORKING_DAYS));
+  const produced = byShift[1] + byShift[2] + byShift[3];
+
+  const targetByShift: Record<Shift, number> = { 1: 0, 2: 0, 3: 0 };
+  let targetEntries: TargetEntry[] | undefined;
+  if (m.backend) {
+    targetEntries = m.backend.targets.filter((e) => inScope(e.date, e.shift));
+    for (const e of targetEntries) targetByShift[e.shift] += e.target;
+  } else {
+    const share = workingDatesIn(range).length / WORKING_DAYS;
+    for (const s of SHIFTS) if (shift === "all" || s === shift) targetByShift[s] = Math.round(m.targetByShift[s] * share);
+  }
+  const target = Math.round(targetByShift[1] + targetByShift[2] + targetByShift[3]);
   const percent = target ? Math.round((produced / target) * 100) : 0;
-  const last = orders[0];
   return {
     ...m,
     orders,
     daily,
     produced,
     target,
+    targetByShift,
+    targetEntries,
     percent,
     status: statusFor(percent),
     days: daily.size,
-    dailyTarget: Math.round(monthTarget / WORKING_DAYS),
+    dailyTarget: shift === "all" ? m.dailyTarget : shift <= m.regime ? Math.round(m.dailyTarget / m.regime) : 0,
     trend: ELAPSED_DATES.filter((d) => d <= range.to)
       .slice(-14)
       .map((date) => ({ date, value: daily.get(dayKey(date)) ?? null })),
@@ -693,15 +754,14 @@ export function aggregate(machines: Machine[], workingDays = WORKING_DAYS) {
 /** Produção por turno somando os centros (ordem fixa 1, 2, 3); meta só dos turnos em que cada centro roda */
 export function shiftTotals(machines: Machine[]) {
   return SHIFTS.map((shift) => {
-    const running = machines.filter((m) => shift <= m.regime);
     const produced = machines.reduce((s, m) => s + m.byShift[shift], 0);
     const minutes = machines.reduce((s, m) => s + m.minutesByShift[shift], 0);
     return {
       shift,
       produced,
       orders: machines.reduce((s, m) => s + m.ordersByShift[shift], 0),
-      target: Math.round(running.reduce((s, m) => s + m.target / m.regime, 0)),
-      /** peças por minuto de produção */
+      target: Math.round(machines.reduce((s, m) => s + m.targetByShift[shift], 0)),
+      /** peças por minuto de produção (0 quando o tempo não é conhecido) */
       perMinute: minutes ? produced / minutes : 0,
       rework: machines.reduce((s, m) => s + m.orders.filter((o) => o.shift === shift && o.rework).length, 0),
     };
@@ -727,5 +787,122 @@ export function plantSeries(machines: Machine[], range: DateRange = MONTH_RANGE)
   });
 }
 
-/** Produção de fevereiro dos centros com meta (fictícia): março está 12,4% acima */
-export const PREVIOUS_MONTH_PRODUCED = Math.round(aggregate(TARGET_MACHINES).produced / 1.124);
+/** Meta de um dia (fábrica ou recorte): com o banco, a soma das metas apontadas; na demonstração, a meta por dia */
+export function targetOn(machines: Machine[], date: Date) {
+  return machines.reduce(
+    (s, m) =>
+      s +
+      (m.backend
+        ? m.backend.targets.reduce((t, e) => t + (sameDay(e.date, date) ? e.target : 0), 0)
+        : m.hasTarget && !isWeekendDate(date)
+          ? m.dailyTarget
+          : 0),
+    0,
+  );
+}
+
+/* ---------- Comparações com o período anterior ---------- */
+/** Produção do mês anterior dos centros com meta (demonstração: fevereiro, fictício) */
+export let PREVIOUS_MONTH_PRODUCED = Math.round(aggregate(TARGET_MACHINES).produced / 1.124);
+export let PREVIOUS_MONTH_LABEL = "fevereiro";
+/** "Semana passada" do Ranking e do Modo TV: dados até este dia (null = sem base para comparar) */
+export let COMPARISON_CUTOFF: Date | null = new Date(YEAR, MONTH, 20);
+
+/** Produção e meta do mês padrão até uma data (sem data: o recorte inteiro) */
+export function progressUntil(m: Machine, cutoff: Date | null = null) {
+  if (!cutoff) return { produced: m.produced, target: m.target };
+  const produced = goodQuantity(m.orders.filter((o) => o.date <= cutoff));
+  const target = m.targetEntries
+    ? m.targetEntries.reduce((s, e) => s + (e.date <= cutoff ? e.target : 0), 0)
+    : m.target * (workingDatesIn({ from: MONTH_RANGE.from, to: cutoff }).length / Math.max(1, WORKING_DAYS));
+  return { produced, target };
+}
+
+/* ============================================================
+ * Dados do banco (ver ./fromBackend.ts)
+ * ============================================================ */
+
+/** Um centro como vem do banco, já convertido, antes dos recortes */
+export interface BackendMachine {
+  id: string;
+  name: string;
+  line: Line;
+  hasTarget: boolean;
+  regime: 2 | 3;
+  /** meta de um dia normal (meta do turno × turnos), só para a linha de ritmo dos gráficos */
+  dailyTarget: number;
+  orders: ProductionOrder[];
+  targets: TargetEntry[];
+}
+
+export interface BackendData {
+  machines: BackendMachine[];
+  /** dias úteis da janela inteira, em ordem */
+  workingDates: Date[];
+  dataStart: Date;
+  dataEnd: Date;
+  now: Date;
+  metaChanges: MetaChange[];
+}
+
+const monthYear = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" });
+const monthOnly = new Intl.DateTimeFormat("pt-BR", { month: "long" });
+
+/** Troca os dados de demonstração pelos do banco. Chamado uma vez, depois do login, antes das telas montarem. */
+export function installBackendData(d: BackendData) {
+  DATA_ORIGIN = "backend";
+  NOW = d.now;
+  DATA_START = d.dataStart;
+  DATA_END = d.dataEnd;
+  REFERENCE_DATE = d.dataEnd;
+  MONTH_RANGE = { from: new Date(d.dataEnd.getFullYear(), d.dataEnd.getMonth(), 1), to: endOfMonth(d.dataEnd) };
+  META_EFFECTIVE_FROM = MONTH_RANGE.from;
+  PERIOD_LABEL = monthYear.format(d.dataEnd);
+  WORKING_DATES = d.workingDates;
+  WORKING_DAYS = workingDatesIn(MONTH_RANGE).length;
+  ELAPSED_DATES = WORKING_DATES.filter((x) => x <= DATA_END);
+
+  MACHINES = d.machines.map((raw) => {
+    const empty = { 1: 0, 2: 0, 3: 0 } as Record<Shift, number>;
+    const shell: Machine = {
+      id: raw.id,
+      name: raw.name,
+      line: raw.line,
+      lines: raw.hasTarget ? [raw.line] : [raw.line, "Por demanda"],
+      hasTarget: raw.hasTarget,
+      regime: raw.regime,
+      days: 0,
+      produced: 0,
+      target: 0,
+      percent: 0,
+      status: "critical",
+      dailyTarget: raw.hasTarget ? raw.dailyTarget : 0,
+      daily: new Map(),
+      trend: [],
+      byShift: { ...empty },
+      ordersByShift: { ...empty },
+      minutesByShift: { ...empty },
+      lastEntry: null,
+      orders: [],
+      targetByShift: { ...empty },
+      backend: { orders: raw.orders, targets: raw.targets },
+    };
+    return computeScope(shell, "all", MONTH_RANGE);
+  });
+  TARGET_MACHINES = MACHINES.filter((m) => m.hasTarget);
+  DEMAND_MACHINES = MACHINES.filter((m) => !m.hasTarget);
+  MACHINE_GROUPS = groupsOf(MACHINES);
+  WORK_ORDERS = [];
+  INITIAL_UNREAD = [];
+  ALL_ORDERS = d.machines.flatMap((m) => m.orders).sort(byRecency);
+  FEEDBACKS = ALL_ORDERS.filter((o) => o.note);
+  META_CHANGES = d.metaChanges;
+
+  const previousFrom = new Date(MONTH_RANGE.from.getFullYear(), MONTH_RANGE.from.getMonth() - 1, 1);
+  const previous = { from: previousFrom, to: endOfMonth(previousFrom) };
+  PREVIOUS_MONTH_PRODUCED = TARGET_MACHINES.reduce((s, m) => s + computeScope(m, "all", previous).produced, 0);
+  PREVIOUS_MONTH_LABEL = monthOnly.format(previousFrom);
+  const weekBefore = new Date(DATA_END.getFullYear(), DATA_END.getMonth(), DATA_END.getDate() - 7);
+  const beforeCutoff = workingDatesIn({ from: MONTH_RANGE.from, to: weekBefore });
+  COMPARISON_CUTOFF = beforeCutoff.length ? beforeCutoff[beforeCutoff.length - 1] : null;
+}

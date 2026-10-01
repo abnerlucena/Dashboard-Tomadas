@@ -12,8 +12,6 @@ export default defineConfig(({ mode }) => ({
   // Sem isto o Vite procuraria em prototype/, e a variável seria ignorada calada.
   envDir: path.resolve(__dirname, ".."),
   base: "./",
-  // Mesmo .env.local do app da raiz (VITE_DATA_SOURCE, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY)
-  envDir: path.resolve(__dirname, ".."),
   plugins: [react()],
   css: {
     postcss: {

@@ -19,7 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { LINE_ACCENT, REFERENCE_DATE, SHIFTS, SHIFT_META, STATUS_META, plantSeries, statusFor, type Status } from "@/data/machines";
+import { DATA_ORIGIN, LINE_ACCENT, REFERENCE_DATE, SHIFTS, SHIFT_META, STATUS_META, plantSeries, statusFor, type Status } from "@/data/machines";
 import { cn, formatDecimal, formatNumber, formatShortDate, plural, readToken } from "@/lib/utils";
 import { BurnupChart, ShiftStackBars } from "@/components/echarts";
 import { BURNUP_LEGEND } from "@/components/echarts/legends";
@@ -58,7 +58,10 @@ const STATUS_TONE: Record<Status, string> = {
 };
 const clock = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 const today = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "numeric", month: "long" });
-const perMin = (v: number) => formatDecimal(v);
+// Sem minutos produtivos (o banco ainda não guarda por OP) não há ritmo: "–", não "0,0"
+const perMin = (v: number) => (v ? formatDecimal(v) : "–");
+// Sem cadastro de OP no banco, "OPs concluídas" não é zero: é desconhecido
+const opsCount = (n: number) => (DATA_ORIGIN === "backend" ? "–" : formatNumber(n));
 // Na TV, só o nome do turno: horário é poluição visual de longe
 const SHIFT_LEGEND_TV: LegendItem[] = SHIFTS.map((s) => ({ label: SHIFT_META[s].label, shape: "rect", colorClass: SHIFT_FILL[s] }));
 
@@ -295,13 +298,20 @@ function ShiftBoard({ scores }: { scores: ReturnType<typeof shiftScores> }) {
               {leader && <Trophy aria-label="Líder do mês" className="ml-auto size-600 text-icon-warning" />}
             </span>
             <span className="flex flex-wrap items-baseline gap-200">
-              <span className="font-tv-hero tabular-nums text-default">{s.percent}%</span>
-              <span className={cn("rounded-small px-150 py-050 font-tv-body", STATUS_TONE[st])}>{STATUS_META[st].label}</span>
+              {s.target > 0 ? (
+                <>
+                  <span className="font-tv-hero tabular-nums text-default">{s.percent}%</span>
+                  <span className={cn("rounded-small px-150 py-050 font-tv-body", STATUS_TONE[st])}>{STATUS_META[st].label}</span>
+                </>
+              ) : (
+                // Turno só com hora extra: produz, mas não tem meta (D27)
+                <span className="font-tv-hero tabular-nums text-default">{formatNumber(s.produced)}</span>
+              )}
             </span>
-            <span className="font-tv-body text-subtlest">da meta do turno</span>
+            <span className="font-tv-body text-subtlest">{s.target > 0 ? "da meta do turno" : "peças, sem meta neste turno"}</span>
             <ul>
               {row("perMinute", perMin(s.perMinute))}
-              {row("opsDone", formatNumber(s.opsDone))}
+              {row("opsDone", opsCount(s.opsDone))}
               {row("reworkRate", `${formatDecimal(s.reworkRate)}%`)}
             </ul>
             <span className="font-tv-body text-subtle">
@@ -387,7 +397,7 @@ function MachineCards({ months }: { months: ReturnType<typeof machineMonths> }) 
           <dl className="grid grid-cols-3 items-start gap-150">
             {[
               ["peças/min", perMin(perMinute)],
-              ["OPs feitas", opsDone],
+              ["OPs feitas", opsCount(opsDone)],
               [m.hasTarget ? "dias na meta" : "dias", m.hasTarget ? daysOnTarget : m.days],
             ].map(([label, value]) => (
               <div key={String(label)} className="flex min-w-0 flex-col-reverse justify-end">
@@ -422,7 +432,7 @@ function Highlights({ data, hasRanking }: { data: ReturnType<typeof highlights>;
     data.streak && data.streak.streak >= 2
       ? { icon: Flame, label: "Sequência na meta", value: `${data.streak.streak} dias`, detail: `${data.streak.machine.name} bate a meta diária sem parar` }
       : null,
-    data.fastest ? { icon: Gauge, label: "Mais rápida", value: `${perMin(data.fastest.perMinute)}/min`, detail: data.fastest.machine.name } : null,
+    data.fastest?.perMinute ? { icon: Gauge, label: "Mais rápida", value: `${perMin(data.fastest.perMinute)}/min`, detail: data.fastest.machine.name } : null,
     data.cleanest
       ? { icon: ShieldCheck, label: "Menos retrabalho", value: SHIFT_META[data.cleanest.shift].label, detail: `${formatDecimal(data.cleanest.reworkRate)}% das peças retrabalhadas` }
       : null,

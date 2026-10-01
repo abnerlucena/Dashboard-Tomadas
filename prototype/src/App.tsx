@@ -29,7 +29,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { SHIFTS, SHIFT_META, type Shift } from "@/data/machines";
+import { DATA_ORIGIN, PERIOD_LABEL, SHIFTS, SHIFT_META, type Shift } from "@/data/machines";
 import { SHIFT_FILL } from "@/components/data/shiftColors";
 import { Lozenge } from "@/components/ui/Lozenge";
 import { AppRoot, Banner, Main } from "@/components/layout/AppRoot";
@@ -76,6 +76,9 @@ import { useAccess } from "@/features/access/AccessContext";
 import { AccessProvider } from "@/features/access/AccessProvider";
 import { accessLabel } from "@/features/access/permissions";
 import { UsersPage } from "@/features/access/UsersPage";
+import { BackendGate } from "@/features/data/BackendGate";
+import { NotConnected } from "@/features/data/NotConnected";
+import { isConnected } from "@/features/data/connection";
 import { Spinner } from "@/components/ui/Spinner";
 import { useColorMode, type ColorModePreference } from "@/lib/hooks";
 import { cn, plural, readToken, storageGet, storageSet, type Notify } from "@/lib/utils";
@@ -194,21 +197,26 @@ function Gate() {
         <AccessPage />
       </TooltipProvider>
     );
+  // Com backend, as telas só montam depois de os dados de produção chegarem
   if (session.accountType === "display" || (route === "tv" && canOpen("tv")))
     return (
-      <OpsProvider>
-        <TooltipProvider>
-          <TvMode
-            scope={route === "tv" ? param : undefined}
-            onExit={() => (session.accountType === "display" ? logout() : (window.location.hash = "/dashboard"))}
-          />
-        </TooltipProvider>
-      </OpsProvider>
+      <BackendGate>
+        <OpsProvider>
+          <TooltipProvider>
+            <TvMode
+              scope={route === "tv" ? param : undefined}
+              onExit={() => (session.accountType === "display" ? logout() : (window.location.hash = "/dashboard"))}
+            />
+          </TooltipProvider>
+        </OpsProvider>
+      </BackendGate>
     );
   return (
-    <OpsProvider>
-      <Shell />
-    </OpsProvider>
+    <BackendGate>
+      <OpsProvider>
+        <Shell />
+      </OpsProvider>
+    </BackendGate>
   );
 }
 
@@ -252,7 +260,9 @@ function Shell() {
                 storageSet("dash-proto.banner.dismissed", true);
               }}
             >
-              Protótipo de interface · dados de demonstração de março de 2026
+              {DATA_ORIGIN === "backend"
+                ? `Prévia da interface nova · dados reais, só leitura · ${PERIOD_LABEL}`
+                : `Protótipo de interface · dados de demonstração de ${PERIOD_LABEL}`}
             </Banner>
           )
         }
@@ -332,6 +342,8 @@ function Shell() {
                 action={{ label: "Ir para o início", icon: LayoutDashboard, onClick: () => (window.location.hash = `/${home}`) }}
               />
             </div>
+          ) : current && !isConnected(route) ? (
+            <NotConnected title={current.label} route={route} />
           ) : route === "dashboard" || LINE_ROUTES[route] || SHIFT_ROUTES[route] ? (
             <MachinesPage
               key={route}
@@ -500,9 +512,11 @@ const NOTIFICATIONS = [
 ];
 
 function Notifications({ unreadFeedbacks }: { unreadFeedbacks: number }) {
+  // Os avisos são de exemplo: com dados reais não aparecem (alertas de verdade são outra etapa)
+  const examples = DATA_ORIGIN === "demo" ? NOTIFICATIONS : [];
   // O aviso de feedbacks acompanha o mesmo contador de não lidos do menu
   const items = [
-    ...NOTIFICATIONS.slice(0, 1),
+    ...examples.slice(0, 1),
     ...(unreadFeedbacks > 0
       ? [
           {
@@ -515,13 +529,15 @@ function Notifications({ unreadFeedbacks }: { unreadFeedbacks: number }) {
           },
         ]
       : []),
-    ...NOTIFICATIONS.slice(1),
+    ...examples.slice(1),
   ];
   return (
     <Popover.Root>
       <Popover.Trigger asChild>
         <IconButton icon={Bell} label={`Notificações, ${plural(items.length, "não lida", "não lidas")}`} className="data-[state=open]:bg-neutral-subtle-pressed">
-          <span aria-hidden className="absolute right-075 top-075 size-status-dot rounded-full border-thick border-surface bg-icon-danger" />
+          {items.length > 0 && (
+            <span aria-hidden className="absolute right-075 top-075 size-status-dot rounded-full border-thick border-surface bg-icon-danger" />
+          )}
         </IconButton>
       </Popover.Trigger>
       <Popover.Portal>
@@ -535,6 +551,7 @@ function Notifications({ unreadFeedbacks }: { unreadFeedbacks: number }) {
             <h2 className="font-heading-small">Notificações</h2>
             <span className="font-body-small text-subtlest">{plural(items.length, "não lida", "não lidas")}</span>
           </div>
+          {items.length === 0 && <p className="px-200 py-200 text-subtle">Nada novo por aqui.</p>}
           <ul className="py-050">
             {items.map((n) => (
               <li key={n.id} className="flex gap-150 px-200 py-150 transition-colors duration-hover ease-out hover:bg-neutral-subtle-hovered">

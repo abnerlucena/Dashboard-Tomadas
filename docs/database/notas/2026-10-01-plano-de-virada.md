@@ -140,7 +140,7 @@ está certo.
 
 | # | O quê | Quem |
 |---|---|---|
-| 1 | Criar o projeto Supabase **oficial** | banco |
+| 1 | ~~Criar o projeto Supabase oficial~~ — **feito de outro jeito:** o projeto atual virou o de produção (D55), já com tudo carregado | — |
 | 2 | Rodar as 27 migrations na ordem, do zero | banco |
 | 3 | `select public.bootstrap_admin('<e-mail do gestor>');` | banco |
 | 4 | Ligar **backup/PITR** e **ensaiar uma restauração** | banco |

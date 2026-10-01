@@ -4,7 +4,7 @@ import { useAuth, type MetaInfo, type OrdemProducao } from "@/contexts/AuthConte
 import { useIsMobile } from "@/hooks/use-mobile";
 import { TURNOS, today, pctColor } from "@/lib/api";
 import { data, isSupabase } from "@/lib/repositories";
-import { metaDoTurno as calcularMeta, rotuloDaBase } from "@/lib/metas";
+import { exigeOperadores, metaDoTurno as calcularMeta, rotuloDaBase } from "@/lib/metas";
 import { toast } from "sonner";
 import { DatePickerInput } from "@/components/DatePickerInput";
 import { SelectDropdown } from "@/components/SelectDropdown";
@@ -175,6 +175,20 @@ const ProductionEntry = () => {
     if (dateObj > tomorrow) { toast.error("Data inválida."); return; }
     const yearAgo = new Date(); yearAgo.setFullYear(yearAgo.getFullYear() - 1);
     if (dateObj < yearAgo) toast.warning("Data muito antiga. Confirme se está correto.");
+
+    // D54: onde a meta é POR PESSOA, o número é obrigatório. O banco recusa
+    // de qualquer forma; avisar aqui é para a mensagem citar a máquina pelo
+    // nome, em vez de o operador receber o erro cru no fim do lançamento.
+    if (isSupabase) {
+      const semPessoas = Object.values(entries)
+        .filter(e => e.ordens.some(o => o.quantidade > 0))
+        .filter(e => exigeOperadores(infoVigente[e.machineId]?.basis) && !(Number(e.operadores) > 0))
+        .map(e => machines.find(m => m.id === e.machineId)?.name || `máquina ${e.machineId}`);
+      if (semPessoas.length) {
+        toast.error(`Informe o nº de operadores: ${semPessoas.join(", ")}. A meta ${semPessoas.length > 1 ? "dessas máquinas é" : "dessa máquina é"} por pessoa.`);
+        return;
+      }
+    }
 
     setSaving(true);
     let saveOk = false;
@@ -400,16 +414,24 @@ const ProductionEntry = () => {
                     // para saber quantas pessoas estavam no posto — que é o que
                     // a D12 mede e deixaria de existir se só perguntássemos
                     // onde muda a meta.
+                    // D54: onde a meta é por pessoa o campo é obrigatório, e a
+                    // tela precisa dizer isso ANTES de a pessoa tentar salvar.
+                    const obrigaOperadores = exigeOperadores(meta.base);
+                    const faltaOperadores = obrigaOperadores
+                      && entry.ordens.some(o => o.quantidade > 0)
+                      && !(Number(entry.operadores) > 0);
                     const operadoresInput = isSupabase ? (
                       <input
                         value={entry.operadores ?? ""}
                         onChange={e => updateOperadores(machine.id, e.target.value)}
                         inputMode="numeric"
-                        placeholder="Nº oper."
-                        title={meta.dependeDaLotacao
-                          ? `Nº de operadores neste posto no turno — muda a meta${meta.lotacaoPadrao ? ` (vazio = lotação padrão, ${meta.lotacaoPadrao})` : ""}`
-                          : "Nº de operadores neste posto no turno — aqui não muda a meta, fica só registrado"}
-                        className="h-9 w-24 px-2 text-xs font-semibold rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground/50"
+                        placeholder={obrigaOperadores ? "Nº oper. *" : "Nº oper."}
+                        title={obrigaOperadores
+                          ? "Nº de operadores neste posto no turno — OBRIGATÓRIO: a meta aqui é por pessoa, e sem o número não há com o que comparar"
+                          : meta.dependeDaLotacao
+                            ? `Nº de operadores neste posto no turno — muda a meta${meta.lotacaoPadrao ? ` (vazio = lotação padrão, ${meta.lotacaoPadrao})` : ""}`
+                            : "Nº de operadores neste posto no turno — aqui não muda a meta, fica só registrado"}
+                        className={`h-9 w-24 px-2 text-xs font-semibold rounded-md border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground/50 ${faltaOperadores ? "border-destructive ring-1 ring-destructive/40" : "border-border"}`}
                         style={{ borderRadius: 6 }}
                       />
                     ) : null;

@@ -5,14 +5,23 @@
 --
 -- Conteúdo:
 --   1. Perfis-modelo (roles)                    — 7 linhas
---   2. Permissões (permissions)                 — 18 linhas
+--   2. Permissões (permissions)                 — 18 linhas (as outras 2,
+--      import.review e import.manage, vêm da migration 16)
 --   3. Permissões de cada perfil (role_permissions) — matriz da seção 8 da
 --      referência técnica
 --   4. Máquinas reais (machines)                — ids 1 a 18 do legado
 --      (a 19 "RETRABALHO GERAL" não é recriada — decisão do desenho v0.1.0)
 --   5. Metas vigentes (machine_targets)         — só para máquina SEM meta
 --
--- Pré-requisito: migrations até 20260920170000 aplicadas.
+-- Pré-requisito: migrations até 20260925100000 (a 13) aplicadas. O cabeçalho
+-- dizia "até 20260920170000" e estava desatualizado: este seed grava process,
+-- pieces_per_minute, efficiency e standard_operator_count em machines, e basis
+-- em machine_targets — colunas que a migration 13 cria.
+--
+-- E as migrations 14 em diante vão DEPOIS deste seed: os perfis nascem aqui, e
+-- a 16 concede as permissões de importação ao perfil admin com um
+-- "where r.code = 'admin'" que, sem os perfis, não acha nada e não dá erro.
+-- Ver supabase/INSTALAR.md.
 -- ═══════════════════════════════════════════════════════════════════════════
 
 

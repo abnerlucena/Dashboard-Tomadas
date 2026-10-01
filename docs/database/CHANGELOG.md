@@ -17,6 +17,55 @@ Formato de cada entrada:
 
 ---
 
+## [0.21.0] — 01/10/2026 — Nº de operadores obrigatório onde a meta é por pessoa
+- Status: **Implementado** — aplicada no Supabase (projeto de testes) em 01/10/2026
+- Migration: `20261001100000_operadores_obrigatorios_por_pessoa.sql` (0028)
+- Decisões: D54 (nova), D52, D48, D47, D12
+
+### O problema
+Na A Granél a meta é **por pessoa**, e a conta é `meta_cadastrada × nº de pessoas`.
+Quando ninguém informava o número, a função preenchia com a lotação padrão — que
+nessa máquina é **1**. O gestor confirmou que o padrão 1 está certo **e que o
+posto tem rotatividade constante**. As duas coisas juntas são o problema: estando
+3 pessoas e ninguém digitando, o turno era comparado com a meta de uma, e a
+máquina aparecia com 300% sem ninguém desconfiar.
+
+Nas outras bases esquecer é inofensivo: em `per_shift` o campo não entra na conta,
+e em `per_shift_prorated` a meta fica a cheia, nunca maior.
+
+### Alterado
+- `save_production_record` recusa apontamento sem o nº de operadores quando a base
+  da meta daquela máquina, naquela data, é `per_operator`. Também recusa **apagar**
+  o número (o `0` da D52) nessas máquinas.
+- Função nova `exige_numero_de_operadores(machine_id, date)`, para a regra morar
+  num lugar só em vez de ficar copiada nos dois ramos da função.
+
+### Não alterado, por decisão do gestor
+- **O passado continua lido como 1 pessoa.** Os 289 turnos importados da A Granél
+  não têm o número e nunca vão ter: a planilha nunca teve essa coluna (D35). O
+  `coalesce(..., standard_operator_count, 1)` da `production_summary` **fica**, e
+  passa a valer só para eles.
+- A importação continua podendo gravar sem o número, pelo mesmo motivo.
+- Nenhuma linha existente foi tocada.
+
+### Por que na função e não numa restrição
+`production_records` só tem política de SELECT, então a RLS já impede escrita
+direta: estas funções são a única porta. Uma restrição `check` teria de nascer
+`not valid` para não brigar com os 289 turnos antigos, e restrição `not valid` é a
+que todo mundo esquece que existe.
+
+### Impacto no frontend
+- `src/lib/metas.ts` ganhou `exigeOperadores(base)`, espelhando a função do banco.
+- A tela de apontamento marca o campo com `*`, explica no `title` por que é
+  obrigatório, pinta a borda de vermelho quando falta, e barra o salvamento com uma
+  mensagem que **cita a máquina pelo nome** — em vez de deixar o operador receber o
+  erro cru do banco no fim do lançamento.
+- **Alterar sem mandar o número continua valendo**: "não veio no pedido" ainda quer
+  dizer "mantém o que estava" (D52). Recusar aí impediria corrigir uma observação
+  sem redigitar a lotação.
+
+---
+
 ## [0.20.0] — 30/09/2026 — A base da meta pode ser definida pelo app
 - Status: **Implementado** — aplicada no Supabase (projeto de testes) em 30/09/2026
 - Commit/PR: PR #23

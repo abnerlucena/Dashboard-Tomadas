@@ -3,6 +3,7 @@ import type { DataSource, MetaInfoRaw, TargetHistoryItem } from "../../../src/li
 import { metaDoTurno } from "../../../src/lib/metas";
 import {
   endOfMonth,
+  installBackendData,
   fromIsoDate,
   isWeekendDate,
   toIsoDate,
@@ -11,6 +12,7 @@ import {
   type Line,
   type MetaChange,
   type ProductionOrder,
+  type ProductionRecordInfo,
   type Shift,
 } from "./machines";
 
@@ -63,6 +65,15 @@ export async function loadBackendData(source: ReadSource, session: Session | nul
   });
 }
 
+/**
+ * Busca de novo e reinstala os dados do banco, depois de uma gravação. As telas
+ * que montarem em seguida já leem o conjunto novo; a tela que gravou recarrega o
+ * próprio estado.
+ */
+export async function reloadBackendData(source: ReadSource, session: Session | null) {
+  installBackendData(await loadBackendData(source, session));
+}
+
 /* ---------- Datas ---------- */
 
 /** "2026-09-21" (banco) ou "21/09/2026" (planilha) → Date local; null se não reconhecer */
@@ -100,12 +111,15 @@ const SHIFT_END: Record<Shift, [number, number]> = { 1: [14, 18], 2: [23, 24], 3
 const normalize = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 /**
- * Linha do centro. O contrato ainda não traz `machines.process` (pedido na
- * nota de 01/10); até lá, pelo nome. "Granel" é agrupamento de tela.
+ * Linha do centro: a do banco (`machines.process`, D37) quando vier. Sem ela
+ * (centro cadastrado pelo app, ou fonte Apps Script), deduz pelo nome.
+ * "Granel" não é linha: é agrupamento de tela, sempre pelo nome.
  */
-export function lineOf(name: string): Line {
+export function lineOf(name: string, process?: ApiMachine["process"]): Line {
   const n = normalize(name);
   if (n.includes("granel")) return "Granel";
+  if (process === "assembly") return "Montagem";
+  if (process === "packaging") return "Embalagem";
   // As embaladoras de kit de parafusos ficam na montagem
   if ((n.includes("embaladora") || n.includes("embalagem")) && !n.includes("parafuso")) return "Embalagem";
   return "Montagem";
@@ -131,13 +145,14 @@ export function buildBackendData(input: BackendInput): BackendData {
       m = {
         id: key,
         name: api?.name || name || `Centro ${id}`,
-        line: lineOf(api?.name || name || ""),
+        line: lineOf(api?.name || name || "", api?.process),
         hasTarget: !!api?.hasMeta,
         regime: 2,
         dailyTarget: 0,
         perShift,
         orders: [],
         targets: [],
+        ...(api?.status === "inativo" ? { inactive: true } : {}),
       };
       byId.set(key, m);
     }
@@ -166,6 +181,20 @@ export function buildBackendData(input: BackendInput): BackendData {
     const operator = rec.savedBy || "Sem autor";
     const base = rec.id ?? `${rec.date}-${shift}-${rec.machineId}`;
     const orders: ProductionOrder[] = [];
+    const record: ProductionRecordInfo | undefined = rec.id
+      ? {
+          id: rec.id,
+          overtime: rec.workMode === "overtime",
+          operatorCount: rec.operatorCount && rec.operatorCount > 0 ? rec.operatorCount : null,
+          notes: String(rec.obs ?? "").trim(),
+          orders: (rec.ordensProducao ?? []).map((o) => ({
+            op: String(o.ordemId ?? "").trim(),
+            quantity: Math.round(Number(o.quantidade) || 0),
+            rework: o.retrabalho === true,
+            note: String(o.obs ?? "").trim(),
+          })),
+        }
+      : undefined;
     const push = (opId: string, quantity: number, rework: boolean, note: string | undefined) =>
       orders.push({
         id: `${base}-${orders.length}`,
@@ -182,6 +211,7 @@ export function buildBackendData(input: BackendInput): BackendData {
         operator,
         recordedAt,
         note: note ? { id: `n-${base}-${orders.length}`, text: note, author: operator } : null,
+        record,
       });
 
     for (const o of rec.ordensProducao ?? []) {

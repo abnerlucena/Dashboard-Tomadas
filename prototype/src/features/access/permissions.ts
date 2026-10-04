@@ -13,6 +13,7 @@ export type Permission =
   | "production.delete"
   | "production.bulk_edit"
   | "production.bulk_delete"
+  | "work_orders.manage"
   | "history.view"
   | "feedbacks.view"
   | "reports.export"
@@ -40,6 +41,7 @@ export const PERMISSION_LABEL: Record<Permission, string> = {
   "production.delete": "Apagar qualquer apontamento",
   "production.bulk_edit": "Editar vários apontamentos de uma vez",
   "production.bulk_delete": "Apagar vários apontamentos de uma vez",
+  "work_orders.manage": "Cadastrar OPs e mudar a situação delas",
   "history.view": "Ver histórico de apontamentos",
   "feedbacks.view": "Ver e editar observações (feedbacks)",
   "reports.export": "Exportar relatórios (PDF/CSV)",
@@ -58,7 +60,7 @@ export const PERMISSION_LABEL: Record<Permission, string> = {
 
 /** Grupos da tela de permissões (código fora daqui cai em "Outras") */
 export const PERMISSION_GROUPS: Array<{ title: string; codes: Permission[] }> = [
-  { title: "Apontamento", codes: ["production.create", "production.edit_own", "production.edit", "production.delete", "production.bulk_edit", "production.bulk_delete"] },
+  { title: "Apontamento", codes: ["production.create", "production.edit_own", "production.edit", "production.delete", "production.bulk_edit", "production.bulk_delete", "work_orders.manage"] },
   { title: "Consulta", codes: ["dashboard.view", "history.view", "feedbacks.view", "targets.view", "reports.export", "tv_mode.view"] },
   { title: "Gestão", codes: ["targets.manage", "machines.manage", "calendar.manage", "alerts.manage", "users.approve"] },
   { title: "Importação e sistema", codes: ["import.review", "import.manage", "system.admin"] },
@@ -111,10 +113,13 @@ export const ROUTE_PERMISSION: Record<string, Permission> = {
   ops: "feedbacks.view",
   historico: "history.view",
   metas: "targets.view",
+  // Ver o calendário é consulta, como o dashboard; cadastrar é calendar.manage
+  calendario: "dashboard.view",
   feedbacks: "feedbacks.view",
   relatorios: "reports.export",
   tv: "tv_mode.view",
   usuarios: "users.approve",
+  "cadastro-maquinas": "machines.manage",
 };
 
 export const canOpen = (session: Session | null, route: string) => {

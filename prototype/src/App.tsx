@@ -1,8 +1,10 @@
 import * as Popover from "@radix-ui/react-popover";
 import {
   Bell,
+  CalendarDays,
   CircleHelp,
   ClipboardList,
+  Cog,
   Boxes,
   Factory,
   PackageOpen,
@@ -62,6 +64,8 @@ import { MachinesPage, type DemoState } from "@/features/machines/MachinesPage";
 import { EntryPage } from "@/features/entry/EntryPage";
 import { MetasPage } from "@/features/metas/MetasPage";
 import { HistoryPage } from "@/features/history/HistoryPage";
+import { CalendarPage } from "@/features/calendar/CalendarPage";
+import { MachineRegistryPage } from "@/features/registry/MachineRegistryPage";
 import { RankingPage } from "@/features/analysis/RankingPage";
 import { ReworkPage } from "@/features/analysis/ReworkPage";
 import { FeedbacksPage } from "@/features/feedbacks/FeedbacksPage";
@@ -92,6 +96,7 @@ const NAV_MAIN: NavEntry[] = [
   { id: "ops", label: "OPs", icon: ScrollText },
   { id: "historico", label: "Histórico", icon: History },
   { id: "metas", label: "Metas", icon: Target },
+  { id: "calendario", label: "Calendário", icon: CalendarDays },
   { id: "feedbacks", label: "Feedbacks", icon: MessageSquare },
   { id: "relatorios", label: "Relatórios", icon: FileText },
 ];
@@ -121,9 +126,12 @@ const NAV_SECTIONS: Array<{ title: string; items: NavEntry[] }> = [
     ],
   },
   {
-    // Só aparece para quem aprova cadastros (users.approve)
+    // Cada item só aparece para quem tem a permissão dele (users.approve, machines.manage)
     title: "Administração",
-    items: [{ id: "usuarios", label: "Usuários", icon: Users }],
+    items: [
+      { id: "usuarios", label: "Usuários", icon: Users },
+      { id: "cadastro-maquinas", label: "Cadastro de máquinas", icon: Cog },
+    ],
   },
 ];
 const ALL_NAV = [...NAV_MAIN, ...NAV_SECTIONS.flatMap((s) => s.items), { id: "tv", label: "Modo TV" }, { id: "ajuda", label: "Ajuda" }];
@@ -261,7 +269,7 @@ function Shell() {
               }}
             >
               {DATA_ORIGIN === "backend"
-                ? `Dados do banco · só leitura por enquanto · ${PERIOD_LABEL}`
+                ? `Dados do banco · ${PERIOD_LABEL}`
                 : `Modo de demonstração · dados fictícios de ${PERIOD_LABEL}`}
             </Banner>
           )
@@ -358,6 +366,8 @@ function Shell() {
             <EntryPage notify={notify} />
           ) : route === "metas" ? (
             <MetasPage notify={notify} />
+          ) : route === "calendario" ? (
+            <CalendarPage notify={notify} />
           ) : route === "historico" ? (
             <HistoryPage notify={notify} />
           ) : route === "ranking" ? (
@@ -370,6 +380,8 @@ function Shell() {
             <OpsPage notify={notify} />
           ) : route === "relatorios" ? (
             <ReportsPage notify={notify} />
+          ) : route === "cadastro-maquinas" ? (
+            <MachineRegistryPage notify={notify} />
           ) : route === "usuarios" ? (
             <UsersPage notify={notify} />
           ) : route === "ajuda" ? (

@@ -1,5 +1,5 @@
 import { CalendarPlus, ChevronLeft, ChevronRight, ClipboardList, MessageSquare, MoreHorizontal, Pencil, Repeat, Trash2, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   ALL_ORDERS,
   DATA_END,
@@ -39,6 +39,11 @@ import { TextArea, TextField } from "@/components/ui/TextField";
 import { DateField } from "@/components/ui/DateField";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { useAccess } from "@/features/access/AccessContext";
+import { reloadBackendData } from "@/data/fromBackend";
+import type { UpdateEntryChanges } from "../../../../src/lib/repositories/types";
+import { mensagemDeErro } from "../../../../src/lib/erros";
+import { EditRecordDialog } from "./EditRecordDialog";
+import { originalOf, type EditOriginal } from "./editPlan";
 
 const time = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" });
 const monthTitle = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" });
@@ -55,14 +60,18 @@ type Dialog =
   | { kind: "delete"; ids: string[] }
   | { kind: "move"; ids: string[]; day: string }
   | { kind: "edit"; order: ProductionOrder; draft: { qty: string; shift: Shift; rework: boolean; note: string } }
+  /** Com o banco: corrigir o apontamento inteiro (updateEntry) */
+  | { kind: "record"; order: ProductionOrder; original: EditOriginal }
   | null;
 
 export function HistoryPage({ notify }: { notify: Notify }) {
   const [orders, setOrders] = useState<ProductionOrder[]>(ALL_ORDERS);
-  // O que cada perfil pode corrigir (a tela esconde; quem barra de verdade é o banco).
-  // Com dados do banco, por ora, só leitura: as correções ainda não gravam lá.
-  const { can: canDo, session } = useAccess();
-  const readOnly = DATA_ORIGIN === "backend";
+  // O que cada perfil pode corrigir (a tela esconde; quem barra de verdade é o banco, D24).
+  // Com o banco, as correções gravam lá; no modo Apps Script, só leitura.
+  const { can: canDo, session, client } = useAccess();
+  const live = DATA_ORIGIN === "backend";
+  const readOnly = live && (client.kind === "gas" || !client.reads);
+  const [busy, setBusy] = useState(false);
   const can = (p: Parameters<typeof canDo>[0]) => !readOnly && canDo(p);
   const canEdit = (o: ProductionOrder) => can("production.edit") || (can("production.edit_own") && o.operator === session?.nome);
   const canDelete = can("production.delete");
@@ -113,7 +122,12 @@ export function HistoryPage({ notify }: { notify: Notify }) {
   const prevMonth = new Date(year, month, 0) >= DATA_START ? landingDay(year, month - 1) : null;
   const nextMonth = new Date(year, month + 1, 1) <= DATA_END ? landingDay(year, month + 1) : null;
 
-  /* ---------- Ações (estado local; "Desfazer" restaura a lista anterior) ---------- */
+  /* ---------- Ações ----------
+   * Demonstração: estado local, e "Desfazer" restaura a lista anterior.
+   * Banco: a unidade é o APONTAMENTO (máquina + dia + turno + regime, D10), e as
+   * linhas da tabela são as OPs dele. Apagar, mover e trocar o turno agem no
+   * apontamento inteiro: os diálogos dizem isso, com a conta de linhas.
+   */
   const apply = (next: ProductionOrder[], title: string, description: string) => {
     const previous = orders;
     setOrders(next);
@@ -122,22 +136,90 @@ export function HistoryPage({ notify }: { notify: Notify }) {
     notify(title, description, "success", { label: "Desfazer", onClick: () => setOrders(previous) });
   };
   const plural = (n: number) => `${n} ${n === 1 ? "apontamento" : "apontamentos"}`;
+  /** Apontamentos (no banco) das linhas escolhidas */
+  const recordsOf = (ids: string[]) => [...new Set(orders.filter((o) => ids.includes(o.id)).map((o) => o.record?.id).filter((x): x is string => !!x))];
+  /** Todas as linhas desses apontamentos: o que a ação vai alcançar de fato */
+  const rowsOfRecords = (records: string[]) => orders.filter((o) => o.record && records.includes(o.record.id));
 
-  const remove = (ids: string[]) => apply(orders.filter((o) => !ids.includes(o.id)), `${plural(ids.length)} ${ids.length === 1 ? "excluído" : "excluídos"}`, formatLongDate(date));
-  const changeShift = (ids: string[], shift: Shift) =>
-    apply(
+  /** Grava no banco, recarrega os dados e mostra a tela atualizada; erro aparece e nada muda na tela */
+  const persist = async (action: () => Promise<void>, title: string, description: string) => {
+    if (!client.reads) return;
+    setBusy(true);
+    try {
+      await action();
+    } catch (e) {
+      setBusy(false);
+      notify("Não foi possível salvar a correção", mensagemDeErro(e), "error");
+      return;
+    }
+    try {
+      await reloadBackendData(client.reads, session);
+      setOrders(ALL_ORDERS);
+    } catch {
+      notify("Salvo, mas a tela não atualizou", "Recarregue a página para ver os números novos.", "error");
+    }
+    setBusy(false);
+    setSelected(new Set());
+    setDialog(null);
+    notify(title, description);
+  };
+
+  const remove = (ids: string[]) => {
+    if (live && client.reads) {
+      const records = recordsOf(ids);
+      const reads = client.reads;
+      return persist(() => reads.production.bulkDelete(records, session), `${plural(records.length)} ${records.length === 1 ? "excluído" : "excluídos"}`, formatLongDate(date));
+    }
+    apply(orders.filter((o) => !ids.includes(o.id)), `${plural(ids.length)} ${ids.length === 1 ? "excluído" : "excluídos"}`, formatLongDate(date));
+  };
+  const changeShift = (ids: string[], shift: Shift) => {
+    if (live && client.reads) {
+      const records = recordsOf(ids);
+      const reads = client.reads;
+      return persist(
+        () => reads.production.bulkEditTurno(records, `TURNO ${shift}`, session),
+        `${plural(records.length)} ${records.length === 1 ? "movido" : "movidos"} para o ${SHIFT_META[shift].label.toLowerCase()}`,
+        formatLongDate(date),
+      );
+    }
+    return apply(
       orders.map((o) => (ids.includes(o.id) ? { ...o, shift } : o)),
       `${plural(ids.length)} ${ids.length === 1 ? "movido" : "movidos"} para o ${SHIFT_META[shift].label.toLowerCase()}`,
       formatLongDate(date),
     );
+  };
   const moveTo = (ids: string[], target: string) => {
     const newDate = fromIsoDate(target);
+    if (live && client.reads) {
+      const records = recordsOf(ids);
+      const reads = client.reads;
+      return persist(
+        () => reads.production.bulkMove(records, target, session),
+        `${plural(records.length)} ${records.length === 1 ? "movido" : "movidos"} para ${formatLongDate(newDate)}`,
+        `Antes em ${formatLongDate(date)}`,
+      );
+    }
     const recorded = (o: ProductionOrder) => new Date(newDate.getFullYear(), newDate.getMonth(), newDate.getDate(), o.recordedAt.getHours(), o.recordedAt.getMinutes());
     apply(
       orders.map((o) => (ids.includes(o.id) ? { ...o, date: newDate, recordedAt: recorded(o) } : o)),
       `${plural(ids.length)} ${ids.length === 1 ? "movido" : "movidos"} para ${formatLongDate(newDate)}`,
       `Antes em ${formatLongDate(date)}`,
     );
+  };
+  /** Banco: corrige o apontamento inteiro. O erro sobe para o diálogo, que o mostra sem fechar */
+  const saveRecord = async (order: ProductionOrder, changes: UpdateEntryChanges) => {
+    if (!client.reads || !order.record) return;
+    await client.reads.production.updateEntry(order.record.id, changes, session);
+    try {
+      await reloadBackendData(client.reads, session);
+      setOrders(ALL_ORDERS);
+    } catch {
+      notify("Salvo, mas a tela não atualizou", "Recarregue a página para ver os números novos.", "error");
+    }
+    setSelected(new Set());
+    setDialog(null);
+    if (changes.date) setDate(fromIsoDate(changes.date));
+    notify("Apontamento corrigido", `${machineById(order.machineId).name} · ${formatLongDate(changes.date ? fromIsoDate(changes.date) : order.date)}`);
   };
   const saveEdit = () => {
     if (dialog?.kind !== "edit") return;
@@ -164,16 +246,18 @@ export function HistoryPage({ notify }: { notify: Notify }) {
     dialog?.kind === "move"
       ? !dialog.day
         ? "Escolha uma data"
-        : isWeekend(fromIsoDate(dialog.day))
+        : !live && isWeekend(fromIsoDate(dialog.day))
           ? "Escolha um dia útil"
-          : fromIsoDate(dialog.day) > DATA_END
+          : fromIsoDate(dialog.day) > (live ? new Date() : DATA_END)
             ? "Não é possível apontar em datas futuras"
             : sameDay(fromIsoDate(dialog.day), date)
               ? "Escolha uma data diferente da atual"
               : null
       : null;
   const editError =
-    dialog?.kind === "edit" && (!/^\d+$/.test(dialog.draft.qty) || Number(dialog.draft.qty) <= 0) ? "Use um número inteiro maior que zero" : null;
+    dialog?.kind === "edit" && !live && (!/^\d+$/.test(dialog.draft.qty) || Number(dialog.draft.qty) <= 0)
+      ? "Use um número inteiro maior que zero"
+      : null;
 
   const columns: Column<ProductionOrder>[] = [
     {
@@ -277,9 +361,15 @@ export function HistoryPage({ notify }: { notify: Notify }) {
                 <>
                   <MenuItem
                     icon={Pencil}
-                    onSelect={() =>
-                      setDialog({ kind: "edit", order: o, draft: { qty: String(o.quantity), shift: o.shift, rework: o.rework, note: o.note?.text ?? "" } })
-                    }
+                    onSelect={() => {
+                      const original = live ? originalOf(o) : null;
+                      if (original) return setDialog({ kind: "record", order: o, original });
+                      setDialog({
+                        kind: "edit",
+                        order: o,
+                        draft: { qty: String(o.quantity), shift: o.shift, rework: o.rework, note: o.note?.text ?? "" },
+                      });
+                    }}
                   >
                     Editar
                   </MenuItem>
@@ -515,10 +605,16 @@ export function HistoryPage({ notify }: { notify: Notify }) {
       <Modal
         open={dialog?.kind === "delete"}
         onOpenChange={(o) => !o && setDialog(null)}
-        title={`Excluir ${dialog?.kind === "delete" ? plural(dialog.ids.length) : ""}?`}
-        primary={{ label: "Excluir", appearance: "danger", onClick: () => dialog?.kind === "delete" && remove(dialog.ids) }}
+        title={`Excluir ${dialog?.kind === "delete" ? plural(live ? recordsOf(dialog.ids).length : dialog.ids.length) : ""}?`}
+        primary={{ label: "Excluir", appearance: "danger", isLoading: busy, onClick: () => dialog?.kind === "delete" && remove(dialog.ids) }}
       >
-        A produção deixa de contar nos indicadores de {formatLongDate(date)}. Você pode desfazer logo depois pela notificação.
+        {live && dialog?.kind === "delete" ? (
+          <ReachNote action="apaga" rows={rowsOfRecords(recordsOf(dialog.ids))} picked={dialog.ids.length}>
+            A produção deixa de contar nos indicadores de {formatLongDate(date)}. Não dá para desfazer.
+          </ReachNote>
+        ) : (
+          <>A produção deixa de contar nos indicadores de {formatLongDate(date)}. Você pode desfazer logo depois pela notificação.</>
+        )}
       </Modal>
 
       <Modal
@@ -527,17 +623,26 @@ export function HistoryPage({ notify }: { notify: Notify }) {
         title="Mover para outra data"
         primary={{
           label: "Mover",
+          isLoading: busy,
           onClick: () => dialog?.kind === "move" && !moveError && moveTo(dialog.ids, dialog.day),
         }}
       >
-        <p className="mb-200 text-subtle">
-          {dialog?.kind === "move" && plural(dialog.ids.length)} de {formatLongDate(date)}. O turno e as quantidades não mudam.
-        </p>
+        <div className="mb-200 text-subtle">
+          {live && dialog?.kind === "move" ? (
+            <ReachNote action="move" rows={rowsOfRecords(recordsOf(dialog.ids))} picked={dialog.ids.length}>
+              Sai de {formatLongDate(date)}. O turno e as quantidades não mudam.
+            </ReachNote>
+          ) : (
+            <p>
+              {dialog?.kind === "move" && plural(dialog.ids.length)} de {formatLongDate(date)}. O turno e as quantidades não mudam.
+            </p>
+          )}
+        </div>
         <DateField
           label="Nova data"
           min={toIsoDate(DATA_START)}
-          max={toIsoDate(DATA_END)}
-          today={toIsoDate(DATA_END)}
+          max={toIsoDate(live ? new Date() : DATA_END)}
+          today={toIsoDate(live ? new Date() : DATA_END)}
           isRequired
           value={dialog?.kind === "move" ? dialog.day : ""}
           onChange={(day) => dialog?.kind === "move" && setDialog({ ...dialog, day })}
@@ -549,9 +654,9 @@ export function HistoryPage({ notify }: { notify: Notify }) {
         open={dialog?.kind === "edit"}
         onOpenChange={(o) => !o && setDialog(null)}
         title={dialog?.kind === "edit" ? `Editar ${dialog.order.opId}` : ""}
-        primary={{ label: "Salvar", onClick: () => !editError && saveEdit() }}
+        primary={{ label: "Salvar", isLoading: busy, onClick: () => !editError && saveEdit() }}
       >
-        {dialog?.kind === "edit" && (
+        {dialog?.kind === "edit" && !live && (
           <div className="flex flex-col gap-200">
             <p className="text-subtle">
               {machineById(dialog.order.machineId).name} · {formatLongDate(dialog.order.date)}
@@ -593,6 +698,33 @@ export function HistoryPage({ notify }: { notify: Notify }) {
           </div>
         )}
       </Modal>
+
+      {dialog?.kind === "record" && (
+        <EditRecordDialog
+          key={dialog.order.id}
+          order={dialog.order}
+          original={dialog.original}
+          minDate={toIsoDate(DATA_START)}
+          onClose={() => setDialog(null)}
+          onSave={(changes) => saveRecord(dialog.order, changes)}
+        />
+      )}
     </>
+  );
+}
+
+/** Com o banco, quanto uma ação alcança: o apontamento inteiro, não só as linhas marcadas */
+function ReachNote({ action, rows, picked, children }: { action: "apaga" | "move"; rows: ProductionOrder[]; picked: number; children: ReactNode }) {
+  const records = new Set(rows.map((o) => o.record?.id)).size;
+  const extra = rows.length - picked;
+  return (
+    <div className="flex flex-col gap-100">
+      <p>
+        {action === "apaga" ? "Apaga" : "Move"} {records === 1 ? "o apontamento inteiro" : `${records} apontamentos inteiros`}: todas as OPs da máquina
+        no turno ({rows.length} {rows.length === 1 ? "linha" : "linhas"}
+        {extra > 0 && <>, {extra} além das marcadas</>}).
+      </p>
+      <p>{children}</p>
+    </div>
   );
 }

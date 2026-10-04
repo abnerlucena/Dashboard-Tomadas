@@ -2,7 +2,9 @@ import { defineConfig, devices } from "@playwright/test";
 
 // Teste de ponta a ponta da interface, no modo de demonstração (sem banco):
 // abre o app de verdade no navegador e passa pelos caminhos principais.
-const PORT = 8090;
+// Porta própria, servidor próprio: nunca reaproveita um `npm run dev` aberto, que
+// pode estar ligado ao banco ou ao mock
+const PORT = 8095;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -24,10 +26,10 @@ export default defineConfig({
   ],
   webServer: {
     // VITE_DATA_SOURCE vazio: sempre a demonstração, mesmo com .env.local apontando para o banco
-    command: "npm run dev",
+    command: `npx vite --config prototype/vite.config.ts --port ${PORT} --strictPort`,
     env: { VITE_DATA_SOURCE: "" },
     url: `http://localhost:${PORT}/`,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });

@@ -1,13 +1,15 @@
-import { ChevronDown, Info, Pencil, TriangleAlert } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ChevronDown, Info, Pencil, RefreshCw, TriangleAlert } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ACTIVE_SHIFTS,
   DATA_END,
+  DATA_ORIGIN,
   TARGET_MACHINES,
   META_CHANGES,
   META_EFFECTIVE_FROM,
   STATUS_META,
   WORKING_DAYS,
+  aggregate,
   groupOf,
   metaPerShift,
   statusFor,
@@ -32,8 +34,12 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { TextField } from "@/components/ui/TextField";
 import { DateField } from "@/components/ui/DateField";
 import { Menu, MenuContent, MenuLabel, MenuRadioGroup, MenuRadioItem, MenuTrigger } from "@/components/ui/Menu";
-import type { BaseDaMeta } from "../../../../src/lib/metas";
-import { BASE_OPTIONS, baseLabel, baselineCapacity, crewOf, initialBaseOf, saveBases, shiftMeta, useBases, type Capacity } from "./metaBase";
+import { metaDoTurno, type BaseDaMeta } from "../../../../src/lib/metas";
+import { mensagemDeErro } from "../../../../src/lib/erros";
+import { reloadBackendData } from "@/data/fromBackend";
+import { ErrorMessage } from "@/components/ui/Feedback";
+import { useDayTargets } from "@/features/entry/dayTargets";
+import { BASE_OPTIONS, baseLabel, baselineCapacity, crewOf, initialBaseOf, saveBases, useBases, type Capacity } from "./metaBase";
 
 /** Capacidade por turno que o simulador mandou para comparar (nunca grava sozinha — nota de 01/10, § 5) */
 export interface CapacityProposal {
@@ -46,6 +52,7 @@ const dateTime = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-di
 const dateOnly = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 
 /** Vigência mínima: dia seguinte à data de referência (metas nunca mudam o passado) */
+const plural = (n: number) => `${n} ${n === 1 ? "máquina" : "máquinas"}`;
 const MIN_EFFECTIVE = toIsoDate(new Date(DATA_END.getFullYear(), DATA_END.getMonth(), DATA_END.getDate() + 1));
 
 interface CurrentMetasProps {
@@ -58,27 +65,51 @@ interface CurrentMetasProps {
 
 /** Aba "Metas vigentes": meta por turno de cada máquina, edição manual com vigência e histórico */
 function CurrentMetas({ notify, history, setHistory, proposal, onDismissProposal }: CurrentMetasProps) {
-  const { can, session } = useAccess();
+  const { can, session, client } = useAccess();
+  // Com o banco: metas, bases e lotação de HOJE vêm de lá, e salvar grava (save_machine_targets).
+  // No modo Apps Script, só leitura. Na demonstração, tudo local.
+  const live = DATA_ORIGIN === "backend";
+  const writable = !live || (!!client.reads && client.kind !== "gas");
   // Ver metas é targets.view (rota); alterar é targets.manage
-  const canManage = can("targets.manage");
+  const canManage = can("targets.manage") && writable;
+  const todayIso = toIsoDate(new Date());
+  const [targetsAttempt, setTargetsAttempt] = useState(0);
+  const dayTargets = useDayTargets(todayIso, targetsAttempt);
+  const current = live && dayTargets.status === "ready" ? dayTargets.byMachine : null;
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(initialValues);
   const [values, setValues] = useState(initialValues);
+  // Com o banco, os valores vigentes chegam depois do carregamento (e de novo após salvar)
+  useEffect(() => {
+    if (!current) return;
+    const v = Object.fromEntries(TARGET_MACHINES.map((m) => [m.id, String(current[m.id]?.cadastrada ?? 0)]));
+    setSaved(v);
+    setValues(v);
+  }, [current]);
   const [shifts, setShifts] = useState(ACTIVE_SHIFTS);
   const [savedShifts, setSavedShifts] = useState(ACTIVE_SHIFTS);
-  const [effective, setEffective] = useState("2026-04-01");
+  // Vigência: nunca no passado. Com o banco, hoje vale (corrige a meta de hoje, D31); o padrão é amanhã
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const minEffective = live ? todayIso : MIN_EFFECTIVE;
+  const [effective, setEffective] = useState(live ? toIsoDate(tomorrow) : "2026-04-01");
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
-  // Base da meta (D53): a vigente vem do estado compartilhado; a editada fica no rascunho
-  const savedBases = useBases();
+  // Base da meta (D53): a vigente vem do banco (ou do estado compartilhado, na demonstração); a editada fica no rascunho
+  const demoBases = useBases();
+  const savedBases: Record<string, BaseDaMeta> = live
+    ? Object.fromEntries(Object.entries(current ?? {}).map(([id, t]) => [id, t.base]))
+    : demoBases;
   const [draftBases, setDraftBases] = useState<Record<string, BaseDaMeta>>({});
   const baseOfDraft = (id: string): BaseDaMeta => draftBases[id] ?? savedBases[id] ?? "per_shift";
   const savedBaseOf = (id: string): BaseDaMeta => savedBases[id] ?? "per_shift";
   const baseChanged = TARGET_MACHINES.filter((m) => baseOfDraft(m.id) !== savedBaseOf(m.id));
+  /** Lotação padrão do posto: a do banco, ou a da planilha na demonstração */
+  const crewFor = (id: string) => (live ? (current?.[id]?.lotacao ?? null) : crewOf(id));
   /** Meta de UM turno com a lotação padrão — a conta é a de src/lib/metas.ts */
-  const turnOf = (m: Machine) => shiftMeta(m.id, perShift(m.id), baseOfDraft(m.id)).valor;
-  /** Capacidade (teto) para comparar: a do cenário simulado, ou a da planilha */
-  const capacityOf = (m: Machine) => proposal?.values[m.id] ?? baselineCapacity(m.id);
+  const turnOf = (m: Machine) => metaDoTurno({ cadastrada: perShift(m.id), base: baseOfDraft(m.id), lotacaoPadrao: crewFor(m.id) }).valor;
+  /** Capacidade (teto) para comparar: a do cenário simulado, ou a da planilha (só na demonstração, até o banco entregar a real, D58) */
+  const capacityOf = (m: Machine) => (live ? null : (proposal?.values[m.id] ?? baselineCapacity(m.id)));
 
   const perShift = (id: string) => Number(values[id]) || 0;
   const errorOf = (id: string) => {
@@ -91,34 +122,45 @@ function CurrentMetas({ notify, history, setHistory, proposal, onDismissProposal
   const anyChange = changed.length > 0 || baseChanged.length > 0;
   const shiftsChanged = shifts !== savedShifts;
   const hasErrors = TARGET_MACHINES.some((m) => errorOf(m.id));
-  const effectiveError = effective < MIN_EFFECTIVE ? "A vigência precisa ser a partir de 28/03/2026" : null;
+  const effectiveError =
+    effective < minEffective ? `A vigência precisa ser a partir de ${dateOnly.format(new Date(`${minEffective}T12:00:00`))}` : null;
 
   const original = useMemo(initialValues, []);
   // Sem edição, vale a meta mensal original (evita o arredondamento da meta por turno)
   // Cada máquina roda no seu regime (2 ou 3 turnos); "turnos ativos" é um teto para todas
   const shiftsOf = (m: Machine) => Math.min(m.regime, shifts);
+  // Com o banco, a meta do mês aqui é PREVISTA (turno × turnos × dias úteis): o atingimento de
+  // verdade soma a meta gravada em cada apontamento (D08), e vem de m.percent
   const monthOf = (m: Machine) =>
-    values[m.id] === original[m.id] && shifts === ACTIVE_SHIFTS && baseOfDraft(m.id) === initialBaseOf(m.id)
+    !live && values[m.id] === original[m.id] && shifts === ACTIVE_SHIFTS && baseOfDraft(m.id) === initialBaseOf(m.id)
       ? m.target
       : turnOf(m) * shiftsOf(m) * WORKING_DAYS;
   const plantMonth = TARGET_MACHINES.reduce((s, m) => s + monthOf(m), 0);
   const plantProduced = TARGET_MACHINES.reduce((s, m) => s + m.produced, 0);
+  const real = aggregate(TARGET_MACHINES);
+  const plantPct = live ? real.percent : plantMonth ? Math.round((plantProduced / plantMonth) * 100) : 0;
 
   const kpis: KpiItem[] = [
-    { id: "month", label: "Meta do mês · fábrica", value: formatNumber(plantMonth), footer: `${WORKING_DAYS} dias úteis` },
+    {
+      id: "month",
+      label: live ? "Meta do mês prevista · fábrica" : "Meta do mês · fábrica",
+      value: formatNumber(plantMonth),
+      footer: `${WORKING_DAYS} dias úteis${live ? ", com as metas de hoje" : ""}`,
+    },
     { id: "day", label: "Meta por dia", value: formatNumber(Math.round(plantMonth / WORKING_DAYS)), footer: shifts === ACTIVE_SHIFTS ? "Cada máquina no seu regime de turnos" : `Até ${shifts} ${shifts === 1 ? "turno" : "turnos"} por máquina` },
     {
       id: "pct",
-      label: "Atingimento com estas metas",
-      value: `${Math.round((plantProduced / plantMonth) * 100)}%`,
-      aside: (
-        <Lozenge appearance={STATUS_META[statusFor(Math.round((plantProduced / plantMonth) * 100))].appearance}>
-          {STATUS_META[statusFor(Math.round((plantProduced / plantMonth) * 100))].label}
-        </Lozenge>
-      ),
-      footer: "Produção de março contra a meta mensal",
+      label: live ? "Atingimento no mês" : "Atingimento com estas metas",
+      value: `${plantPct}%`,
+      aside: <Lozenge appearance={STATUS_META[statusFor(plantPct)].appearance}>{STATUS_META[statusFor(plantPct)].label}</Lozenge>,
+      footer: live ? "Produção sobre a meta dos turnos apontados" : "Produção de março contra a meta mensal",
     },
-    { id: "machines", label: "Máquinas com meta", value: TARGET_MACHINES.length, footer: `Vigente desde ${dateOnly.format(META_EFFECTIVE_FROM)}` },
+    {
+      id: "machines",
+      label: "Máquinas com meta",
+      value: TARGET_MACHINES.length,
+      footer: live ? "Metas que valem hoje" : `Vigente desde ${dateOnly.format(META_EFFECTIVE_FROM)}`,
+    },
   ];
 
   const columns: Column<Machine>[] = useMemo(
@@ -155,14 +197,19 @@ function CurrentMetas({ notify, history, setHistory, proposal, onDismissProposal
               {values[m.id] !== saved[m.id] && !errorOf(m.id) && <Lozenge appearance="discovery">Alterada</Lozenge>}
             </span>
           ) : (
-            <span className="font-medium tabular-nums text-default">{formatNumber(perShift(m.id))}</span>
+            <span className="flex flex-col items-end">
+              <span className="font-medium tabular-nums text-default">{formatNumber(perShift(m.id))}</span>
+              {live && current?.[m.id]?.since && (
+                <span className="font-body-small text-subtlest">desde {dateOnly.format(new Date(`${current[m.id].since}T12:00:00`))}</span>
+              )}
+            </span>
           ),
       },
       {
         id: "base",
         header: "Base da meta",
         cell: (m) => {
-          const crew = crewOf(m.id);
+          const crew = crewFor(m.id);
           const base = baseOfDraft(m.id);
           return editing ? (
             <BaseSelect machine={m.name} value={base} changed={base !== savedBaseOf(m.id)} onChange={(b) => setDraftBases((d) => ({ ...d, [m.id]: b }))} />
@@ -230,7 +277,8 @@ function CurrentMetas({ notify, history, setHistory, proposal, onDismissProposal
         className: "pr-200",
         cell: (m) => {
           const month = monthOf(m);
-          const pct = month ? Math.round((m.produced / month) * 100) : 0;
+          // Com o banco: o atingimento real do mês (produção sobre a meta dos turnos apontados)
+          const pct = live ? m.percent : month ? Math.round((m.produced / month) * 100) : 0;
           const st = statusFor(pct);
           return (
             <span className="flex items-center gap-100">
@@ -245,8 +293,10 @@ function CurrentMetas({ notify, history, setHistory, proposal, onDismissProposal
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [editing, values, saved, shifts, draftBases, savedBases, proposal],
+    [editing, values, saved, shifts, draftBases, savedBases, proposal, current],
   );
+  // Sem capacidade conhecida (banco, até a D58 chegar ao contrato), a coluna sai
+  const visibleColumns = live ? columns.filter((c) => c.id !== "capacity") : columns;
 
   const startEdit = () => {
     setValues(saved);
@@ -260,7 +310,40 @@ function CurrentMetas({ notify, history, setHistory, proposal, onDismissProposal
     setDraftBases({});
     setEditing(false);
   };
-  const confirmSave = () => {
+  const confirmSave = async () => {
+    const when = dateOnly.format(new Date(`${effective}T12:00:00`));
+    if (live && client.reads) {
+      // Só as máquinas alteradas (número ou base); o banco ainda ignora o que não mudou
+      const ids = [...new Set([...changed, ...baseChanged].map((m) => m.id))];
+      const metas = Object.fromEntries(ids.map((id) => [id, Number(values[id])]));
+      const bases = Object.fromEntries(baseChanged.map((m) => [m.id, baseOfDraft(m.id)]));
+      setSaving(true);
+      try {
+        await client.reads.targets.saveMetas(metas, effective, session, bases);
+      } catch (e) {
+        setSaving(false);
+        notify("Não foi possível salvar as metas", mensagemDeErro(e), "error");
+        return;
+      }
+      try {
+        await reloadBackendData(client.reads, session);
+        setHistory(META_CHANGES);
+      } catch {
+        notify("Salvo, mas a tela não atualizou", "Recarregue a página para ver o histórico novo.", "error");
+      }
+      setSaving(false);
+      setConfirming(false);
+      setEditing(false);
+      setDraftBases({});
+      setTargetsAttempt((n) => n + 1);
+      notify(
+        "Metas salvas",
+        effective === todayIso
+          ? `${plural(ids.length)}: ${ids.length === 1 ? "a nova meta já vale" : "as novas metas já valem"} hoje. Apontamentos feitos antes guardam a meta antiga (D31).`
+          : `${plural(ids.length)}: ${ids.length === 1 ? "a nova meta passa" : "as novas metas passam"} a valer em ${when}. Até lá, a tabela mostra as metas de hoje.`,
+      );
+      return;
+    }
     setSaving(true);
     window.setTimeout(() => {
       setSaving(false);
@@ -272,7 +355,6 @@ function CurrentMetas({ notify, history, setHistory, proposal, onDismissProposal
       // Com o backend: data.targets.saveMetas(metas, vigência, session, bases)
       saveBases(Object.fromEntries(baseChanged.map((m) => [m.id, baseOfDraft(m.id)])));
       setDraftBases({});
-      const when = dateOnly.format(new Date(`${effective}T12:00:00`));
       const parts = [
         ...changed.map((m) => `${m.name}: ${formatNumber(Number(saved[m.id]))} → ${formatNumber(Number(values[m.id]))} por turno`),
         ...baseChanged.map((m) => `${m.name}: base ${baseLabel(savedBaseOf(m.id)).toLowerCase()} → ${baseLabel(baseOfDraft(m.id)).toLowerCase()}`),
@@ -292,11 +374,15 @@ function CurrentMetas({ notify, history, setHistory, proposal, onDismissProposal
         <span className="flex min-w-0 flex-1 basis-kpi-min flex-wrap items-center gap-100">
           {editing ? (
             <Lozenge appearance="discovery">Editando</Lozenge>
+          ) : live ? (
+            <Lozenge>Metas de hoje</Lozenge>
           ) : (
             <Lozenge>Vigente desde {dateOnly.format(META_EFFECTIVE_FROM)}</Lozenge>
           )}
           <span className="text-subtle">
-            Meta por dia = meta do turno (pela base, com a lotação padrão) × turnos da máquina. Meta do mês = meta por dia × dias úteis.
+            Meta por dia = meta do turno (pela base, com a lotação padrão) × turnos da máquina. Meta do mês
+            {live ? " prevista" : ""} = meta por dia × dias úteis.
+            {live && " O atingimento soma a meta gravada em cada apontamento."}
           </span>
         </span>
         <PageActions>
@@ -314,7 +400,7 @@ function CurrentMetas({ notify, history, setHistory, proposal, onDismissProposal
               </Button>
             </>
           ) : canManage ? (
-            <Button appearance="primary" iconBefore={Pencil} onClick={startEdit}>
+            <Button appearance="primary" iconBefore={Pencil} onClick={startEdit} isDisabled={live && !current}>
               Editar metas
             </Button>
           ) : (
@@ -325,6 +411,19 @@ function CurrentMetas({ notify, history, setHistory, proposal, onDismissProposal
 
       <PageBody>
         <KpiStrip items={kpis} label="Resumo das metas" />
+
+        {live && dayTargets.status === "error" && (
+          <ErrorMessage
+            title="Não foi possível carregar as metas"
+            actions={
+              <Button iconBefore={RefreshCw} onClick={() => setTargetsAttempt((n) => n + 1)}>
+                Tentar de novo
+              </Button>
+            }
+          >
+            {dayTargets.message}
+          </ErrorMessage>
+        )}
 
         {proposal && (
           <div role="status" className="flex flex-wrap items-start gap-150 rounded-large bg-warning p-200">
@@ -349,11 +448,14 @@ function CurrentMetas({ notify, history, setHistory, proposal, onDismissProposal
               <div>
                 <p className="font-heading-xsmall text-default">Revise as metas por turno</p>
                 <p className="mt-050 text-default">
-                  Os valores do mês e o atingimento se recalculam enquanto você edita; cada máquina conta só os turnos em que roda. As novas metas não mudam os números já
-                  fechados de março.
+                  {live
+                    ? "A meta do mês prevista se recalcula enquanto você edita; cada máquina conta só os turnos em que roda. As novas metas não mudam o passado: cada apontamento guarda a meta do seu dia."
+                    : "Os valores do mês e o atingimento se recalculam enquanto você edita; cada máquina conta só os turnos em que roda. As novas metas não mudam os números já fechados de março."}
                 </p>
               </div>
             </div>
+            {/* Turnos ativos é uma simulação da demonstração: o banco não guarda */}
+            {!live && (
             <div className="flex flex-col gap-050">
               <span className="font-body-small font-semibold text-subtle">Turnos ativos</span>
               <SegmentedControl
@@ -364,10 +466,11 @@ function CurrentMetas({ notify, history, setHistory, proposal, onDismissProposal
                 options={[1, 2, 3].map((n) => ({ value: String(n), label: `${n} ${n === 1 ? "turno" : "turnos"}` }))}
               />
             </div>
+            )}
             <DateField
               label="Vale a partir de"
               value={effective}
-              min={MIN_EFFECTIVE}
+              min={minEffective}
               onChange={setEffective}
               error={effectiveError}
               isRequired
@@ -378,8 +481,9 @@ function CurrentMetas({ notify, history, setHistory, proposal, onDismissProposal
 
         <DataTable
           caption="Metas por máquina"
-          columns={columns}
+          columns={visibleColumns}
           rows={TARGET_MACHINES}
+          state={live && dayTargets.status === "loading" ? "loading" : "ready"}
           getRowId={(m) => m.id}
           getRowLabel={(m) => `${m.name}, meta por turno ${formatNumber(perShift(m.id))}`}
           selectable={false}
@@ -390,7 +494,8 @@ function CurrentMetas({ notify, history, setHistory, proposal, onDismissProposal
           <h2 id="meta-history" className="font-heading-small text-default">
             Histórico de alterações
           </h2>
-          <ol className="flex flex-col overflow-hidden rounded-xlarge border">
+          {history.length === 0 && <p className="rounded-large bg-surface-sunken px-200 py-150 text-subtle">Nenhuma alteração registrada.</p>}
+          <ol className="flex flex-col overflow-hidden rounded-xlarge border empty:hidden">
             {history.map((c) => (
               <li key={c.id} className="flex items-start gap-150 border-t px-200 py-150 first:border-t-0">
                 <Avatar name={c.author} accent={c.author === session?.nome ? "teal" : "purple"} />
@@ -520,9 +625,20 @@ export function MetasPage({ notify }: { notify: Notify }) {
       {/* forceMount: o cenário simulado continua ao trocar de aba */}
       <Tabs.Content value="capacidade" forceMount className="outline-none data-[state=inactive]:hidden">
         {/* O simulador PROPÕE: manda a capacidade para comparar na aba de metas; não grava nada (§ 5) */}
+        {DATA_ORIGIN === "backend" && (
+          <div className={cn(PAGE_GUTTER, "pt-300")}>
+            <p role="note" className="flex gap-100 rounded-large bg-information p-200 text-default">
+              <Info aria-hidden className="mt-025 size-icon-small shrink-0 text-icon-information" />
+              Os valores do simulador ainda são de exemplo: a capacidade real (peças por minuto, eficiência, tempos dos turnos) chega
+              do banco numa próxima etapa. Até lá, a comparação com as metas fica desligada.
+            </p>
+          </div>
+        )}
         <CapacitySimulator
           notify={notify}
           onCompare={(values) => {
+            if (DATA_ORIGIN === "backend")
+              return notify("Comparação indisponível", "O simulador ainda usa valores de exemplo; com a capacidade real do banco, a comparação volta.", "error");
             setProposal({ values, at: new Date() });
             setTab("vigentes");
           }}

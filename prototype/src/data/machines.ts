@@ -117,6 +117,32 @@ export interface ProductionOrder {
   recordedAt: Date;
   /** Observação do operador (vira mensagem na conversa da OP) */
   note: OrderNote | null;
+  /** Só com dados do banco: o apontamento (máquina + dia + turno + regime) a que esta linha pertence */
+  record?: ProductionRecordInfo;
+}
+
+/** O apontamento no banco: um por máquina + dia + turno + regime (D10, D27); as linhas acima são as ordens dele */
+export interface ProductionRecordInfo {
+  id: string;
+  /** hora extra (D27): fica fora da meta, e é um apontamento separado do turno normal */
+  overtime: boolean;
+  /** nº de operadores gravado; null = não informado */
+  operatorCount: number | null;
+  /** observação do apontamento */
+  notes: string;
+  /**
+   * As OPs exatamente como o banco guarda (com a observação de cada uma). As
+   * linhas da tabela são derivadas e misturam as observações; corrigir parte daqui.
+   */
+  orders?: RecordOrder[];
+}
+
+/** Uma OP do apontamento, como no contrato (OrdemProducao) */
+export interface RecordOrder {
+  op: string;
+  quantity: number;
+  rework: boolean;
+  note: string;
 }
 
 export interface DayPoint {
@@ -162,6 +188,8 @@ export interface Machine {
   backend?: { orders: ProductionOrder[]; targets: TargetEntry[] };
   /** Só com dados do banco: as metas dos turnos apontados DENTRO do recorte */
   targetEntries?: TargetEntry[];
+  /** Só com dados do banco: centro desativado no cadastro. Aparece por ter histórico, mas não recebe apontamento novo */
+  inactive?: boolean;
 }
 
 /** Meta efetiva de um turno apontado (vem do banco, uma por apontamento que conta para meta) */
@@ -833,6 +861,8 @@ export interface BackendMachine {
   dailyTarget: number;
   orders: ProductionOrder[];
   targets: TargetEntry[];
+  /** centro desativado no cadastro (status "inativo") */
+  inactive?: boolean;
 }
 
 export interface BackendData {
@@ -886,6 +916,7 @@ export function installBackendData(d: BackendData) {
       orders: [],
       targetByShift: { ...empty },
       backend: { orders: raw.orders, targets: raw.targets },
+      ...(raw.inactive ? { inactive: true } : {}),
     };
     return computeScope(shell, "all", MONTH_RANGE);
   });

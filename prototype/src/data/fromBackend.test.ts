@@ -48,9 +48,22 @@ describe("formatos do contrato", () => {
     expect(lineOf("Embaladora kit parafusos nº 1")).toBe("Montagem");
     expect(lineOf("Prensa Tox")).toBe("Montagem");
   });
+
+  it("usa a linha do banco quando vem, e Granel continua pelo nome", () => {
+    expect(lineOf("Embaladora kit parafusos nº 1", "packaging")).toBe("Embalagem");
+    expect(lineOf("Embaladora horizontal nº 1", "assembly")).toBe("Montagem");
+    expect(lineOf("Bancada de embalagem A Granél", "packaging")).toBe("Granel");
+  });
 });
 
 describe("buildBackendData", () => {
+  it("centro inativo só entra se apontou, e marcado como inativo", () => {
+    expect(buildBackendData(input([])).machines.map((m) => m.id)).not.toContain("4");
+    const d = buildBackendData(input([rec({ id: "r9", machineId: 4, machineName: "Prensa desativada", meta: 0, producao: 500 })]));
+    expect(d.machines.find((m) => m.id === "4")?.inactive).toBe(true);
+    expect(d.machines.find((m) => m.id === "1")?.inactive).toBeUndefined();
+  });
+
   it("separa produção boa e retrabalho e completa o que as ordens não explicam", () => {
     const d = buildBackendData(
       input([

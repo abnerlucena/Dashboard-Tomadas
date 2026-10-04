@@ -201,7 +201,7 @@ export function HelpPage({ notify }: { notify: Notify }) {
             <h2 id="support" className="font-heading-small text-default">
               Precisa de mais ajuda?
             </h2>
-            <p className="mt-025 text-subtle">Fale com o suporte de TI da fábrica. Versão 0.5 · {DATA_ORIGIN === "backend" ? "dados do banco, só leitura por enquanto" : `dados de demonstração de ${PERIOD_LABEL}`}.</p>
+            <p className="mt-025 text-subtle">Fale com o suporte de TI da fábrica. Versão 0.5 · {DATA_ORIGIN === "backend" ? "dados do banco" : `dados de demonstração de ${PERIOD_LABEL}`}.</p>
           </div>
           <Button onClick={() => notify("Chamado aberto", "O suporte vai responder pelo seu e-mail corporativo (simulado).")}>
             Falar com o suporte

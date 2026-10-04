@@ -51,6 +51,13 @@ describe("formatos do contrato", () => {
 });
 
 describe("buildBackendData", () => {
+  it("centro inativo só entra se apontou, e marcado como inativo", () => {
+    expect(buildBackendData(input([])).machines.map((m) => m.id)).not.toContain("4");
+    const d = buildBackendData(input([rec({ id: "r9", machineId: 4, machineName: "Prensa desativada", meta: 0, producao: 500 })]));
+    expect(d.machines.find((m) => m.id === "4")?.inactive).toBe(true);
+    expect(d.machines.find((m) => m.id === "1")?.inactive).toBeUndefined();
+  });
+
   it("separa produção boa e retrabalho e completa o que as ordens não explicam", () => {
     const d = buildBackendData(
       input([

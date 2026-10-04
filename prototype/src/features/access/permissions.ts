@@ -117,6 +117,7 @@ export const ROUTE_PERMISSION: Record<string, Permission> = {
   relatorios: "reports.export",
   tv: "tv_mode.view",
   usuarios: "users.approve",
+  "cadastro-maquinas": "machines.manage",
 };
 
 export const canOpen = (session: Session | null, route: string) => {

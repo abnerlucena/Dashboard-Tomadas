@@ -35,7 +35,7 @@ de 03/10 desta pasta. Este arquivo resume o estado e o caminho.
 | **Metas** | grava (`saveMetas`, só as alteradas; vigência ≥ hoje) |
 | OPs, Feedbacks | "ainda não ligada ao banco" (não há tabela de OP nem de conversa) |
 | **Calendário** | grava (feito em 04/10, ver `2026-10-04-calendario-ligado.md`) |
-| Máquinas (cadastro) | **tela ainda não existe** |
+| **Cadastro de máquinas** | grava (feito em 04/10, ver `2026-10-04-cadastro-de-maquinas.md`; `addMachine` completo proposto) |
 
 **Peças-chave:**
 - `prototype/src/data/fromBackend.ts`: o adaptador de leitura.
@@ -56,7 +56,8 @@ de 03/10 desta pasta. Este arquivo resume o estado e o caminho.
    - Limitações do contrato: toda data entra como "da empresa", e não há intervalo de datas
      (férias coletivas viram um cadastro por dia; a tela pode fazer o laço).
    - Depois de gravar, chamar `reloadBackendData`: os dias úteis vêm do calendário.
-2. **Máquinas (tela nova):** cadastrar e desativar.
+2. ~~**Máquinas (tela nova):**~~ **Feito em 04/10** (`features/registry/`). O Apontamento
+   esconde máquina inativa (`Machine.inactive`). O que segue era o plano: cadastrar e desativar.
    - Contrato: `machines.addMachine(name, defaultMeta)`, `toggleMachine(id)`.
    - Permissão: `machines.manage`.
    - O banco tem `create_machine` com base e lotação (D53), mas o contrato só expõe nome e

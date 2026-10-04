@@ -175,6 +175,8 @@ export interface Machine {
   backend?: { orders: ProductionOrder[]; targets: TargetEntry[] };
   /** Só com dados do banco: as metas dos turnos apontados DENTRO do recorte */
   targetEntries?: TargetEntry[];
+  /** Só com dados do banco: centro desativado no cadastro. Aparece por ter histórico, mas não recebe apontamento novo */
+  inactive?: boolean;
 }
 
 /** Meta efetiva de um turno apontado (vem do banco, uma por apontamento que conta para meta) */
@@ -846,6 +848,8 @@ export interface BackendMachine {
   dailyTarget: number;
   orders: ProductionOrder[];
   targets: TargetEntry[];
+  /** centro desativado no cadastro (status "inativo") */
+  inactive?: boolean;
 }
 
 export interface BackendData {
@@ -899,6 +903,7 @@ export function installBackendData(d: BackendData) {
       orders: [],
       targetByShift: { ...empty },
       backend: { orders: raw.orders, targets: raw.targets },
+      ...(raw.inactive ? { inactive: true } : {}),
     };
     return computeScope(shell, "all", MONTH_RANGE);
   });

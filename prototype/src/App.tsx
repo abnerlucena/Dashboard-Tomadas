@@ -4,6 +4,7 @@ import {
   CalendarDays,
   CircleHelp,
   ClipboardList,
+  Cog,
   Boxes,
   Factory,
   PackageOpen,
@@ -64,6 +65,7 @@ import { EntryPage } from "@/features/entry/EntryPage";
 import { MetasPage } from "@/features/metas/MetasPage";
 import { HistoryPage } from "@/features/history/HistoryPage";
 import { CalendarPage } from "@/features/calendar/CalendarPage";
+import { MachineRegistryPage } from "@/features/registry/MachineRegistryPage";
 import { RankingPage } from "@/features/analysis/RankingPage";
 import { ReworkPage } from "@/features/analysis/ReworkPage";
 import { FeedbacksPage } from "@/features/feedbacks/FeedbacksPage";
@@ -124,9 +126,12 @@ const NAV_SECTIONS: Array<{ title: string; items: NavEntry[] }> = [
     ],
   },
   {
-    // Só aparece para quem aprova cadastros (users.approve)
+    // Cada item só aparece para quem tem a permissão dele (users.approve, machines.manage)
     title: "Administração",
-    items: [{ id: "usuarios", label: "Usuários", icon: Users }],
+    items: [
+      { id: "usuarios", label: "Usuários", icon: Users },
+      { id: "cadastro-maquinas", label: "Cadastro de máquinas", icon: Cog },
+    ],
   },
 ];
 const ALL_NAV = [...NAV_MAIN, ...NAV_SECTIONS.flatMap((s) => s.items), { id: "tv", label: "Modo TV" }, { id: "ajuda", label: "Ajuda" }];
@@ -375,6 +380,8 @@ function Shell() {
             <OpsPage notify={notify} />
           ) : route === "relatorios" ? (
             <ReportsPage notify={notify} />
+          ) : route === "cadastro-maquinas" ? (
+            <MachineRegistryPage notify={notify} />
           ) : route === "usuarios" ? (
             <UsersPage notify={notify} />
           ) : route === "ajuda" ? (

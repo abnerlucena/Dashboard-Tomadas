@@ -19,6 +19,7 @@ test("gestor entra e navega pelas telas principais", async ({ page }) => {
     ["relatorios", "Relatórios"],
     ["ranking", "Ranking de máquinas"],
     ["usuarios", "Usuários"],
+    ["cadastro-maquinas", "Cadastro de máquinas"],
   ]) {
     await page.goto(`/#/${rota}`);
     await expect(page.getByRole("heading", { name: titulo, level: 1 })).toBeVisible();
@@ -63,6 +64,21 @@ test("calendário cadastra e remove um dia (demonstração)", async ({ page }) =
   await page.getByRole("dialog").getByRole("button", { name: "Remover" }).click();
   await expect(page.getByText("1 dia removido.")).toBeVisible();
   await expect(page.getByRole("listitem").filter({ hasText: "Ponte de teste" })).toHaveCount(0);
+});
+
+test("cadastro de máquinas cadastra e desativa (demonstração)", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await page.goto("/#/cadastro-maquinas");
+  await page.getByRole("button", { name: "Cadastrar máquina" }).first().click();
+  await page.getByLabel("Nome").fill("Embaladora de teste");
+  await page.getByLabel("Meta por turno").fill("5000");
+  await page.getByRole("dialog").getByRole("button", { name: "Cadastrar" }).click();
+  await expect(page.getByText("Máquina cadastrada", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Desativar Embaladora de teste" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Desativar" }).click();
+  await expect(page.getByText("Máquina desativada", { exact: true })).toBeVisible();
+  await page.getByRole("radio", { name: /Inativas/ }).click();
+  await expect(page.getByRole("rowheader", { name: "Embaladora de teste" })).toBeVisible();
 });
 
 test("operador não vê a gestão de usuários", async ({ page }) => {

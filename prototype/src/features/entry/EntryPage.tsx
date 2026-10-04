@@ -18,6 +18,7 @@ import {
   opLabel,
   statusFor,
   toIsoDate,
+  type Machine,
   type Shift,
 } from "@/data/machines";
 import { reloadBackendData } from "@/data/fromBackend";
@@ -287,9 +288,12 @@ export function EntryPage({ notify }: EntryPageProps) {
   const minDate = live && monthAgo < DATA_START ? monthAgo : DATA_START;
 
   const q = search.trim().toLowerCase();
+  // Máquina desativada no cadastro só aparece se já tem apontamento neste dia e turno (para mostrar o gravado)
+  const listed = (m: Machine) => !m.inactive || !!existing[m.id];
+  const listedCount = MACHINES.filter(listed).length;
   const groups = MACHINE_GROUPS.map((g) => ({
     ...g,
-    machines: g.machineIds.map(machineById).filter((m) => !q || m.name.toLowerCase().includes(q)),
+    machines: g.machineIds.map(machineById).filter((m) => listed(m) && (!q || m.name.toLowerCase().includes(q))),
   })).filter((g) => g.machines.length > 0);
 
   // Apps Script: o salvar de lá SUBSTITUI as ordens do turno, e esta tela acrescenta (D30)
@@ -402,17 +406,17 @@ export function EntryPage({ notify }: EntryPageProps) {
             <span className="font-body-small font-semibold text-subtle">Máquinas com produção</span>
             <span className="flex h-control flex-col justify-center gap-050">
               <span className="font-body-small text-subtle">
-                <span className="font-semibold tabular-nums text-default">{filled}</span> de {MACHINES.length}
+                <span className="font-semibold tabular-nums text-default">{filled}</span> de {listedCount}
               </span>
             <span
               role="progressbar"
               aria-label="Máquinas com produção"
               aria-valuenow={filled}
               aria-valuemin={0}
-              aria-valuemax={MACHINES.length}
+              aria-valuemax={listedCount}
               className="flex h-075 overflow-hidden rounded-full bg-neutral"
             >
-              <span className="h-full rounded-full bg-brand-bold" style={{ width: `${(filled / MACHINES.length) * 100}%` }} />
+              <span className="h-full rounded-full bg-brand-bold" style={{ width: `${(filled / Math.max(listedCount, 1)) * 100}%` }} />
               </span>
             </span>
           </div>

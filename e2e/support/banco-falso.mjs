@@ -12,7 +12,8 @@
 //   login: gestor@demo.local / 123456 (contas do mock do banco)
 //
 // Dados: 4 máquinas (ids 11–14), agosto e setembro/2026 até 21/09, feriado 07/09.
-// Erros simulados: OP "9999999" na máquina 12; trocar para o TURNO 3; cadastrar 31/12 no calendário.
+// Erros simulados: OP "9999999" na máquina 12; trocar para o TURNO 3; cadastrar 31/12 no calendário;
+// máquina com "recusa" no nome.
 // No Windows o caminho começa com a letra do disco (C:/...): o /@fs/ precisa da barra
 const CWD = process.cwd().split("\\").join("/").replace(/^(?!\/)/, "/");
 const R = "/@fs" + CWD + "/src/lib/repositories/mock";
@@ -90,7 +91,18 @@ export const mockDataSource = {
     async bulkDelete(ids) { window.__calls = window.__calls || []; window.__calls.push({ bulkDelete: ids }); F.records = F.records.filter(r => !ids.includes(r.id)); },
     async bulkMove(ids, d) { window.__calls = window.__calls || []; window.__calls.push({ bulkMove: ids, d }); for (const r of F.records) if (ids.includes(r.id)) r.date = d; },
     async bulkEditTurno(ids, t) { window.__calls = window.__calls || []; window.__calls.push({ bulkEditTurno: ids, t }); if (t === "TURNO 3") throw new Error("Já existe apontamento desta máquina neste dia e turno."); for (const r of F.records) if (ids.includes(r.id)) r.turno = t; } },
-  machines: { async getMachines() { return { machines: F.machines, allMachines: F.machines }; }, addMachine: no, toggleMachine: no },
+  machines: {
+    async getMachines() { return { machines: F.machines.filter(m => m.status !== "inativo"), allMachines: F.machines }; },
+    async addMachine(name, defaultMeta) {
+      window.__calls = window.__calls || []; window.__calls.push({ addMachine: name, defaultMeta });
+      if (/recusa/i.test(name)) throw new Error("Você não tem permissão para cadastrar máquinas.");
+      F.machines.push({ id: 100 + F.machines.length, name, hasMeta: true, defaultMeta, status: "ativo" });
+    },
+    async toggleMachine(id) {
+      window.__calls = window.__calls || []; window.__calls.push({ toggleMachine: id });
+      const m = F.machines.find(x => x.id === id); m.status = m.status === "inativo" ? "ativo" : "inativo"; return { newStatus: m.status };
+    },
+  },
   targets: (() => {
     F.steps = F.steps || [
       { machineId: 11, quantity: 11000, validFrom: "2026-08-01", basis: "per_shift", createdBy: "Gestor Demo", createdAt: "2026-07-30T10:00:00Z" },

@@ -149,6 +149,7 @@ export function buildBackendData(input: BackendInput): BackendData {
         perShift,
         orders: [],
         targets: [],
+        ...(api?.status === "inativo" ? { inactive: true } : {}),
       };
       byId.set(key, m);
     }

@@ -2,7 +2,7 @@ import { ChevronDown, History, MessageSquarePlus, Plus, RefreshCw, RotateCcw, Sa
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ProdRecord } from "../../../../src/lib/api";
 import { mensagemDeErro } from "../../../../src/lib/erros";
-import { metaDoTurno } from "../../../../src/lib/metas";
+import { exigeOperadores, metaDoTurno } from "../../../../src/lib/metas";
 import {
   DATA_END,
   DATA_ORIGIN,
@@ -38,7 +38,7 @@ import { TagGroup } from "@/components/ui/Tag";
 import { TextArea, TextField } from "@/components/ui/TextField";
 import { DateField } from "@/components/ui/DateField";
 import { baseLabel } from "@/features/metas/metaBase";
-import { exigeOperadores, useDayTargets, type DayTarget } from "./dayTargets";
+import { useDayTargets, type DayTarget } from "./dayTargets";
 import { planSaves, type ExistingRecord } from "./payload";
 
 /* ---------- Modelo do formulário ---------- */

@@ -28,7 +28,7 @@ export function fromApi(machines: ApiMachine[], metasInfo: Record<number, MetaIn
     machines.map((m) => ({
       id: String(m.id),
       name: m.name,
-      line: lineOf(m.name),
+      line: lineOf(m.name, m.process),
       hasMeta: m.hasMeta,
       metaPerShift: m.defaultMeta ?? 0,
       basis: metasInfo[m.id]?.basis ?? "per_shift",

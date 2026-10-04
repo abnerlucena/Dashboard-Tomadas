@@ -111,12 +111,15 @@ const SHIFT_END: Record<Shift, [number, number]> = { 1: [14, 18], 2: [23, 24], 3
 const normalize = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 /**
- * Linha do centro. O contrato ainda não traz `machines.process` (pedido na
- * nota de 01/10); até lá, pelo nome. "Granel" é agrupamento de tela.
+ * Linha do centro: a do banco (`machines.process`, D37) quando vier. Sem ela
+ * (centro cadastrado pelo app, ou fonte Apps Script), deduz pelo nome.
+ * "Granel" não é linha: é agrupamento de tela, sempre pelo nome.
  */
-export function lineOf(name: string): Line {
+export function lineOf(name: string, process?: ApiMachine["process"]): Line {
   const n = normalize(name);
   if (n.includes("granel")) return "Granel";
+  if (process === "assembly") return "Montagem";
+  if (process === "packaging") return "Embalagem";
   // As embaladoras de kit de parafusos ficam na montagem
   if ((n.includes("embaladora") || n.includes("embalagem")) && !n.includes("parafuso")) return "Embalagem";
   return "Montagem";
@@ -142,7 +145,7 @@ export function buildBackendData(input: BackendInput): BackendData {
       m = {
         id: key,
         name: api?.name || name || `Centro ${id}`,
-        line: lineOf(api?.name || name || ""),
+        line: lineOf(api?.name || name || "", api?.process),
         hasTarget: !!api?.hasMeta,
         regime: 2,
         dailyTarget: 0,
@@ -184,6 +187,12 @@ export function buildBackendData(input: BackendInput): BackendData {
           overtime: rec.workMode === "overtime",
           operatorCount: rec.operatorCount && rec.operatorCount > 0 ? rec.operatorCount : null,
           notes: String(rec.obs ?? "").trim(),
+          orders: (rec.ordensProducao ?? []).map((o) => ({
+            op: String(o.ordemId ?? "").trim(),
+            quantity: Math.round(Number(o.quantidade) || 0),
+            rework: o.retrabalho === true,
+            note: String(o.obs ?? "").trim(),
+          })),
         }
       : undefined;
     const push = (opId: string, quantity: number, rework: boolean, note: string | undefined) =>

@@ -31,7 +31,7 @@ de 03/10 desta pasta. Este arquivo resume o estado e o caminho.
 | Acesso, Usuários, permissões | lê e grava |
 | Dashboard, linhas, turnos, Ranking, Retrabalho, Relatórios, Modo TV | lê (`src/data/fromBackend.ts` → `installBackendData` em `machines.ts`) |
 | **Apontamento** | grava (`saveEntries`, uma máquina por chamada; acrescenta ordens, D30) |
-| **Histórico** | grava: excluir, mover, trocar turno e observação, no apontamento inteiro. Corrigir quantidade/OP espera o `updateEntry` |
+| **Histórico** | grava: excluir, mover e trocar turno em lote; "Editar" corrige o apontamento inteiro pelo `updateEntry` (04/10) |
 | **Metas** | grava (`saveMetas`, só as alteradas; vigência ≥ hoje) |
 | OPs, Feedbacks | "ainda não ligada ao banco" (não há tabela de OP nem de conversa) |
 | **Calendário** | grava (feito em 04/10, ver `2026-10-04-calendario-ligado.md`) |
@@ -62,13 +62,13 @@ de 03/10 desta pasta. Este arquivo resume o estado e o caminho.
    - Permissão: `machines.manage`.
    - O banco tem `create_machine` com base e lotação (D53), mas o contrato só expõe nome e
      meta. Se a tela precisar, proponha o tipo em vez de inventar.
-3. **Quando o branch do banco `claude/operadores-obrigatorios` chegar à `main`:**
+3. ~~**Quando o branch do banco chegar à `main`:**~~ **Feito em 04/10** (a #28 entrou):
    - trazer a `main`;
    - trocar a cópia de `exigeOperadores` (em `dayTargets.ts`) pelo import de
      `src/lib/metas.ts`;
    - trocar `lineOf` (dedução da linha pelo nome, em `fromBackend.ts`) por `Machine.process`
      (`assembly`/`packaging`; Granel continua agrupamento de tela).
-4. **Quando o `updateEntry` entrar no contrato:** formato combinado na nota
+4. ~~**Quando o `updateEntry` entrar no contrato:**~~ **Feito em 04/10** (`history/EditRecordDialog.tsx`, `editPlan.ts`). formato combinado na nota
    `2026-10-03-historico-e-updateentry.md`. O diálogo "Editar" do Histórico passa a editar
    o apontamento inteiro: lista de OPs, turno, regime, observação e nº de pessoas.
 5. **Arestas que ficaram:**
@@ -80,9 +80,10 @@ de 03/10 desta pasta. Este arquivo resume o estado e o caminho.
 
 ## Pendências do lado do banco (não esperar; só saber)
 
-- `bulkMove` e `bulkEditTurno` não recalculam a meta ao mover (defeito achado por eles).
-  Já estão ligados no Histórico.
-- `updateEntry`, `basis` no histórico de metas e a capacidade real (D58).
+- ~~`bulkMove` e `bulkEditTurno` não recalculam a meta~~: corrigido no banco (D59).
+- `basis` no histórico de metas e a capacidade real (D58).
+- Respostas às notas de 04/10: calendário (`dateTo`, `scope`) e cadastro de máquinas
+  (`addMachine` completo, `updateMachine`).
 
 ## Como verificar (o que rodar antes de cada push)
 

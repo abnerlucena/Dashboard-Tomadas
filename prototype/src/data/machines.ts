@@ -130,6 +130,19 @@ export interface ProductionRecordInfo {
   operatorCount: number | null;
   /** observação do apontamento */
   notes: string;
+  /**
+   * As OPs exatamente como o banco guarda (com a observação de cada uma). As
+   * linhas da tabela são derivadas e misturam as observações; corrigir parte daqui.
+   */
+  orders?: RecordOrder[];
+}
+
+/** Uma OP do apontamento, como no contrato (OrdemProducao) */
+export interface RecordOrder {
+  op: string;
+  quantity: number;
+  rework: boolean;
+  note: string;
 }
 
 export interface DayPoint {

@@ -25,14 +25,6 @@ export interface DayTarget {
   since: string;
 }
 
-/**
- * Onde a meta é por pessoa, o nº de operadores é obrigatório (D54): o banco
- * recusa o apontamento sem ele. Espelha `exigeOperadores` de src/lib/metas.ts,
- * que está no branch da sessão do banco (claude/operadores-obrigatorios) e
- * ainda não chegou à main; quando chegar, importar de lá e apagar esta cópia.
- */
-export const exigeOperadores = (base?: BaseDaMeta | null) => base === "per_operator";
-
 export type DayTargets =
   | { status: "loading" }
   | { status: "error"; message: string }

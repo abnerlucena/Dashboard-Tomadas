@@ -13,7 +13,7 @@
 //
 // Dados: 4 máquinas (ids 11–14), agosto e setembro/2026 até 21/09, feriado 07/09.
 // Erros simulados: OP "9999999" na máquina 12; trocar para o TURNO 3; cadastrar 31/12 no calendário;
-// máquina com "recusa" no nome.
+// máquina com "recusa" no nome; corrigir para um destino ocupado; A Granél (13) sem nº de pessoas.
 // No Windows o caminho começa com a letra do disco (C:/...): o /@fs/ precisa da barra
 const CWD = process.cwd().split("\\").join("/").replace(/^(?!\/)/, "/");
 const R = "/@fs" + CWD + "/src/lib/repositories/mock";
@@ -86,6 +86,22 @@ export const mockDataSource = {
         if (e.obs && e.obs.trim()) r.obs = e.obs.trim();
         if (e.operatorCount !== undefined) r.operatorCount = e.operatorCount === 0 ? null : e.operatorCount;
       }
+    },
+    async updateEntry(id, c) {
+      window.__calls = window.__calls || []; window.__calls.push({ updateEntry: id, changes: c });
+      const r = F.records.find(x => x.id === id); if (!r) throw new Error("Apontamento não encontrado.");
+      const date = c.date ?? r.date, turno = c.turno ?? r.turno, mode = c.workMode ?? (r.workMode || "regular");
+      const other = F.records.find(x => x !== r && x.machineId === r.machineId && x.date === date && x.turno === turno && (x.workMode || "regular") === mode);
+      if (other) throw new Error("Já existe apontamento da " + r.machineName.toUpperCase() + " em " + date.split("-").reverse().join("/") + ", Turno " + turno.slice(-1) + ". Corrija ou apague aquele antes.");
+      const people = c.operatorCount !== undefined ? (c.operatorCount || null) : r.operatorCount;
+      if (r.machineId === 13 && !people) throw new Error("Informe quantas pessoas trabalharam neste turno: a meta desta máquina é por pessoa.");
+      if (c.ordensProducao) {
+        r.ordensProducao = c.ordensProducao;
+        r.goodQuantity = c.ordensProducao.filter(o => !o.retrabalho).reduce((t, o) => t + o.quantidade, 0); r.producao = r.goodQuantity;
+        r.reworkQuantity = c.ordensProducao.filter(o => o.retrabalho).reduce((t, o) => t + o.quantidade, 0);
+      }
+      Object.assign(r, { date, turno, workMode: mode, operatorCount: people });
+      if (c.obs !== undefined) r.obs = c.obs;
     },
     async updateObs(record, obs) { window.__calls = window.__calls || []; window.__calls.push({ updateObs: record.id, obs }); const r = F.records.find(x => x.id === record.id); if (r) r.obs = obs; },
     async bulkDelete(ids) { window.__calls = window.__calls || []; window.__calls.push({ bulkDelete: ids }); F.records = F.records.filter(r => !ids.includes(r.id)); },

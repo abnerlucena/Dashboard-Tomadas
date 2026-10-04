@@ -48,6 +48,12 @@ describe("formatos do contrato", () => {
     expect(lineOf("Embaladora kit parafusos nº 1")).toBe("Montagem");
     expect(lineOf("Prensa Tox")).toBe("Montagem");
   });
+
+  it("usa a linha do banco quando vem, e Granel continua pelo nome", () => {
+    expect(lineOf("Embaladora kit parafusos nº 1", "packaging")).toBe("Embalagem");
+    expect(lineOf("Embaladora horizontal nº 1", "assembly")).toBe("Montagem");
+    expect(lineOf("Bancada de embalagem A Granél", "packaging")).toBe("Granel");
+  });
 });
 
 describe("buildBackendData", () => {

@@ -40,8 +40,10 @@ import { DateField } from "@/components/ui/DateField";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { useAccess } from "@/features/access/AccessContext";
 import { reloadBackendData } from "@/data/fromBackend";
-import type { ProdRecord } from "../../../../src/lib/api";
+import type { UpdateEntryChanges } from "../../../../src/lib/repositories/types";
 import { mensagemDeErro } from "../../../../src/lib/erros";
+import { EditRecordDialog } from "./EditRecordDialog";
+import { originalOf, type EditOriginal } from "./editPlan";
 
 const time = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" });
 const monthTitle = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" });
@@ -58,6 +60,8 @@ type Dialog =
   | { kind: "delete"; ids: string[] }
   | { kind: "move"; ids: string[]; day: string }
   | { kind: "edit"; order: ProductionOrder; draft: { qty: string; shift: Shift; rework: boolean; note: string } }
+  /** Com o banco: corrigir o apontamento inteiro (updateEntry) */
+  | { kind: "record"; order: ProductionOrder; original: EditOriginal }
   | null;
 
 export function HistoryPage({ notify }: { notify: Notify }) {
@@ -202,20 +206,24 @@ export function HistoryPage({ notify }: { notify: Notify }) {
       `Antes em ${formatLongDate(date)}`,
     );
   };
+  /** Banco: corrige o apontamento inteiro. O erro sobe para o diálogo, que o mostra sem fechar */
+  const saveRecord = async (order: ProductionOrder, changes: UpdateEntryChanges) => {
+    if (!client.reads || !order.record) return;
+    await client.reads.production.updateEntry(order.record.id, changes, session);
+    try {
+      await reloadBackendData(client.reads, session);
+      setOrders(ALL_ORDERS);
+    } catch {
+      notify("Salvo, mas a tela não atualizou", "Recarregue a página para ver os números novos.", "error");
+    }
+    setSelected(new Set());
+    setDialog(null);
+    if (changes.date) setDate(fromIsoDate(changes.date));
+    notify("Apontamento corrigido", `${machineById(order.machineId).name} · ${formatLongDate(changes.date ? fromIsoDate(changes.date) : order.date)}`);
+  };
   const saveEdit = () => {
     if (dialog?.kind !== "edit") return;
     const { order, draft } = dialog;
-    // Banco: por ora só a observação do apontamento (updateObs). Quantidade, OP,
-    // turno e retrabalho esperam o `updateEntry` proposto pela sessão do banco.
-    if (live && client.reads && order.record) {
-      const reads = client.reads;
-      const id = order.record.id;
-      return persist(
-        () => reads.production.updateObs({ id } as ProdRecord, draft.note.trim(), session),
-        draft.note.trim() ? "Observação atualizada" : "Observação apagada",
-        `${machineById(order.machineId).name} · ${formatLongDate(order.date)}`,
-      );
-    }
     apply(
       orders.map((o) =>
         o.id === order.id
@@ -353,15 +361,17 @@ export function HistoryPage({ notify }: { notify: Notify }) {
                 <>
                   <MenuItem
                     icon={Pencil}
-                    onSelect={() =>
+                    onSelect={() => {
+                      const original = live ? originalOf(o) : null;
+                      if (original) return setDialog({ kind: "record", order: o, original });
                       setDialog({
                         kind: "edit",
                         order: o,
-                        draft: { qty: String(o.quantity), shift: o.shift, rework: o.rework, note: (live ? o.record?.notes : o.note?.text) ?? "" },
-                      })
-                    }
+                        draft: { qty: String(o.quantity), shift: o.shift, rework: o.rework, note: o.note?.text ?? "" },
+                      });
+                    }}
                   >
-                    {live ? "Editar observação" : "Editar"}
+                    Editar
                   </MenuItem>
                   <MenuItem icon={CalendarPlus} onSelect={() => setDialog({ kind: "move", ids: [o.id], day: "" })}>
                     Mover para outra data
@@ -643,27 +653,9 @@ export function HistoryPage({ notify }: { notify: Notify }) {
       <Modal
         open={dialog?.kind === "edit"}
         onOpenChange={(o) => !o && setDialog(null)}
-        title={dialog?.kind === "edit" ? (live ? "Observação do apontamento" : `Editar ${dialog.order.opId}`) : ""}
+        title={dialog?.kind === "edit" ? `Editar ${dialog.order.opId}` : ""}
         primary={{ label: "Salvar", isLoading: busy, onClick: () => !editError && saveEdit() }}
       >
-        {dialog?.kind === "edit" && live && (
-          <div className="flex flex-col gap-200">
-            <p className="text-subtle">
-              {machineById(dialog.order.machineId).name} · {formatLongDate(dialog.order.date)} · {SHIFT_META[dialog.order.shift].label}
-            </p>
-            <TextArea
-              label="Observação"
-              maxLength={500}
-              value={dialog.draft.note}
-              onChange={(e) => setDialog({ ...dialog, draft: { ...dialog.draft, note: e.target.value } })}
-              helper="Vale para o apontamento inteiro da máquina neste turno. Vazia apaga."
-            />
-            <p className="font-body-small text-subtlest">
-              Corrigir quantidade, OP ou retrabalho ainda não é possível por aqui: depende de uma operação nova que a camada de dados
-              está preparando.
-            </p>
-          </div>
-        )}
         {dialog?.kind === "edit" && !live && (
           <div className="flex flex-col gap-200">
             <p className="text-subtle">
@@ -706,6 +698,17 @@ export function HistoryPage({ notify }: { notify: Notify }) {
           </div>
         )}
       </Modal>
+
+      {dialog?.kind === "record" && (
+        <EditRecordDialog
+          key={dialog.order.id}
+          order={dialog.order}
+          original={dialog.original}
+          minDate={toIsoDate(DATA_START)}
+          onClose={() => setDialog(null)}
+          onSave={(changes) => saveRecord(dialog.order, changes)}
+        />
+      )}
     </>
   );
 }

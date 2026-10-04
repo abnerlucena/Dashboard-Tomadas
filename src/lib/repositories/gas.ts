@@ -106,6 +106,7 @@ export const gasDataSource: DataSource = {
     getHolidays: (session) => api("getHolidays", {}, session),
     async addHoliday(date, label, type, session) { await api("addHoliday", { date, label, type }, session); },
     async removeHoliday(id, session) { await api("removeHoliday", { id }, session); },
+    async addHolidays() { throw new Error("Cadastrar vários dias de uma vez só existe no modo Supabase."); },
   },
 
   users: {
@@ -119,6 +120,16 @@ export const gasDataSource: DataSource = {
     async getPermissions() { throw new Error("Permissões por usuário só existem no modo Supabase."); },
     async setPermissions() { throw new Error("Permissões por usuário só existem no modo Supabase."); },
     async listRoles() { return []; },
+  },
+
+  workOrders: {
+    list: async () => { throw new Error("OPs só existem no modo Supabase."); },
+    create: async () => { throw new Error("OPs só existem no modo Supabase."); },
+    update: async () => { throw new Error("OPs só existem no modo Supabase."); },
+    setStage: async () => { throw new Error("OPs só existem no modo Supabase."); },
+    conversation: async () => { throw new Error("OPs só existem no modo Supabase."); },
+    postMessage: async () => { throw new Error("OPs só existem no modo Supabase."); },
+    markRead: async () => { throw new Error("OPs só existem no modo Supabase."); },
   },
 
   alerts: {

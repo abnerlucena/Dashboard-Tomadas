@@ -4,6 +4,7 @@ import { supabaseAuth } from "./auth";
 import { supabaseProduction } from "./production";
 import { supabaseCalendar, supabaseMachines, supabaseTargets } from "./catalog";
 import { supabaseAlerts, supabaseUsers } from "./users";
+import { supabaseWorkOrders } from "./workOrders";
 
 export const supabaseDataSource: DataSource = {
   kind: "supabase",
@@ -13,6 +14,7 @@ export const supabaseDataSource: DataSource = {
   targets: supabaseTargets,
   calendar: supabaseCalendar,
   users: supabaseUsers,
+  workOrders: supabaseWorkOrders,
   alerts: supabaseAlerts,
 };
 

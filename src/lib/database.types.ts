@@ -868,8 +868,145 @@ export type Database = {
           },
         ]
       }
+      work_order_messages: {
+        Row: {
+          id: string
+          work_order_id: string
+          author_id: string | null
+          body: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          work_order_id?: string
+          author_id?: string | null
+          body?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          work_order_id?: string
+          author_id?: string | null
+          body?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      work_order_reads: {
+        Row: {
+          user_id: string
+          work_order_id: string
+          last_read_at: string
+        }
+        Insert: {
+          user_id?: string
+          work_order_id?: string
+          last_read_at?: string
+        }
+        Update: {
+          user_id?: string
+          work_order_id?: string
+          last_read_at?: string
+        }
+        Relationships: []
+      }
+      work_orders: {
+        Row: {
+          id: string
+          order_number: string
+          machine_id: number
+          material_code: string | null
+          material_description: string | null
+          planned_quantity: number | null
+          stage: string
+          pause_reason: string | null
+          released_at: string | null
+          closed_at: string | null
+          source: string
+          sap_synced_at: string | null
+          created_by: string | null
+          created_at: string
+          updated_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          order_number?: string
+          machine_id?: number
+          material_code?: string | null
+          material_description?: string | null
+          planned_quantity?: number | null
+          stage?: string
+          pause_reason?: string | null
+          released_at?: string | null
+          closed_at?: string | null
+          source?: string
+          sap_synced_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          order_number?: string
+          machine_id?: number
+          material_code?: string | null
+          material_description?: string | null
+          planned_quantity?: number | null
+          stage?: string
+          pause_reason?: string | null
+          released_at?: string | null
+          closed_at?: string | null
+          source?: string
+          sap_synced_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_by?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
+      work_order_conversation: {
+        Row: {
+          id: string | null
+          work_order_id: string | null
+          created_at: string | null
+          author_id: string | null
+          kind: string | null
+          body: string | null
+          shift_id: number | null
+          is_rework: boolean | null
+        }
+        Relationships: []
+      }
+      work_order_summary: {
+        Row: {
+          id: string | null
+          order_number: string | null
+          machine_id: number | null
+          material_code: string | null
+          material_description: string | null
+          planned_quantity: number | null
+          stage: string | null
+          pause_reason: string | null
+          released_at: string | null
+          closed_at: string | null
+          source: string | null
+          sap_synced_at: string | null
+          created_by: string | null
+          created_at: string | null
+          updated_by: string | null
+          updated_at: string | null
+          produced_quantity: number | null
+          rework_quantity: number | null
+          entry_count: number | null
+          last_entry_at: string | null
+        }
+        Relationships: []
+      }
       current_machine_targets: {
         Row: {
           basis: string | null
@@ -913,6 +1050,63 @@ export type Database = {
       }
     }
     Functions: {
+      create_work_order: {
+        Args: {
+          p_order_number: string
+          p_machine_id: number
+          p_material_code?: string
+          p_material_description?: string
+          p_planned_quantity?: number
+        }
+        Returns: string
+      }
+      importar_ops_do_sap: {
+        Args: {
+          p_ops: Json
+        }
+        Returns: number
+      }
+      mark_work_order_read: {
+        Args: {
+          p_id: string
+        }
+        Returns: undefined
+      }
+      post_work_order_message: {
+        Args: {
+          p_id: string
+          p_body: string
+        }
+        Returns: string
+      }
+      set_work_order_stage: {
+        Args: {
+          p_id: string
+          p_stage: string
+          p_reason?: string
+        }
+        Returns: undefined
+      }
+      update_work_order: {
+        Args: {
+          p_id: string
+          p_machine_id?: number
+          p_material_code?: string
+          p_material_description?: string
+          p_planned_quantity?: number
+        }
+        Returns: undefined
+      }
+      add_calendar_events: {
+        Args: {
+          p_dates: string[]
+          p_description: string
+          p_event_type: string
+          p_scope?: string
+          p_shift_ids?: number[]
+        }
+        Returns: number
+      }
       approve_user: {
         Args: {
           p_user_id: string

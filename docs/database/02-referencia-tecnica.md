@@ -1,6 +1,6 @@
 # Referência Técnica do Schema
 
-> Versão do schema: `v0.24.0` · Última atualização: 03/10/2026 · Status: **implementado no Supabase**, no projeto que virou o de produção (D55), com o histórico da planilha já carregado. A interface oficial é a de `prototype/` (D56). O sistema em uso na fábrica continua sendo o Google Sheets até a virada.
+> Versão do schema: `v0.26.0` · Última atualização: 04/10/2026 · Status: **implementado no Supabase**, no projeto que virou o de produção (D55), com o histórico da planilha já carregado. A interface oficial é a de `prototype/` (D56). O sistema em uso na fábrica continua sendo o Google Sheets até a virada.
 > SGBD: PostgreSQL (Supabase) · Schema: `public` (+ `auth`, gerenciado pelo Supabase)
 > Decisões citadas como `[Dxx]` estão em [03-decisoes.md](03-decisoes.md).
 
@@ -109,6 +109,35 @@ Exclusão física bloqueada por FK quando houver produção; desativar via `stat
 | `created_at` | `timestamptz` | NN, default `now()` | |
 
 Índices: `(production_record_id)`, `(order_number)`. [D09]
+
+### 3.4b `work_orders` (migration 0036) [D62]
+| Coluna | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `id` | `uuid` | PK | |
+| `order_number` | `text` | NN, UNIQUE, CHECK só números, 1 a 15 | Chave natural: liga a OP ao apontamento (`production_orders.order_number`) e é por ela que a carga do SAP reconhece a OP |
+| `machine_id` | `integer` | NN, FK `machines` | |
+| `material_code` | `text` | CHECK só números, até 18 | O material pertence à OP, não ao apontamento |
+| `material_description` | `text` | | |
+| `planned_quantity` | `integer` | CHECK `> 0` | Quantidade pedida |
+| `stage` | `text` | NN, default `waiting`, CHECK | `pending_review` (a conferir), `waiting`, `running`, `paused`, `done` |
+| `pause_reason` | `text` | CHECK: preenchido se e só se `paused` | |
+| `released_at`, `closed_at` | `timestamptz` | | Liberação e conclusão |
+| `source` | `text` | NN, default `app`, CHECK | `app`, `apontamento` (nasceu de um número novo) ou `sap` |
+| `sap_synced_at` | `timestamptz` | | Última carga do SAP |
+| `created_by`, `created_at`, `updated_by`, `updated_at` | | | Auditoria |
+
+Sem chave estrangeira para `production_orders`: o histórico tem `IMPORTADO`,
+que não é OP. RLS: lê quem aponta (`production.create`) ou vê feedbacks.
+Escrita só pelas funções.
+
+### 3.4c `work_order_messages` e `work_order_reads` (migration 0036) [D62]
+`work_order_messages`: `id`, `work_order_id` (FK, `ON DELETE CASCADE`),
+`author_id` (nulo = mensagem do sistema), `body`, `created_at`. Lê quem tem
+`feedbacks.view`. O operador não escreve aqui: a observação dele aparece pela
+view `work_order_conversation`.
+
+`work_order_reads`: (`user_id`, `work_order_id`) PK, `last_read_at`. Cada pessoa
+só lê a própria linha.
 
 ### 3.5 `machine_downtimes` ✅ implementada em 20/09/2026 *(sem uso — integração SFM futura)*
 | Coluna | Tipo | Restrições | Descrição |
@@ -338,6 +367,13 @@ Ambas criadas com `security_invoker = true`: respeitam o RLS de quem consulta.
 | `insert_production_orders(record_id, orders jsonb, permite_importado boolean = false)` | `integer` | Interna. Recusa nº de OP fora do formato de 1 a 15 dígitos (D57); `IMPORTADO` só é aceito com `permite_importado`, que só a correção de um apontamento importado liga (D59) |
 | `refazer_meta_do_apontamento(id)` | `void` | Interna. Troca a meta e a base gravadas no apontamento pelas do seu dia atual; não toca nos importados (D59) |
 | `reconstruir_metas_historicas()` | `integer` | Refaz a linha do tempo de metas anterior a 25/09/2026 a partir das metas dos apontamentos importados; não deixa máquina sem degrau; repetível. Rodar depois de cada importação de histórico. Dono do banco ou `import.manage` (D60) |
+| `add_calendar_events(dates date[], description, event_type, scope = 'company', shift_ids smallint[] = null)` | `integer` | O mesmo evento em vários dias, tudo ou nada; dia repetido conta uma vez; até 366 dias; turnos vazios = dia inteiro. Exige `calendar.manage` (D61) |
+| `create_work_order(order_number, machine_id, material_code?, material_description?, planned_quantity?)` | `uuid` | Cadastra a OP aguardando liberação. Exige `work_orders.manage` (D62) |
+| `update_work_order(id, machine_id?, material_code?, material_description?, planned_quantity?)` | `void` | Corrige os dados; numa OP "a conferir", conferi-la (passa a aguardar). Exige `work_orders.manage` |
+| `set_work_order_stage(id, stage, reason?)` | `void` | Só as passagens da tela; pausar exige motivo; cada passagem vira mensagem do sistema. Exige `work_orders.manage` |
+| `post_work_order_message(id, body)` | `uuid` | Escreve na conversa; OP concluída não aceita. Exige `feedbacks.view` |
+| `mark_work_order_read(id)` | `void` | Marca a conversa como lida para quem chamou |
+| `importar_ops_do_sap(ops jsonb)` | `integer` | Upsert pelo número. O SAP manda nos dados; a situação é da fábrica. `import.manage` ou dono do banco (D62) |
 | `descrever_destino(machine_id, date, shift_id, work_mode)` | `text` | Interna. Texto do destino para as mensagens de destino ocupado (D59) |
 
 ### 6.2 Funções RPC (chamadas pelo app)

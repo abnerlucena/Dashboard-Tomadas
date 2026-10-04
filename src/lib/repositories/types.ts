@@ -6,7 +6,7 @@
 //
 // As respostas mantêm o formato das respostas do Apps Script, para que as
 // telas não precisem ser reescritas agora.
-import type { Session, Machine, Holiday, ProdRecord, OrdemProducao } from "../api";
+import type { Session, Machine, Holiday, HolidayScope, ProdRecord, OrdemProducao } from "../api";
 import type { BaseDaMeta } from "../metas";
 
 export type DataSourceKind = "gas" | "supabase" | "mock";
@@ -81,6 +81,62 @@ export interface UpdateEntryChanges {
   workMode?: "regular" | "overtime";
   obs?: string;
   operatorCount?: number;
+}
+
+/**
+ * Situação de uma OP (D62). "pending_review" = a conferir: nasceu de um
+ * apontamento com número ainda não cadastrado.
+ */
+export type WorkOrderStage = "pending_review" | "waiting" | "running" | "paused" | "done";
+
+/** Uma OP, com o que já foi produzido nela. */
+export interface WorkOrderRecord {
+  id: string;
+  /** Só números, até 15 dígitos (D57). É por ele que o apontamento se liga à OP. */
+  orderNumber: string;
+  machineId: number;
+  materialCode: string | null;
+  materialDescription: string | null;
+  plannedQuantity: number | null;
+  /** Soma dos apontamentos desta OP, sem o retrabalho. */
+  producedQuantity: number;
+  reworkQuantity: number;
+  stage: WorkOrderStage;
+  pauseReason: string | null;
+  releasedAt: string | null;
+  closedAt: string | null;
+  /** De onde veio: cadastrada no app, criada por um apontamento ou vinda do SAP. */
+  source: "app" | "apontamento" | "sap";
+  createdAt: string;
+  lastEntryAt: string | null;
+  /** Mensagens que EU ainda não li, sem contar as minhas. */
+  unread: number;
+}
+
+/** Uma linha da conversa de uma OP. */
+export interface WorkOrderMessage {
+  id: string;
+  workOrderId: string;
+  at: string;
+  /**
+   * message = alguém escreveu; system = o sistema registrou ("OP liberada…");
+   * operator_note = a observação que o operador deixou no apontamento.
+   */
+  kind: "message" | "system" | "operator_note";
+  /** Nome de quem escreveu; vazio nas mensagens do sistema. */
+  author: string;
+  text: string;
+  /** Só nas observações do operador: o turno e se era retrabalho. */
+  shiftId: number | null;
+  rework: boolean;
+}
+
+export interface NewWorkOrder {
+  orderNumber: string;
+  machineId: number;
+  materialCode?: string;
+  materialDescription?: string;
+  plannedQuantity?: number;
 }
 
 export interface SaveEntriesOptions {
@@ -232,6 +288,18 @@ export interface DataSource {
     getHolidays(session: Session | null): Promise<{ holidays?: Holiday[] | unknown[] }>;
     addHoliday(date: string, label: string, type: Holiday["type"], session: Session | null, shiftIds?: number[]): Promise<void>;
     removeHoliday(id: string, session: Session | null): Promise<void>;
+    /**
+     * Cadastra o mesmo evento em VÁRIOS dias, tudo ou nada (D61): férias
+     * coletivas, ponte. Se um dia falhar, nenhum entra. Dia repetido na lista
+     * conta uma vez. Até 366 dias por chamada.
+     *
+     * `scope` padrão: "company". `shiftIds` vazio = o dia inteiro.
+     * Devolve quantos dias entraram. Só modo Supabase.
+     */
+    addHolidays(
+      dates: string[], label: string, type: Holiday["type"], session: Session | null,
+      options?: { shiftIds?: number[]; scope?: HolidayScope },
+    ): Promise<number>;
   };
 
   users: {
@@ -260,6 +328,36 @@ export interface DataSource {
      * quem concedeu o quê, que é justamente o que o gestor pediu para manter.
      */
     setPermissions(userId: string, permissions: string[], session: Session | null): Promise<void>;
+  };
+
+  /**
+   * OPs (D62). Só modo Supabase.
+   *
+   * Quem aponta vê a lista (para escolher a OP da máquina); quem vê feedbacks
+   * vê também a conversa. Cadastrar, corrigir e mudar a situação pede
+   * `work_orders.manage` (distribuidor para cima).
+   */
+  workOrders: {
+    list(session: Session | null): Promise<WorkOrderRecord[]>;
+    /** Nasce aguardando liberação. Devolve o id. */
+    create(input: NewWorkOrder, session: Session | null): Promise<string>;
+    /**
+     * Corrige os dados. Numa OP "a conferir", é assim que ela é conferida:
+     * passa a aguardar liberação.
+     */
+    update(id: string, changes: Partial<Omit<NewWorkOrder, "orderNumber">>, session: Session | null): Promise<void>;
+    /**
+     * Passagens permitidas, como na tela: aguardando → em produção;
+     * em produção → pausada (com `reason`) ou concluída; pausada → em produção
+     * ou concluída; concluída → em produção (reabrir). Cada passagem vira uma
+     * mensagem do sistema na conversa.
+     */
+    setStage(id: string, stage: Exclude<WorkOrderStage, "pending_review">, reason: string | undefined, session: Session | null): Promise<void>;
+    /** A conversa inteira, em ordem, com as observações do operador. */
+    conversation(id: string, session: Session | null): Promise<WorkOrderMessage[]>;
+    /** Escrever na conversa. O operador não escreve; OP concluída não aceita. */
+    postMessage(id: string, text: string, session: Session | null): Promise<void>;
+    markRead(id: string, session: Session | null): Promise<void>;
   };
 
   alerts: {

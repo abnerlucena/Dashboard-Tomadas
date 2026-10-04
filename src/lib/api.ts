@@ -51,7 +51,14 @@ export interface Holiday {
   // Modo Supabase: tipo original do evento e turnos afetados (vazio = dia inteiro).
   eventType?: "holiday" | "special_event" | "excluded_day";
   shiftIds?: number[];
+  /**
+   * De onde vem o evento (D61): feriado nacional, estadual (SC), municipal
+   * (Itajaí) ou da empresa (paradas, férias coletivas). Só modo Supabase.
+   */
+  scope?: HolidayScope;
 }
+
+export type HolidayScope = "national" | "state" | "municipal" | "company";
 
 export interface OrdemProducao {
   ordemId: string;

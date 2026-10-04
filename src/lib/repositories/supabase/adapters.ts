@@ -13,14 +13,15 @@
 //     passava o número cru, e três pessoas na bancada davam 300% de
 //     atingimento.
 import type { Tables } from "../../database.types";
-import type { Holiday, Machine, OrdemProducao, ProdRecord } from "../../api";
-import type { UpdateEntryChanges } from "../types";
+import type { Holiday, HolidayScope, Machine, OrdemProducao, ProdRecord } from "../../api";
+import type { UpdateEntryChanges, WorkOrderMessage, WorkOrderRecord, WorkOrderStage } from "../types";
 
 export type SummaryRow = Tables<"production_summary">;
 export type OrderRow = Pick<Tables<"production_orders">, "production_record_id" | "order_number" | "quantity" | "is_rework" | "notes">;
 export type MachineRow = Pick<Tables<"machines">, "id" | "name" | "has_target" | "status"> &
   Partial<Pick<Tables<"machines">, "standard_operator_count" | "process">>;
-export type CalendarRow = Pick<Tables<"calendar_events">, "id" | "event_date" | "description" | "event_type" | "created_by" | "created_at"> & {
+export type CalendarRow = Pick<Tables<"calendar_events">, "id" | "event_date" | "description" | "event_type" | "created_by" | "created_at"> &
+  Partial<Pick<Tables<"calendar_events">, "scope">> & {
   calendar_event_shifts?: { shift_id: number }[] | null;
 };
 
@@ -129,6 +130,72 @@ export function toUpdateEntryArgs(id: string, c: UpdateEntryChanges) {
   return args;
 }
 
+type WorkOrderRow = Tables<"work_order_summary">;
+type ConversationRow = Pick<Tables<"work_order_conversation">, "id" | "work_order_id" | "created_at" | "author_id" | "kind" | "body" | "shift_id" | "is_rework">;
+
+const STAGES: WorkOrderStage[] = ["pending_review", "waiting", "running", "paused", "done"];
+
+/**
+ * OP do banco para o formato do contrato (D62). `unread` vem calculado à
+ * parte, porque depende de quem está lendo.
+ */
+export function toWorkOrder(row: WorkOrderRow, unread = 0): WorkOrderRecord {
+  const stage = STAGES.includes(row.stage as WorkOrderStage) ? (row.stage as WorkOrderStage) : "waiting";
+  const source = row.source === "sap" || row.source === "apontamento" ? row.source : "app";
+  return {
+    id: row.id ?? "",
+    orderNumber: row.order_number ?? "",
+    machineId: row.machine_id ?? 0,
+    materialCode: row.material_code,
+    materialDescription: row.material_description,
+    plannedQuantity: row.planned_quantity,
+    producedQuantity: row.produced_quantity ?? 0,
+    reworkQuantity: row.rework_quantity ?? 0,
+    stage,
+    pauseReason: row.pause_reason,
+    releasedAt: row.released_at,
+    closedAt: row.closed_at,
+    source,
+    createdAt: row.created_at ?? "",
+    lastEntryAt: row.last_entry_at,
+    unread,
+  };
+}
+
+export function toWorkOrderMessage(row: ConversationRow, names: Map<string, string>): WorkOrderMessage {
+  const kind = row.kind === "system" || row.kind === "operator_note" ? row.kind : "message";
+  return {
+    id: row.id ?? "",
+    workOrderId: row.work_order_id ?? "",
+    at: row.created_at ?? "",
+    kind,
+    author: kind === "system" ? "" : (row.author_id && names.get(row.author_id)) || "",
+    text: row.body ?? "",
+    shiftId: row.shift_id,
+    rework: row.is_rework === true,
+  };
+}
+
+/**
+ * Quantas mensagens cada OP tem que esta pessoa ainda não leu: as posteriores
+ * à última leitura dela, sem contar as que ela mesma escreveu.
+ */
+export function contarNaoLidas(
+  linhas: { work_order_id: string | null; created_at: string | null; author_id: string | null }[],
+  leituras: Map<string, string>,
+  eu: string | undefined,
+): Map<string, number> {
+  const naoLidas = new Map<string, number>();
+  for (const l of linhas) {
+    if (!l.work_order_id || !l.created_at) continue;
+    if (eu && l.author_id === eu) continue;
+    const lida = leituras.get(l.work_order_id);
+    if (lida && l.created_at <= lida) continue;
+    naoLidas.set(l.work_order_id, (naoLidas.get(l.work_order_id) ?? 0) + 1);
+  }
+  return naoLidas;
+}
+
 export function toOrdersJson(ordens: OrdemProducao[] | undefined) {
   return (ordens || [])
     .filter(o => Number(o.quantidade) > 0)
@@ -170,6 +237,25 @@ export function toHoliday(row: CalendarRow, names: Map<string, string>): Holiday
     createdAt: row.created_at,
     eventType,
     shiftIds: (row.calendar_event_shifts || []).map(s => s.shift_id).sort(),
+    ...(isHolidayScope(row.scope) ? { scope: row.scope } : {}),
+  };
+}
+
+const isHolidayScope = (s: unknown): s is HolidayScope =>
+  s === "national" || s === "state" || s === "municipal" || s === "company";
+
+/** Argumentos de add_calendar_events (D61). */
+export function toAddCalendarArgs(
+  dates: string[], label: string, type: Holiday["type"],
+  options: { shiftIds?: number[]; scope?: HolidayScope } = {},
+) {
+  if (dates.length === 0) throw new Error("Informe ao menos um dia.");
+  return {
+    p_dates: dates,
+    p_description: label,
+    p_event_type: holidayTypeToEventType(type),
+    p_scope: options.scope ?? "company",
+    ...(options.shiftIds && options.shiftIds.length ? { p_shift_ids: options.shiftIds } : {}),
   };
 }
 

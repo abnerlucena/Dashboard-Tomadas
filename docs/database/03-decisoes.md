@@ -67,6 +67,8 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D58 | Os números de capacidade não são sigilosos | Aprovada | 03/10/2026 |
 | D59 | Mover um apontamento de dia leva a meta junto; o importado guarda a da planilha | Aprovada | 03/10/2026 |
 | D60 | A linha do tempo de metas antes de 25/09/2026 vem da planilha | Aprovada | 03/10/2026 |
+| D61 | Calendário: vários dias numa operação só, com abrangência | Aprovada | 04/10/2026 |
+| D62 | A OP passa a existir por si, com o terreno pronto para o SAP | Aprovada | 04/10/2026 |
 
 ---
 
@@ -1186,3 +1188,53 @@ ensaiada antes da virada.
 - **Alternativa rejeitada:** apagar os degraus de reserva e não pôr nada no
   lugar. Antes da primeira meta acordada não haveria meta nenhuma, e os
   apontamentos antigos não teriam com o que ser comparados.
+
+### D61 — Calendário: vários dias numa operação só, com abrangência
+- **Status:** Aprovada (04/10/2026). Migration 0035.
+- **Contexto:** a tela de Calendário da interface cadastrava um intervalo (férias
+  coletivas, ponte) como uma chamada por dia. Se uma falhasse no meio, as
+  anteriores ficavam, e o calendário ficava pela metade sem ninguém pedir. E
+  tudo entrava como "da empresa", embora o gestor vá cadastrar os feriados de SC
+  e de Itajaí (decisão de 03/10: ele mesmo cadastra, pelo site).
+- **Decisão:** uma função que recebe a lista de dias e grava tudo ou nada, com a
+  abrangência (`national`, `state`, `municipal`, `company`) que a coluna `scope`
+  já aceitava desde a criação da tabela.
+- **Por que função, e não `insert` direto da tela:** só uma função consegue ser
+  tudo ou nada numa chamada só da API. As permissões são as da RLS: `calendar.manage`.
+- **Alternativa rejeitada:** `addHoliday` com `dateTo`. Uma lista de dias
+  deixa a tela pular sábado e domingo, ou escolher dias soltos, sem o banco
+  precisar saber dessas regras.
+- **O que a tela afirma, e foi conferido:** o feriado não muda o cálculo da
+  meta, e a produção dele conta; o dia anulado tira o dia ou o turno da meta,
+  inclusive de apontamentos já feitos, porque `is_excluded_day` é calculado na
+  leitura da `production_summary` (D16).
+
+### D62 — A OP passa a existir por si, com o terreno pronto para o SAP
+- **Status:** Aprovada (04/10/2026). As quatro regras de negócio são do gestor. Migration 0036.
+- **Contexto:** a OP era só um número em cada linha de apontamento (D09). As
+  telas de OPs e de Feedbacks tratam a OP como coisa própria. Era a maior lacuna
+  do banco para a interface nova.
+- **Regras do gestor:**
+  1. **Origem:** por enquanto o distribuidor cadastra a OP no app. O objetivo é
+     puxar do SAP. → coluna `source` e uma função de carga (`importar_ops_do_sap`)
+     prontas, para a integração ser só "mandar a lista".
+  2. **OP não cadastrada no apontamento:** entra, e a OP nasce "a conferir"
+     (`pending_review`). Não trava o chão de fábrica se a liberação atrasar.
+  3. **Material:** pertence à OP, não ao apontamento.
+  4. **Conversa:** como a tela desenha. O operador não entra, mas a observação
+     dele no apontamento aparece na conversa.
+- **Decisões de desenho tiradas da tela:** as passagens de situação são as que
+  a tela oferece (liberar, pausar com motivo, retomar, concluir, reabrir); cada
+  uma vira mensagem do sistema; OP concluída encerra a conversa.
+- **Ligação pelo número, sem chave estrangeira:** o histórico tem 2.713 linhas
+  `IMPORTADO`, que não são OP nenhuma (D57).
+- **SAP manda nos dados, a fábrica manda na situação:** uma OP em produção não
+  volta para "aguardando" porque o SAP a mandou de novo.
+- **A observação do operador não é copiada para a conversa:** a view junta as
+  duas na leitura. Copiar criaria duas versões do mesmo texto, que divergiriam
+  quando a observação fosse corrigida no Histórico.
+- **Permissão nova `work_orders.manage`:** a tela usava `feedbacks.view` para
+  as OPs porque só lia. Cadastrar e mudar a situação é outra coisa, e o gestor
+  disse que é o distribuidor quem cadastra.
+- **Em aberto:** a mesma OP apontada em outra máquina não é barrada. A OP
+  continua na máquina em que foi cadastrada.

@@ -56,6 +56,33 @@ export interface ProductionEntryPayload {
   operatorCount?: number;
 }
 
+/**
+ * O que corrigir num apontamento (production.updateEntry, D59).
+ *
+ * Campo AUSENTE = não mexer. Campo VAZIO = apagar:
+ *   - `obs: ""` apaga a observação. **É o contrário do `saveEntries`**, em que
+ *     observação vazia MANTÉM a que está lá. As duas regras são de propósito:
+ *     lá se acrescenta a um apontamento, aqui se corrige. Não "conserte" uma
+ *     para ficar igual à outra.
+ *   - `operatorCount: 0` apaga o nº de pessoas (D52) — exceto onde a meta é por
+ *     pessoa, que o banco recusa (D54).
+ *   - `ordensProducao: []` tira todas as OPs: o apontamento continua, sem peça
+ *     (máquina parada).
+ *
+ * Mudar data, turno ou modo para onde já existe apontamento é RECUSADO, com o
+ * destino na mensagem ("Já existe apontamento da EMBALADORA HORIZONTAL N°1 em
+ * 08/10/2026, Turno 2…"). Juntar os dois esconderia a correção.
+ */
+export interface UpdateEntryChanges {
+  /** SUBSTITUI as OPs do apontamento (não acrescenta). Lista vazia tira todas. */
+  ordensProducao?: OrdemProducao[];
+  date?: string;
+  turno?: string;
+  workMode?: "regular" | "overtime";
+  obs?: string;
+  operatorCount?: number;
+}
+
 export interface SaveEntriesOptions {
   /** Só modo Supabase: 'overtime' marca o lote como hora extra (D27). */
   workMode?: "regular" | "overtime";
@@ -149,6 +176,21 @@ export interface DataSource {
     getAll(session: Session | null): Promise<{ data: ProdRecord[] | unknown[] }>;
     saveEntries(entries: ProductionEntryPayload[], options: SaveEntriesOptions, session: Session | null): Promise<void>;
     updateObs(record: ProdRecord, obs: string, session: Session | null): Promise<void>;
+    /**
+     * Corrige UM apontamento: OPs, quantidade, retrabalho, data, turno, modo,
+     * observação, nº de pessoas (D59). É o que a tela de Histórico usa.
+     *
+     * Diferente de `saveEntries`, que ACRESCENTA OPs a um apontamento (D30),
+     * aqui as OPs informadas SUBSTITUEM as que estavam lá.
+     *
+     * Mudar a data refaz a meta do apontamento com a do dia novo — exceto nos
+     * importados, que guardam a meta da planilha. O banco cobra as mesmas
+     * regras do apontamento: OP só com números (D57) e, onde a meta é por
+     * pessoa, o nº de pessoas (D54).
+     *
+     * Só Supabase. No Apps Script não existe.
+     */
+    updateEntry(id: string, changes: UpdateEntryChanges, session: Session | null): Promise<void>;
     bulkDelete(ids: string[], session: Session | null): Promise<void>;
     bulkMove(ids: string[], newDate: string, session: Session | null): Promise<void>;
     bulkEditTurno(ids: string[], newTurno: string, session: Session | null): Promise<void>;

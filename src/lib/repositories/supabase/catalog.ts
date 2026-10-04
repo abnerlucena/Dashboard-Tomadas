@@ -16,7 +16,7 @@ export const supabaseMachines: DataSource["machines"] = {
   async getMachines() {
     const sb = getSupabase();
     const [{ data, error }, targets] = await Promise.all([
-      sb.from("machines").select("id, name, has_target, status, standard_operator_count").order("id"),
+      sb.from("machines").select("id, name, has_target, status, standard_operator_count, process").order("id"),
       currentTargets(),
     ]);
     if (error) throw toError(error);

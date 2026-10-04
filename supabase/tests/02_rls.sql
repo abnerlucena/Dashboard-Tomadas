@@ -9,7 +9,7 @@ do $$ begin
 end $$;
 -- op1 aponta
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000b1');
-select public.save_production_record('2026-09-19'::date, 1::smallint, 18, '[{"order_number":"A","quantity":400},{"order_number":"B","quantity":100,"is_rework":true}]'::jsonb);
+select public.save_production_record('2026-09-19'::date, 1::smallint, 18, '[{"order_number":"4500006","quantity":400},{"order_number":"4500007","quantity":100,"is_rework":true}]'::jsonb);
 insert into results(test, ok, info) select 'op1 vê o próprio apontamento', count(*) = 1, count(*)::text from public.production_records where machine_id = 18;
 insert into results(test, ok, info) select 'op1 vê as próprias ordens', count(*) = 2, count(*)::text from public.production_orders o join public.production_records r on r.id = o.production_record_id where r.machine_id = 18;
 insert into results(test, ok, info) select 'op1 vê resumo com boa x retrabalho', bool_and(good_quantity = 400 and rework_quantity = 100 and target_quantity = public.machine_target_on(18, '2026-09-19')), string_agg(format('boa=%s retr=%s meta=%s', good_quantity, rework_quantity, target_quantity), ';') from public.production_summary where machine_id = 18;

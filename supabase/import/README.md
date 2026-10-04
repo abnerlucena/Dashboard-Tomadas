@@ -147,3 +147,22 @@ Em 02/09 a Embaladora Horizontal N°1 tem duas linhas para o mesmo dia e turno:
 a produção normal (célula `E8`) e um retrabalho (`AB8`, 4.800 peças). Não é
 duplicata — é **um apontamento com duas ordens**, uma normal e uma marcada
 como retrabalho, que é exatamente como o banco modela isso.
+
+## Depois de carregar: a linha do tempo de metas
+
+Cada apontamento importado guarda a meta da planilha no seu dia. Depois de cada
+carga de histórico, rode:
+
+```sql
+select public.reconstruir_metas_historicas();
+```
+
+Ela refaz a linha do tempo de metas anterior a 25/09/2026 a partir dessas metas
+(D60). É repetível.
+
+## Meta do retrabalho em texto
+
+Retrabalho escrito em texto, revisado caso a caso em `mapa.cjs`, recebe a meta
+do centro naquele dia, pela mesma regra da produção. Até 03/10/2026 ele recebia
+a meta do dia da importação, e dois turnos ficaram medidos contra a meta errada
+(corrigidos pela migration 0032).

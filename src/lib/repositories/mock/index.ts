@@ -23,6 +23,7 @@ export const mockDataSource: DataSource = {
     async getAll() { return { data: [] }; },
     saveEntries: semBanco,
     updateObs: semBanco,
+    updateEntry: semBanco,
     bulkDelete: semBanco,
     bulkMove: semBanco,
     bulkEditTurno: semBanco,

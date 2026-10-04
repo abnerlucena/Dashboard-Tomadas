@@ -22,7 +22,7 @@ do $$ declare v uuid; begin
 exception when others then insert into results(test, ok, info) values ('op1 completa o próprio', false, sqlerrm); end $$;
 -- 4. hora extra no mesmo turno vira outra linha e não conta para meta
 do $$ declare v uuid; begin
-  v := public.save_production_record(((now() at time zone 'America/Sao_Paulo')::date), 1::smallint, 1, '[{"order_number":"X","quantity":100}]'::jsonb, null, null, 'overtime');
+  v := public.save_production_record(((now() at time zone 'America/Sao_Paulo')::date), 1::smallint, 1, '[{"order_number":"4500001","quantity":100}]'::jsonb, null, null, 'overtime');
   insert into results(test, ok, info) values ('hora extra separada', true, (select format('modo=%s conta_meta=%s', work_mode, counts_toward_target) from public.production_summary where id=v));
 exception when others then insert into results(test, ok, info) values ('hora extra separada', false, sqlerrm); end $$;
 -- 4b. operador lê os próprios apontamentos? (antes do RLS: nenhuma política → deve ver 0)
@@ -30,7 +30,7 @@ insert into results(test, ok, info) values ('op1 leitura direta (sem RLS ainda)'
 -- 5. operador 2 tenta completar o apontamento do operador 1 → deve FALHAR
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000b2');
 do $$ begin
-  perform public.save_production_record(((now() at time zone 'America/Sao_Paulo')::date), 1::smallint, 1, '[{"order_number":"Y","quantity":1}]'::jsonb);
+  perform public.save_production_record(((now() at time zone 'America/Sao_Paulo')::date), 1::smallint, 1, '[{"order_number":"4500002","quantity":1}]'::jsonb);
   insert into results(test, ok, info) values ('op2 NÃO pode mexer no do op1', false, 'deixou gravar!');
 exception when others then insert into results(test, ok, info) values ('op2 NÃO pode mexer no do op1', true, sqlerrm); end $$;
 -- 6. operador 2 tenta mover em massa → deve FALHAR
@@ -46,7 +46,7 @@ exception when others then insert into results(test, ok, info) values ('op2 NÃO
 -- 8. usuário pendente não tem permissão nenhuma
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000d1');
 do $$ begin
-  perform public.save_production_record('2026-09-19'::date, 2::smallint, 2, '[{"order_number":"Z","quantity":1}]'::jsonb);
+  perform public.save_production_record('2026-09-19'::date, 2::smallint, 2, '[{"order_number":"4500003","quantity":1}]'::jsonb);
   insert into results(test, ok, info) values ('pendente NÃO aponta', false, 'deixou!');
 exception when others then insert into results(test, ok, info) values ('pendente NÃO aponta', true, sqlerrm); end $$;
 -- 9. conta Admin sem identificação: sem permissões; com crachá: permissões do perfil admin
@@ -74,7 +74,7 @@ do $$ declare c int; begin
   insert into results(test, ok, info) values ('Admin troca turno em massa', c = 1, c::text);
 exception when others then insert into results(test, ok, info) values ('Admin troca turno em massa', false, sqlerrm); end $$;
 do $$ begin
-  perform public.save_production_record(((now() at time zone 'America/Sao_Paulo')::date), 1::smallint, 1, '[{"order_number":"W","quantity":1}]'::jsonb);
+  perform public.save_production_record(((now() at time zone 'America/Sao_Paulo')::date), 1::smallint, 1, '[{"order_number":"4500004","quantity":1}]'::jsonb);
   perform public.bulk_update_production_records(array(select id from ids), null, 1::smallint);
   insert into results(test, ok, info) values ('colisão em massa recusada', false, 'deixou!');
 exception when others then insert into results(test, ok, info) values ('colisão em massa recusada', true, sqlerrm); end $$;
@@ -113,12 +113,12 @@ values ('2026-09-10', 3, 17, 0, null);  -- autor vazio de propósito
 set local role authenticated;
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000b1');
 do $$ begin
-  perform public.save_production_record('2026-09-10'::date, 3::smallint, 17, '[{"order_number":"S","quantity":1}]'::jsonb);
+  perform public.save_production_record('2026-09-10'::date, 3::smallint, 17, '[{"order_number":"4500005","quantity":1}]'::jsonb);
   insert into results(test, ok, info) values ('op1 NÃO completa apontamento sem autor', false, 'deixou!');
 exception when others then insert into results(test, ok, info) values ('op1 NÃO completa apontamento sem autor', true, sqlerrm); end $$;
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1');
 do $$ begin
-  perform public.save_production_record('2026-09-10'::date, 3::smallint, 17, '[{"order_number":"S","quantity":1}]'::jsonb);
+  perform public.save_production_record('2026-09-10'::date, 3::smallint, 17, '[{"order_number":"4500005","quantity":1}]'::jsonb);
   insert into results(test, ok, info) values ('gestora completa apontamento sem autor', true, 'ok');
 exception when others then insert into results(test, ok, info) values ('gestora completa apontamento sem autor', false, sqlerrm); end $$;
 -- 14. anon não executa funções

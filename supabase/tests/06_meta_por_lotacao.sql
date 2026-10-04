@@ -108,15 +108,16 @@ exception when others then insert into rc values (10, 'A Granél corrigida para 
 -- Mesma regra de src/lib/metas.ts: 0 cai na lotação padrão, nunca vira meta 0.
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000b1');
 
-do $$ declare m int; v_id uuid; lot int; begin
-  v_id := public.save_production_record(pg_temp.amanha(), 2::smallint,
-    pg_temp.maquina('BANCADA EMBALAGEM A GRANÉL'), '[{"order_number":"000001008005","quantity":1000}]'::jsonb,
+-- A Granél saiu daqui: desde a D54 ela RECUSA apontamento sem o número, e
+-- quem cobra isso é a suíte 07. A mecânica do zero continua valendo nas
+-- rateadas, que é onde ela ainda pode acontecer.
+do $$ declare m int; v_id uuid; begin
+  v_id := public.save_production_record(pg_temp.amanha(), 3::smallint,
+    pg_temp.maquina('EMBALADORA HORIZONTAL N°2'), '[{"order_number":"000001008005","quantity":1000}]'::jsonb,
     null, 0::smallint);
-  select coalesce(nullif(standard_operator_count, 0), 1) into lot
-    from public.machines where id = pg_temp.maquina('BANCADA EMBALAGEM A GRANÉL');
   m := pg_temp.meta_efetiva(v_id);
-  insert into rc values (26, 'A Granél com 0 pessoas: cai na lotação padrão, não em meta 0', 'aceita',
-    case when m = 25000 * lot then 'ACEITOU' else format('RECUSOU: %s', m) end);
+  insert into rc values (26, 'Horizontal N°2 com 0 pessoas: meta cheia, não meta 0', 'aceita',
+    case when m = 10000 then 'ACEITOU' else format('RECUSOU: %s', m) end);
 
   v_id := public.save_production_record(pg_temp.amanha(), 1::smallint,
     pg_temp.maquina('EMBALADORA HORIZONTAL N°2'), '[{"order_number":"000001008006","quantity":1000}]'::jsonb,
@@ -151,32 +152,34 @@ exception when others then insert into rc values (12, 'base fora da lista', 'rec
 -- nisso" chegavam ao banco do mesmo jeito (nulo), e o valor antigo ficava.
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000b1');
 do $$ declare v uuid; n int; begin
-  -- informa 3 pessoas
-  v := public.save_production_record(pg_temp.amanha(), 3::smallint,
-       pg_temp.maquina('BANCADA EMBALAGEM A GRANÉL'),
+  -- informa 3 pessoas. Numa máquina RATEADA: a A Granél não aceita mais apagar
+  -- (D54), e o que estes casos provam — gravar, manter, apagar — não é próprio
+  -- dela.
+  v := public.save_production_record(pg_temp.amanha() + 1, 3::smallint,
+       pg_temp.maquina('EMBALADORA HORIZONTAL N°2'),
        '[{"order_number":"000001008006","quantity":40000}]'::jsonb, null, 3::smallint);
   select operator_count into n from public.production_records where id = v;
   insert into rc values (15, 'grava o nº de operadores informado', 'aceita',
     case when n = 3 then 'ACEITOU' else format('RECUSOU: %s', n) end);
 
   -- não manda nada: tem de MANTER
-  perform public.save_production_record(pg_temp.amanha(), 3::smallint,
-       pg_temp.maquina('BANCADA EMBALAGEM A GRANÉL'), null, 'só uma observação');
+  perform public.save_production_record(pg_temp.amanha() + 1, 3::smallint,
+       pg_temp.maquina('EMBALADORA HORIZONTAL N°2'), null, 'só uma observação');
   select operator_count into n from public.production_records where id = v;
   insert into rc values (16, 'sem informar, mantém o que estava', 'aceita',
     case when n = 3 then 'ACEITOU' else format('RECUSOU: %s', n) end);
 
   -- manda zero: tem de APAGAR
-  perform public.save_production_record(pg_temp.amanha(), 3::smallint,
-       pg_temp.maquina('BANCADA EMBALAGEM A GRANÉL'), null, null, 0::smallint);
+  perform public.save_production_record(pg_temp.amanha() + 1, 3::smallint,
+       pg_temp.maquina('EMBALADORA HORIZONTAL N°2'), null, null, 0::smallint);
   select operator_count into n from public.production_records where id = v;
   insert into rc values (17, 'zero apaga o nº de operadores', 'aceita',
     case when n is null then 'ACEITOU' else format('RECUSOU: %s', n) end);
 
-  -- apagado, a meta por pessoa volta a usar a lotação padrão da máquina (1)
+  -- apagado, a rateada volta à meta cheia do turno
   n := pg_temp.meta_efetiva(v);
-  insert into rc values (18, 'apagado, A Granél cai na lotação padrão: 25.000', 'aceita',
-    case when n = 25000 then 'ACEITOU' else format('RECUSOU: %s', n) end);
+  insert into rc values (18, 'apagado, a rateada volta à meta cheia: 10.000', 'aceita',
+    case when n = 10000 then 'ACEITOU' else format('RECUSOU: %s', n) end);
 exception when others then insert into rc values (15, 'apagar o nº de operadores', 'aceita', 'RECUSOU: ' || sqlerrm); end $$;
 
 -- D53: a base da meta pode ser definida pelo app, e muda como qualquer outra

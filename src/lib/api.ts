@@ -32,6 +32,13 @@ export interface Machine {
   /** Só modo Supabase: lotação padrão do posto (`standard_operator_count`).
    *  Serve para ratear a meta das horizontais pela lotação real (D47). */
   standardOperatorCount?: number | null;
+  /**
+   * Linha do centro de trabalho (D37): montagem ou embalagem. Vem da coluna
+   * `machines.process`, que todo centro tem. A interface agrupava pela linha
+   * adivinhando pelo nome, e um centro renomeado mudaria de linha sem ninguém
+   * pedir. "Granel" não é linha: é um agrupamento só de tela.
+   */
+  process?: "assembly" | "packaging";
 }
 
 export interface Holiday {

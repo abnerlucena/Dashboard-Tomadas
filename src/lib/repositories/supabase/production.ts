@@ -3,7 +3,7 @@
 // Escrita: somente pelas funções do banco (RPC), que conferem permissões.
 import { getSupabase } from "../../supabase";
 import type { DataSource } from "../types";
-import { buildProdRecords, shiftIdFromTurno, toOrdersJson, type OrderRow, type SummaryRow } from "./adapters";
+import { toUpdateEntryArgs, buildProdRecords, shiftIdFromTurno, toOrdersJson, type OrderRow, type SummaryRow } from "./adapters";
 import { fetchAll, loadProfileNames, toError } from "./helpers";
 
 export const supabaseProduction: DataSource["production"] = {
@@ -45,6 +45,13 @@ export const supabaseProduction: DataSource["production"] = {
   async updateObs(record, obs) {
     if (!record.id) throw new Error("Apontamento sem identificador.");
     const { error } = await getSupabase().rpc("update_production_record", { p_id: record.id, p_notes: obs });
+    if (error) throw toError(error);
+  },
+
+  // Histórico: corrigir UM apontamento (D59). As OPs informadas substituem as
+  // que estavam; o resto, se não vier, fica como está.
+  async updateEntry(id, changes) {
+    const { error } = await getSupabase().rpc("update_production_record", toUpdateEntryArgs(id, changes));
     if (error) throw toError(error);
   },
 

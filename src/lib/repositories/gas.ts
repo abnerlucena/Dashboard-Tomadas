@@ -53,6 +53,7 @@ export const gasDataSource: DataSource = {
 
   production: {
     getAll: (session) => api("getAll", {}, session),
+    async updateEntry() { throw new Error("Corrigir um apontamento só existe no modo Supabase."); },
     async saveEntries(records, _options, session) { await api("upsert", { records }, session); },
     async updateObs(r, obs, session) {
       const nowBR = new Date().toLocaleString("pt-BR");

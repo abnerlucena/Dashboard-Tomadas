@@ -57,12 +57,24 @@ export interface ProductionEntryPayload {
 }
 
 /**
- * O que corrigir num apontamento (production.updateEntry, D59). Campo ausente
- * = não mexer. Vazio = apagar: `obs: ""` apaga a observação e
- * `operatorCount: 0` apaga o nº de pessoas (D52).
+ * O que corrigir num apontamento (production.updateEntry, D59).
+ *
+ * Campo AUSENTE = não mexer. Campo VAZIO = apagar:
+ *   - `obs: ""` apaga a observação. **É o contrário do `saveEntries`**, em que
+ *     observação vazia MANTÉM a que está lá. As duas regras são de propósito:
+ *     lá se acrescenta a um apontamento, aqui se corrige. Não "conserte" uma
+ *     para ficar igual à outra.
+ *   - `operatorCount: 0` apaga o nº de pessoas (D52) — exceto onde a meta é por
+ *     pessoa, que o banco recusa (D54).
+ *   - `ordensProducao: []` tira todas as OPs: o apontamento continua, sem peça
+ *     (máquina parada).
+ *
+ * Mudar data, turno ou modo para onde já existe apontamento é RECUSADO, com o
+ * destino na mensagem ("Já existe apontamento da EMBALADORA HORIZONTAL N°1 em
+ * 08/10/2026, Turno 2…"). Juntar os dois esconderia a correção.
  */
 export interface UpdateEntryChanges {
-  /** SUBSTITUI as OPs do apontamento. Para tirar todas, apague o apontamento. */
+  /** SUBSTITUI as OPs do apontamento (não acrescenta). Lista vazia tira todas. */
   ordensProducao?: OrdemProducao[];
   date?: string;
   turno?: string;

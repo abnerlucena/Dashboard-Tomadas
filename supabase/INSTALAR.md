@@ -16,7 +16,7 @@ Conferido em 01/10/2026, com 28 migrations.
 | 2 | **Seed estrutural** | `seed/01_estrutural.sql` |
 | 3 | Migrations **14 a 28**, na ordem | `migrations/` |
 | 4 | Feriados nacionais | `calendario/feriados.sql` |
-| 5 | Histórico da planilha | `import/` (4 passos do README de lá) |
+| 5 | Histórico da planilha, e depois `select public.reconstruir_metas_historicas();` | `import/` (4 passos do README de lá). A reconstrução refaz a linha do tempo de metas anterior a 25/09/2026 com as metas da planilha (D60) |
 | 6 | Primeiro administrador | `select public.bootstrap_admin('<e-mail>', 'admin');` |
 
 A migration 13 é `20260925100000_capacity_process_and_target_basis.sql`.

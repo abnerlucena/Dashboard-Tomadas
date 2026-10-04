@@ -45,12 +45,14 @@ describe("toUpdateEntryArgs", () => {
     expect("p_notes" in toUpdateEntryArgs("r1", { date: "2026-10-08" })).toBe(false);
   });
 
-  it("tirar todas as OPs não é correção: para isso existe apagar o apontamento", () => {
-    expect(() => toUpdateEntryArgs("r1", { ordensProducao: [] }))
-      .toThrow("Para tirar todas as OPs, apague o apontamento.");
+  // Pedido da interface (nota 2026-10-03-historico-e-updateentry): lista vazia
+  // vale, e o apontamento fica sem peça — máquina parada —, como o saveEntries
+  // só com observação. Ausente é que mantém as OPs.
+  it("lista de OPs vazia tira todas, e é diferente de não mandar", () => {
+    expect(toUpdateEntryArgs("r1", { ordensProducao: [] }).p_orders).toEqual([]);
     // Linhas com quantidade 0 não contam: sobrar só elas também é "nenhuma OP".
-    expect(() => toUpdateEntryArgs("r1", { ordensProducao: [{ ordemId: "4600009", quantidade: 0 }] }))
-      .toThrow("Para tirar todas as OPs, apague o apontamento.");
+    expect(toUpdateEntryArgs("r1", { ordensProducao: [{ ordemId: "4600009", quantidade: 0 }] }).p_orders).toEqual([]);
+    expect("p_orders" in toUpdateEntryArgs("r1", { obs: "x" })).toBe(false);
   });
 
   it("sem nada para mudar é engano de quem chamou", () => {

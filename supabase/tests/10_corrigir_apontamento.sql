@@ -140,6 +140,43 @@ do $$ begin
   insert into rc values (11, 'IMPORTADO num apontamento do app', 'recusa', 'ACEITOU');
 exception when others then insert into rc values (11, 'IMPORTADO num apontamento do app', 'recusa', 'RECUSOU'); end $$;
 
+-- ─── Destino ocupado: recusa e diz qual (0034) ──────────────────────────────
+-- 'h' está em amanhã, Turno 2. Cria outro no Turno 3 e tenta levar 'h' para lá.
+-- Bloco próprio: se ficasse no bloco que dá erro de propósito, a criação seria
+-- desfeita junto com ele e o destino nem existiria.
+do $$ begin
+  insert into ids values ('h3', public.save_production_record(pg_temp.hoje() + 1, 3::smallint,
+    pg_temp.maquina('EMBALADORA HORIZONTAL N°1'), '[{"order_number":"4600005","quantity":100}]'::jsonb,
+    null, 4::smallint));
+end $$;
+
+do $$ begin
+  perform public.update_production_record(p_id => (select id from ids where nome = 'h'), p_shift_id => 3::smallint);
+  insert into rc values (13, 'levar para um turno ocupado', 'recusa', 'ACEITOU');
+exception when others then
+  insert into rc values (13, 'destino ocupado recusa citando máquina, data e turno', 'recusa',
+    case when sqlerrm like '%EMBALADORA HORIZONTAL N°1 em ' || to_char(pg_temp.hoje() + 1, 'DD/MM/YYYY') || ', Turno 3%'
+         then 'RECUSOU' else 'ACEITOU: a mensagem não diz o destino — ' || sqlerrm end);
+end $$;
+
+do $$ begin
+  perform public.bulk_update_production_records(array[(select id from ids where nome = 'h')], null, 3::smallint);
+  insert into rc values (14, 'em massa para um turno ocupado', 'recusa', 'ACEITOU');
+exception when others then
+  insert into rc values (14, 'em massa: recusa citando o destino', 'recusa',
+    case when sqlerrm like '%Turno 3%Nada foi alterado%' then 'RECUSOU' else 'ACEITOU: ' || sqlerrm end);
+end $$;
+
+-- ─── Lista de OPs vazia: o apontamento fica sem peça (máquina parada) ───────
+-- Pedido da interface: vale como no saveEntries só com observação.
+do $$ declare n int; existe boolean; begin
+  perform public.update_production_record(p_id => (select id from ids where nome = 'h3'), p_orders => '[]'::jsonb);
+  select count(*) into n from public.production_orders where production_record_id = (select id from ids where nome = 'h3');
+  select exists (select 1 from public.production_records where id = (select id from ids where nome = 'h3')) into existe;
+  insert into rc values (15, 'lista vazia tira as OPs e o apontamento continua', 'aceita',
+    case when n = 0 and existe then 'ACEITOU' else format('RECUSOU: %s OPs, existe=%s', n, existe) end);
+exception when others then insert into rc values (15, 'lista vazia', 'aceita', 'RECUSOU: ' || sqlerrm); end $$;
+
 -- ─── Permissão: operador não corrige o apontamento de outra pessoa ──────────
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1');
 do $$ begin

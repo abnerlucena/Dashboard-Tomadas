@@ -17,6 +17,61 @@ Formato de cada entrada:
 
 ---
 
+## [0.24.0] — 03/10/2026 — A linha do tempo de metas antes de 25/09 vem da planilha
+- Status: **Implementado** — aplicadas no Supabase em 03/10/2026
+- Migrations: `20261003120000_metas_historicas_da_planilha.sql` (0031),
+  `20261003130000_meta_do_retrabalho_importado.sql` (0032),
+  `20261003140000_nenhuma_maquina_sem_meta.sql` (0033),
+  `20261003150000_destino_ocupado_diz_qual.sql` (0034)
+- Decisões: D60 (nova), D59, D13, D35, D38
+
+### O problema
+Antes de 25/09/2026 a linha do tempo de metas tinha 18 degraus de **reserva**,
+todos de 20/09, com os valores 150 a 600 do app antigo, que nunca foram reais
+(D38). Como `machine_target_on` usa o primeiro degrau para datas anteriores a
+ele, dezembro, fevereiro e agosto davam todos 500. Isso aparecia no histórico de
+metas, na porcentagem de um apontamento com data antiga e obrigou a D59 a abrir
+exceção para os importados.
+
+### Alterado
+- **0031:** função `reconstruir_metas_historicas()`. Ela deriva os degraus
+  anteriores a 25/09 das metas gravadas nos apontamentos importados (as da
+  planilha): um degrau no primeiro dia de cada valor diferente, por máquina. Os
+  degraus de reserva saem. Os acordados (25/09 em diante) não mudam. A trava de
+  vigência (D15) é desligada só durante a troca, dentro da mesma transação.
+- **0032:** a reconstrução revelou um defeito da importação. As duas células de
+  retrabalho escritas em texto (`SET 26!AB8` e `ABR 26!AN42`) tinham recebido a
+  meta de hoje, e não a da planilha naquele dia. Dois turnos estavam medidos
+  contra a meta errada: **Horizontal N°1, 02/09, T1, com 10.000 em vez de 8.000;
+  Refinatto, 27/04, T1, com 0 em vez de 1.000**. Corrigidos pela regra
+  `planilha_arrastada` (a última meta da planilha na máquina). O extrator foi
+  corrigido para não repetir isso.
+- **0033:** a 0031 deixava sem degrau nenhum a máquina sem histórico e sem meta
+  acordada. Atingiu uma, a 18 (Fechamento Tecla, inativa, meta 0). A função passou
+  a só apagar os degraus antigos de quem tem o que pôr no lugar, e o degrau da 18
+  voltou a partir da auditoria.
+- **0034:** destino ocupado ao corrigir ou mover um apontamento é recusado com
+  o destino na mensagem: *Já existe apontamento da EMBALADORA HORIZONTAL N°1 em
+  08/10/2026, Turno 2*. Pedido da interface.
+
+### Resultado
+Linha do tempo: 27 degraus derivados da planilha antes de 25/09, mais 23
+acordados. Exemplo: Horizontal N°1 com 7.000 (03/02) → 8.000 (02/03) → 10.000
+(25/09). **Todo apontamento importado bate com a meta do seu dia.**
+
+### Testes
+- Suíte 11 nova (11 casos), e a suíte 10 cresceu para 15. As 11 suítes passam.
+- A suíte 02 mostrou uma fragilidade: um caso que dá resultado **nulo** não é
+  contado nem como acerto nem como erro. Foi assim que a máquina 18 apareceu.
+  Conferir sempre `ok is not true`, e não só `not ok`.
+
+### Impacto no frontend
+- O histórico de metas (`getHistory`) mostra os degraus reais da planilha, e
+  `getMetasEm` de uma data antiga devolve a meta daquela época.
+- `updateEntry`: lista de OPs vazia passa a valer (o apontamento fica sem peça).
+
+---
+
 ## [0.23.0] — 03/10/2026 — Corrigir um apontamento, e mover de dia leva a meta junto
 - Status: **Implementado** — aplicada no Supabase em 03/10/2026
 - Migration: `20261003110000_corrigir_apontamento.sql` (0030)

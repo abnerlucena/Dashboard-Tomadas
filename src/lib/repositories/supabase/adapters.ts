@@ -116,13 +116,9 @@ export function toUpdateEntryArgs(id: string, c: UpdateEntryChanges) {
     p_operator_count?: number;
   } = { p_id: id };
 
-  if (c.ordensProducao !== undefined) {
-    const orders = toOrdersJson(c.ordensProducao);
-    // Apontamento sem OP nenhuma não faz sentido: tirar tudo é apagar, e
-    // apagar tem a sua própria operação e a sua própria permissão.
-    if (orders.length === 0) throw new Error("Para tirar todas as OPs, apague o apontamento.");
-    args.p_orders = orders;
-  }
+  // Lista vazia vale: o apontamento fica sem peça (máquina parada), como o
+  // saveEntries só com observação. Ausente é que mantém as OPs.
+  if (c.ordensProducao !== undefined) args.p_orders = toOrdersJson(c.ordensProducao);
   if (c.date !== undefined) args.p_production_date = c.date;
   if (c.turno !== undefined) args.p_shift_id = shiftIdFromTurno(c.turno);
   if (c.workMode !== undefined) args.p_work_mode = c.workMode;

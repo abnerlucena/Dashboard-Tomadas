@@ -66,6 +66,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D57 | O nº da OP é só números, até 15 | Aprovada | 03/10/2026 |
 | D58 | Os números de capacidade não são sigilosos | Aprovada | 03/10/2026 |
 | D59 | Mover um apontamento de dia leva a meta junto; o importado guarda a da planilha | Aprovada | 03/10/2026 |
+| D60 | A linha do tempo de metas antes de 25/09/2026 vem da planilha | Aprovada | 03/10/2026 |
 
 ---
 
@@ -1153,9 +1154,35 @@ ensaiada antes da virada.
   histórico seria corrigível.
 - **Alternativa rejeitada:** recalcular sempre, inclusive os importados. Trocaria
   metas reais da planilha por valores de reserva.
-- **Em aberto (não resolvido aqui):** a linha do tempo de metas anterior a
+- **~~Em aberto~~ Resolvido pela D60:** a linha do tempo de metas anterior a
   25/09/2026 continua com os valores de reserva. Isso aparece em dois lugares
   para o usuário: o histórico de metas (`getHistory`) mostra os degraus de
   reserva, e `getMetasEm` de uma data antiga devolve 500. Corrigir é trocar esses
   degraus pelos reais, derivados da planilha — decisão do gestor, porque reescreve
   a linha do tempo (D13).
+
+### D60 — A linha do tempo de metas antes de 25/09/2026 vem da planilha
+- **Status:** Aprovada (03/10/2026), pelo gestor. Migrations 0031 a 0033.
+- **Contexto:** os 18 degraus anteriores a 25/09 eram valores de reserva do app
+  antigo (150 a 600), que nunca foram reais (D38). As metas verdadeiras daquela
+  época estavam gravadas em cada apontamento importado, vindas da planilha.
+- **Decisão:** reconstruir a linha do tempo a partir dessas metas. Para cada
+  máquina, um degrau começa no primeiro dia de cada valor diferente. Os degraus
+  de 25/09 em diante, que são as metas acordadas, não mudam.
+- **Por que não fere a D13:** a D13 protege o que foi meta de verdade, para um
+  mês fechado continuar batendo. Os degraus de reserva nunca foram meta de
+  ninguém. E nenhum apontamento muda de meta por causa disto: eles são a fonte.
+- **Uma função, e não valores escritos na migration:** numa instalação do zero
+  as migrations rodam antes da importação. A função é chamada de novo depois de
+  cada carga de histórico (`INSTALAR.md`, passo 5).
+- **O que a reconstrução revelou:** duas células de retrabalho em texto tinham
+  recebido a meta do dia da importação. Dois turnos foram corrigidos pela regra
+  `planilha_arrastada` (0032), e o extrator também.
+- **E um defeito dela mesma:** na 0031 uma máquina sem histórico e sem meta
+  acordada ficou sem degrau nenhum. A 0033 só apaga os degraus antigos de quem
+  tem o que pôr no lugar, e devolveu o degrau perdido a partir da auditoria.
+- **Consequência para a D59:** a exceção dos importados ao mover de dia continua,
+  mas deixou de ser necessária. Hoje o recálculo daria o mesmo valor.
+- **Alternativa rejeitada:** apagar os degraus de reserva e não pôr nada no
+  lugar. Antes da primeira meta acordada não haveria meta nenhuma, e os
+  apontamentos antigos não teriam com o que ser comparados.

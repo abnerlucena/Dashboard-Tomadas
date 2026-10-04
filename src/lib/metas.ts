@@ -97,6 +97,21 @@ export function metaDoTurno({ cadastrada, base, pessoas, lotacaoPadrao }: Entrad
   return { ...comum, valor: Math.round((cadastrada * contadas) / lotacao) };
 }
 
+/**
+ * Onde o nº de operadores é OBRIGATÓRIO (D54).
+ *
+ * Só onde a meta é por pessoa. Nas outras bases esquecer é inofensivo: em
+ * `per_shift` o campo nem entra na conta, e em `per_shift_prorated` a meta
+ * fica a cheia, nunca maior. Só em `per_operator` o esquecimento compara um
+ * turno de três pessoas com a meta de uma, e ninguém desconfia.
+ *
+ * Espelha `public.exige_numero_de_operadores` no banco. Aqui serve para a
+ * tela avisar ANTES de salvar; quem garante é o banco.
+ */
+export function exigeOperadores(base?: BaseDaMeta | null): boolean {
+  return base === "per_operator";
+}
+
 /** Texto curto da base, para etiqueta de tela. */
 export function rotuloDaBase(base?: BaseDaMeta | null): string | null {
   if (base === "per_operator") return "por pessoa";

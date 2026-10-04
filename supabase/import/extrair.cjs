@@ -243,9 +243,23 @@ const retrabalhoDe = (aba, celula) => RETRABALHO.find((c) => c.aba === aba && c.
         // Retrabalho e observações: caso a caso, revisados pelo gestor.
         const rt = retrabalhoDe(aba, celula);
         if (rt) {
+          // A meta do retrabalho é a do CENTRO naquele dia, pela mesma regra da
+          // produção: a escrita na linha, senão a última conhecida. Antes ia
+          // "meta_de_hoje", e o apontamento montado com ela ficava medido
+          // contra a meta do dia da importação — Horizontal N°1 em 02/09 com
+          // 10.000 em vez de 8.000, Refinatto em 27/04 com 0 em vez de 1.000
+          // (D60). A coluna do retrabalho é RETRABALHO GERAL, então a meta é
+          // procurada pelas colunas que levam a este centro.
+          const colunasDoCentro = Object.keys(CENTROS).filter((k) => CENTROS[k].centro === rt.centro);
+          const daLinha = colunasDoCentro.map((k) => metaAqui[k]).find((x) => x !== undefined);
+          const arrastada = colunasDoCentro.map((k) => ultimaMeta[k]).find((x) => x !== undefined);
+          const mc = rt.vira === 'note' ? { meta: null, origem: 'sem_meta' }
+            : daLinha !== undefined ? { meta: daLinha, origem: 'planilha' }
+            : arrastada !== undefined ? { meta: arrastada, origem: 'planilha_arrastada' }
+            : { meta: null, origem: 'meta_de_hoje' };
           linhas.push({ ...base, kind: rt.vira, centro: rt.centro, data, turno: t.turno,
             modo: rt.vira === 'note' ? null : t.modo, qtd: rt.quantidade ?? null, nota: rt.nota,
-            meta: null, metaOrigem: rt.vira === 'note' ? 'sem_meta' : 'meta_de_hoje' });
+            meta: mc.meta, metaOrigem: mc.origem });
           continue;
         }
         if (col.nome === 'RETRABALHO GERAL') {

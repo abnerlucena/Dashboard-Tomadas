@@ -17,6 +17,190 @@ Formato de cada entrada:
 
 ---
 
+## [0.24.0] — 03/10/2026 — A linha do tempo de metas antes de 25/09 vem da planilha
+- Status: **Implementado** — aplicadas no Supabase em 03/10/2026
+- Migrations: `20261003120000_metas_historicas_da_planilha.sql` (0031),
+  `20261003130000_meta_do_retrabalho_importado.sql` (0032),
+  `20261003140000_nenhuma_maquina_sem_meta.sql` (0033),
+  `20261003150000_destino_ocupado_diz_qual.sql` (0034)
+- Decisões: D60 (nova), D59, D13, D35, D38
+
+### O problema
+Antes de 25/09/2026 a linha do tempo de metas tinha 18 degraus de **reserva**,
+todos de 20/09, com os valores 150 a 600 do app antigo, que nunca foram reais
+(D38). Como `machine_target_on` usa o primeiro degrau para datas anteriores a
+ele, dezembro, fevereiro e agosto davam todos 500. Isso aparecia no histórico de
+metas, na porcentagem de um apontamento com data antiga e obrigou a D59 a abrir
+exceção para os importados.
+
+### Alterado
+- **0031:** função `reconstruir_metas_historicas()`. Ela deriva os degraus
+  anteriores a 25/09 das metas gravadas nos apontamentos importados (as da
+  planilha): um degrau no primeiro dia de cada valor diferente, por máquina. Os
+  degraus de reserva saem. Os acordados (25/09 em diante) não mudam. A trava de
+  vigência (D15) é desligada só durante a troca, dentro da mesma transação.
+- **0032:** a reconstrução revelou um defeito da importação. As duas células de
+  retrabalho escritas em texto (`SET 26!AB8` e `ABR 26!AN42`) tinham recebido a
+  meta de hoje, e não a da planilha naquele dia. Dois turnos estavam medidos
+  contra a meta errada: **Horizontal N°1, 02/09, T1, com 10.000 em vez de 8.000;
+  Refinatto, 27/04, T1, com 0 em vez de 1.000**. Corrigidos pela regra
+  `planilha_arrastada` (a última meta da planilha na máquina). O extrator foi
+  corrigido para não repetir isso.
+- **0033:** a 0031 deixava sem degrau nenhum a máquina sem histórico e sem meta
+  acordada. Atingiu uma, a 18 (Fechamento Tecla, inativa, meta 0). A função passou
+  a só apagar os degraus antigos de quem tem o que pôr no lugar, e o degrau da 18
+  voltou a partir da auditoria.
+- **0034:** destino ocupado ao corrigir ou mover um apontamento é recusado com
+  o destino na mensagem: *Já existe apontamento da EMBALADORA HORIZONTAL N°1 em
+  08/10/2026, Turno 2*. Pedido da interface.
+
+### Resultado
+Linha do tempo: 27 degraus derivados da planilha antes de 25/09, mais 23
+acordados. Exemplo: Horizontal N°1 com 7.000 (03/02) → 8.000 (02/03) → 10.000
+(25/09). **Todo apontamento importado bate com a meta do seu dia.**
+
+### Testes
+- Suíte 11 nova (11 casos), e a suíte 10 cresceu para 15. As 11 suítes passam.
+- A suíte 02 mostrou uma fragilidade: um caso que dá resultado **nulo** não é
+  contado nem como acerto nem como erro. Foi assim que a máquina 18 apareceu.
+  Conferir sempre `ok is not true`, e não só `not ok`.
+
+### Impacto no frontend
+- O histórico de metas (`getHistory`) mostra os degraus reais da planilha, e
+  `getMetasEm` de uma data antiga devolve a meta daquela época.
+- `updateEntry`: lista de OPs vazia passa a valer (o apontamento fica sem peça).
+
+---
+
+## [0.23.0] — 03/10/2026 — Corrigir um apontamento, e mover de dia leva a meta junto
+- Status: **Implementado** — aplicada no Supabase em 03/10/2026
+- Migration: `20261003110000_corrigir_apontamento.sql` (0030)
+- Decisões: D59 (nova), D08, D52, D54, D57
+
+### O defeito
+Mover um apontamento de dia — um só ou em massa — não atualizava a meta. Ele
+ficava com a meta do dia antigo. Prova num apontamento real (transação desfeita):
+Horizontal N°1, 03/02/2026, meta 7.000, movido para 08/10/2026, quando a meta
+vigente é 10.000 → continuava 7.000.
+
+### Alterado
+- `update_production_record` corrige um apontamento inteiro e passa a seguir
+  D52 (zero apaga o nº de pessoas), D54 (onde a meta é por pessoa o número é
+  obrigatório, conferido na data final) e D57 (formato da OP). As OPs informadas
+  **substituem** as antigas. Valida também o modo de trabalho.
+- `update_production_record` e `bulk_update_production_records`: **mudar a data
+  refaz a meta e a base** com as do dia de destino. Trocar só o turno não mexe
+  na meta, que é do dia.
+- **Exceção: o importado mantém a meta da planilha.** Para datas anteriores a
+  25/09/2026 a linha do tempo de metas do banco guarda os valores de reserva
+  (500, 600, 160) que nunca foram reais (D38). Recalcular trocaria 7.000 por 500.
+- `insert_production_orders` ganhou `p_permite_importado`: corrigir a quantidade
+  de um apontamento importado não exige trocar a OP `IMPORTADO`. Sem isso, com a
+  D57, nenhum número do histórico seria corrigível. Num apontamento do app,
+  `IMPORTADO` continua recusado. A assinatura antiga foi derrubada antes (D53.1).
+- Função interna nova `refazer_meta_do_apontamento(id)`, para a regra morar num
+  lugar só.
+
+### Testes
+- Suíte 10 nova (12 casos). Antes da migration falhavam os casos de D52, D54, da
+  meta ao mover e o de corrigir um importado. As outras 9 suítes continuam passando.
+
+### Impacto no frontend
+- Contrato: `production.updateEntry(id, changes, session)`, com
+  `UpdateEntryChanges` em `types.ts`. Campo ausente mantém; `obs: ""` apaga a
+  observação; `operatorCount: 0` apaga as pessoas. Tirar todas as OPs é recusado
+  no próprio adaptador: para isso se apaga o apontamento.
+
+---
+
+## [0.22.0] — 03/10/2026 — O nº da OP passa a ter formato
+- Status: **Implementado** — aplicada no Supabase em 03/10/2026
+- Migration: `20261003100000_formato_do_numero_da_op.sql` (0029)
+- Decisões: D57 (nova), D35
+
+### O problema
+O banco aceitava qualquer texto como nº da OP, inclusive vazio. Foi de
+propósito enquanto a fábrica não registrava OP: o histórico inteiro entrou como
+`IMPORTADO` (D35). A interface nova pede a OP em todo apontamento, e o gestor
+definiu o formato em 03/10/2026: **só números, até 15**.
+
+### Alterado
+- `insert_production_orders` recusa OP vazia, ausente, com letra, traço ou
+  espaço no meio, ou com mais de 15 dígitos. Espaço nas pontas é tirado, não
+  recusado. A conferência acontece **antes** de gravar qualquer linha: uma OP
+  ruim no meio de várias barra o apontamento inteiro.
+- A mensagem cita a OP recusada e a regra: *Nº da OP inválido: "45-01". Use só
+  números, até 15 dígitos.*
+- Linha de OP com quantidade 0 continua sendo ignorada, e por isso não é cobrada.
+
+### Não alterado
+- Os 2.713 registros `IMPORTADO` ficam como estão. A importação grava direto na
+  tabela e não passa por esta função.
+- Não é restrição `check`, pelo mesmo motivo da D54: teria de nascer `not valid`.
+
+### Testes
+- Suíte 09 nova (11 casos). Conferido que os 6 casos da regra falham sem a
+  migration e os outros 5 já passavam.
+- As suítes 01 e 02 usavam OPs de uma letra (`"X"`, `"A"`) como dado de teste. A
+  regra nova as recusou, como devia; passaram a usar números.
+
+### Impacto no frontend
+- A tela de apontamento da interface nova já limita a 7 dígitos; o banco aceita
+  até 15. Quem decide o limite visível é a tela, desde que fique dentro de 15.
+- Contrato: `Machine` ganhou `process?: "assembly" | "packaging"` (a linha do
+  centro, D37). Não é mudança de banco: a coluna existe desde a 0013.
+
+---
+
+## [0.21.0] — 01/10/2026 — Nº de operadores obrigatório onde a meta é por pessoa
+- Status: **Implementado** — aplicada no Supabase (projeto de testes) em 01/10/2026
+- Migration: `20261001100000_operadores_obrigatorios_por_pessoa.sql` (0028)
+- Decisões: D54 (nova), D52, D48, D47, D12
+
+### O problema
+Na A Granél a meta é **por pessoa**, e a conta é `meta_cadastrada × nº de pessoas`.
+Quando ninguém informava o número, a função preenchia com a lotação padrão — que
+nessa máquina é **1**. O gestor confirmou que o padrão 1 está certo **e que o
+posto tem rotatividade constante**. As duas coisas juntas são o problema: estando
+3 pessoas e ninguém digitando, o turno era comparado com a meta de uma, e a
+máquina aparecia com 300% sem ninguém desconfiar.
+
+Nas outras bases esquecer é inofensivo: em `per_shift` o campo não entra na conta,
+e em `per_shift_prorated` a meta fica a cheia, nunca maior.
+
+### Alterado
+- `save_production_record` recusa apontamento sem o nº de operadores quando a base
+  da meta daquela máquina, naquela data, é `per_operator`. Também recusa **apagar**
+  o número (o `0` da D52) nessas máquinas.
+- Função nova `exige_numero_de_operadores(machine_id, date)`, para a regra morar
+  num lugar só em vez de ficar copiada nos dois ramos da função.
+
+### Não alterado, por decisão do gestor
+- **O passado continua lido como 1 pessoa.** Os 289 turnos importados da A Granél
+  não têm o número e nunca vão ter: a planilha nunca teve essa coluna (D35). O
+  `coalesce(..., standard_operator_count, 1)` da `production_summary` **fica**, e
+  passa a valer só para eles.
+- A importação continua podendo gravar sem o número, pelo mesmo motivo.
+- Nenhuma linha existente foi tocada.
+
+### Por que na função e não numa restrição
+`production_records` só tem política de SELECT, então a RLS já impede escrita
+direta: estas funções são a única porta. Uma restrição `check` teria de nascer
+`not valid` para não brigar com os 289 turnos antigos, e restrição `not valid` é a
+que todo mundo esquece que existe.
+
+### Impacto no frontend
+- `src/lib/metas.ts` ganhou `exigeOperadores(base)`, espelhando a função do banco.
+- A tela de apontamento marca o campo com `*`, explica no `title` por que é
+  obrigatório, pinta a borda de vermelho quando falta, e barra o salvamento com uma
+  mensagem que **cita a máquina pelo nome** — em vez de deixar o operador receber o
+  erro cru do banco no fim do lançamento.
+- **Alterar sem mandar o número continua valendo**: "não veio no pedido" ainda quer
+  dizer "mantém o que estava" (D52). Recusar aí impediria corrigir uma observação
+  sem redigitar a lotação.
+
+---
+
 ## [0.20.0] — 30/09/2026 — A base da meta pode ser definida pelo app
 - Status: **Implementado** — aplicada no Supabase (projeto de testes) em 30/09/2026
 - Commit/PR: PR #23

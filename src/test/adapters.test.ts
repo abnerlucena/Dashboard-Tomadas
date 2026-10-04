@@ -95,6 +95,14 @@ describe("adaptadores Supabase → formato das telas", () => {
     // conhece, ela precisa chegar à tela.
     expect(toMachine({ id: 2, name: "HORIZONTAL", has_target: true, status: "active", standard_operator_count: 4 }, 10000))
       .toMatchObject({ standardOperatorCount: 4 });
+    // A linha da máquina vem do banco. A interface adivinhava pelo nome, e
+    // um centro renomeado mudaria de linha sem ninguém pedir.
+    expect(toMachine({ id: 3, name: "PRENSA TOX", has_target: false, status: "active", process: "assembly" }, 0))
+      .toMatchObject({ process: "assembly" });
+    expect(toMachine({ id: 4, name: "A GRANEL", has_target: true, status: "active", process: "packaging" }, 25000))
+      .toMatchObject({ process: "packaging" });
+    // Sem a coluna na consulta, o campo fica ausente, e não um valor inventado.
+    expect(toMachine({ id: 5, name: "X", has_target: true, status: "active" }, 0).process).toBeUndefined();
     expect(holidayTypeToEventType("dia_anulado")).toBe("excluded_day");
     const h = toHoliday({
       id: "e1", event_date: "2026-12-25", description: "Natal", event_type: "holiday",

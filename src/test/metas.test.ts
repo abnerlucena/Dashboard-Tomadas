@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { metaDoTurno, dependeDaLotacao, rotuloDaBase } from "@/lib/metas";
+import { exigeOperadores, metaDoTurno, dependeDaLotacao, rotuloDaBase } from "@/lib/metas";
 
 describe("a meta do turno conforme a base (D39, D47)", () => {
   it("per_shift: a lotação não muda nada", () => {
@@ -115,5 +115,28 @@ describe("a meta do turno conforme a base (D39, D47)", () => {
     expect(rotuloDaBase("per_operator")).toBe("por pessoa");
     expect(rotuloDaBase("per_shift_prorated")).toBe("conforme a lotação");
     expect(rotuloDaBase("per_shift")).toBeNull();
+  });
+});
+
+// ─── D54: onde o número é obrigatório ───────────────────────────────────────
+// Espelha public.exige_numero_de_operadores. O gestor confirmou em 01/10/2026
+// que a lotação padrão da A Granél é 1 E que o posto tem rotatividade: as duas
+// coisas juntas faziam um turno de 3 pessoas ser comparado com a meta de uma.
+describe("exigeOperadores", () => {
+  it("exige só onde a meta é por pessoa", () => {
+    expect(exigeOperadores("per_operator")).toBe(true);
+  });
+
+  it("não exige onde a meta é rateada: esquecer deixa a meta cheia, nunca maior", () => {
+    expect(exigeOperadores("per_shift_prorated")).toBe(false);
+  });
+
+  it("não exige na meta fixa: o campo nem entra na conta", () => {
+    expect(exigeOperadores("per_shift")).toBe(false);
+  });
+
+  it("base ausente se comporta como meta fixa", () => {
+    expect(exigeOperadores(undefined)).toBe(false);
+    expect(exigeOperadores(null)).toBe(false);
   });
 });

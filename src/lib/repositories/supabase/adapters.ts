@@ -14,11 +14,12 @@
 //     atingimento.
 import type { Tables } from "../../database.types";
 import type { Holiday, Machine, OrdemProducao, ProdRecord } from "../../api";
+import type { UpdateEntryChanges } from "../types";
 
 export type SummaryRow = Tables<"production_summary">;
 export type OrderRow = Pick<Tables<"production_orders">, "production_record_id" | "order_number" | "quantity" | "is_rework" | "notes">;
 export type MachineRow = Pick<Tables<"machines">, "id" | "name" | "has_target" | "status"> &
-  Partial<Pick<Tables<"machines">, "standard_operator_count">>;
+  Partial<Pick<Tables<"machines">, "standard_operator_count" | "process">>;
 export type CalendarRow = Pick<Tables<"calendar_events">, "id" | "event_date" | "description" | "event_type" | "created_by" | "created_at"> & {
   calendar_event_shifts?: { shift_id: number }[] | null;
 };
@@ -100,6 +101,34 @@ export function buildProdRecords(rows: SummaryRow[], orders: OrderRow[], names: 
 }
 
 /** Ordens da tela (formato legado) → JSON esperado por save_production_record. */
+/**
+ * Argumentos de update_production_record a partir de uma correção (D59).
+ * Só entra o que veio: no banco, parâmetro ausente quer dizer "mantém".
+ */
+export function toUpdateEntryArgs(id: string, c: UpdateEntryChanges) {
+  const args: {
+    p_id: string;
+    p_orders?: ReturnType<typeof toOrdersJson>;
+    p_production_date?: string;
+    p_shift_id?: number;
+    p_work_mode?: "regular" | "overtime";
+    p_notes?: string;
+    p_operator_count?: number;
+  } = { p_id: id };
+
+  // Lista vazia vale: o apontamento fica sem peça (máquina parada), como o
+  // saveEntries só com observação. Ausente é que mantém as OPs.
+  if (c.ordensProducao !== undefined) args.p_orders = toOrdersJson(c.ordensProducao);
+  if (c.date !== undefined) args.p_production_date = c.date;
+  if (c.turno !== undefined) args.p_shift_id = shiftIdFromTurno(c.turno);
+  if (c.workMode !== undefined) args.p_work_mode = c.workMode;
+  if (c.obs !== undefined) args.p_notes = c.obs;              // "" apaga
+  if (c.operatorCount !== undefined) args.p_operator_count = c.operatorCount;  // 0 apaga (D52)
+
+  if (Object.keys(args).length === 1) throw new Error("Nada para corrigir.");
+  return args;
+}
+
 export function toOrdersJson(ordens: OrdemProducao[] | undefined) {
   return (ordens || [])
     .filter(o => Number(o.quantidade) > 0)
@@ -120,6 +149,9 @@ export function toMachine(row: MachineRow, target: number | undefined): Machine 
     status: MACHINE_STATUS_TO_LEGACY[row.status] ?? row.status,
     // Lotação padrão do posto: é o divisor da meta rateada (D47).
     standardOperatorCount: row.standard_operator_count ?? null,
+    // Só quando o banco disse. Sem a coluna na consulta, o campo fica ausente:
+    // inventar uma linha aqui seria pior do que não ter nenhuma.
+    ...(row.process === "assembly" || row.process === "packaging" ? { process: row.process } : {}),
   };
 }
 

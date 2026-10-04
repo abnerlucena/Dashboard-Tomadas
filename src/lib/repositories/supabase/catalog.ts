@@ -1,7 +1,7 @@
 // ─── Máquinas, metas e calendário ─────────────────────────────
 import { getSupabase } from "../../supabase";
 import type { DataSource, MetaInfoRaw } from "../types";
-import { MACHINE_STATUS_TO_LEGACY, holidayTypeToEventType, toHoliday, toMachine, type CalendarRow } from "./adapters";
+import { toAddCalendarArgs, MACHINE_STATUS_TO_LEGACY, holidayTypeToEventType, toHoliday, toMachine, type CalendarRow } from "./adapters";
 import { loadProfileNames, toError } from "./helpers";
 
 async function currentTargets() {
@@ -140,7 +140,7 @@ export const supabaseCalendar: DataSource["calendar"] = {
     const sb = getSupabase();
     const [{ data, error }, names] = await Promise.all([
       sb.from("calendar_events")
-        .select("id, event_date, description, event_type, created_by, created_at, calendar_event_shifts(shift_id)")
+        .select("id, event_date, description, event_type, scope, created_by, created_at, calendar_event_shifts(shift_id)")
         .order("event_date"),
       loadProfileNames(sb),
     ]);
@@ -164,6 +164,13 @@ export const supabaseCalendar: DataSource["calendar"] = {
         .insert(shiftIds.map(shift_id => ({ event_id: data.id, shift_id })));
       if (shiftError) throw toError(shiftError);
     }
+  },
+
+  // Vários dias, tudo ou nada, numa chamada só (D61).
+  async addHolidays(dates, label, type, _session, options) {
+    const { data, error } = await getSupabase().rpc("add_calendar_events", toAddCalendarArgs(dates, label, type, options));
+    if (error) throw toError(error);
+    return data ?? 0;
   },
 
   async removeHoliday(id) {

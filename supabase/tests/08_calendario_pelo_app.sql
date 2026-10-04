@@ -69,6 +69,43 @@ do $$ declare n int; begin
     case when n = 1 then 'ACEITOU' else format('RECUSOU: %s linhas', n) end);
 end $$;
 
+-- ─── Vários dias numa operação só (0035) ────────────────────────────────────
+do $$ declare n int; m int; begin
+  n := public.add_calendar_events(
+         array[pg_temp.amanha() + 50, pg_temp.amanha() + 51, pg_temp.amanha() + 52,
+               pg_temp.amanha() + 52],                       -- repetido de propósito
+         'Férias coletivas (teste)', 'excluded_day', 'company');
+  select count(*) into m from public.calendar_events where description = 'Férias coletivas (teste)';
+  insert into rc values (8, 'intervalo entra numa chamada, dia repetido conta uma vez', 'aceita',
+    case when n = 3 and m = 3 then 'ACEITOU' else format('RECUSOU: devolveu %s, gravou %s', n, m) end);
+exception when others then insert into rc values (8, 'intervalo', 'aceita', 'RECUSOU: ' || sqlerrm); end $$;
+
+do $$ declare s text; t int; begin
+  perform public.add_calendar_events(array[pg_temp.amanha() + 60], 'Aniversário de Itajaí (teste)',
+    'holiday', 'municipal', array[1, 2]::smallint[]);
+  select e.scope, count(es.*) into s, t from public.calendar_events e
+    left join public.calendar_event_shifts es on es.event_id = e.id
+   where e.description = 'Aniversário de Itajaí (teste)' group by e.scope;
+  insert into rc values (9, 'abrangência municipal e só T1 e T2', 'aceita',
+    case when s = 'municipal' and t = 2 then 'ACEITOU' else format('RECUSOU: %s, %s turnos', s, t) end);
+exception when others then insert into rc values (9, 'abrangência', 'aceita', 'RECUSOU: ' || sqlerrm); end $$;
+
+-- Tudo ou nada: um turno inexistente barra o intervalo inteiro.
+do $$ declare m int; begin
+  begin
+    perform public.add_calendar_events(array[pg_temp.amanha() + 70, pg_temp.amanha() + 71],
+      'Intervalo com turno errado (teste)', 'holiday', 'company', array[1, 9]::smallint[]);
+  exception when others then null; end;
+  select count(*) into m from public.calendar_events where description = 'Intervalo com turno errado (teste)';
+  insert into rc values (10, 'um erro barra o intervalo inteiro', 'aceita',
+    case when m = 0 then 'ACEITOU' else format('RECUSOU: %s dias entraram', m) end);
+end $$;
+
+do $$ begin
+  perform public.add_calendar_events(array[pg_temp.amanha() + 80], 'X', 'holiday', 'regional');
+  insert into rc values (11, 'abrangência inventada', 'recusa', 'ACEITOU');
+exception when others then insert into rc values (11, 'abrangência inventada', 'recusa', 'RECUSOU'); end $$;
+
 -- ─── Operador NÃO mexe no calendário ────────────────────────────────────────
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000b1');
 do $$ begin
@@ -84,6 +121,11 @@ do $$ declare n int; begin
   insert into rc values (7, 'operador apaga uma parada', 'recusa',
     case when n = 0 then 'RECUSOU' else 'ACEITOU' end);
 end $$;
+
+do $$ begin
+  perform public.add_calendar_events(array[pg_temp.amanha() + 90], 'Folga em lote', 'holiday');
+  insert into rc values (12, 'operador cadastra intervalo', 'recusa', 'ACEITOU');
+exception when others then insert into rc values (12, 'operador cadastra intervalo', 'recusa', 'RECUSOU'); end $$;
 
 select n, caso, esperado, resultado,
        case when (esperado = 'aceita') = (resultado like 'ACEITOU%') then 'PASSOU' else '>>> FALHOU' end as veredito

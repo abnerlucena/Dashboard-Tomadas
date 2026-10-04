@@ -913,6 +913,16 @@ export type Database = {
       }
     }
     Functions: {
+      add_calendar_events: {
+        Args: {
+          p_dates: string[]
+          p_description: string
+          p_event_type: string
+          p_scope?: string
+          p_shift_ids?: number[]
+        }
+        Returns: number
+      }
       approve_user: {
         Args: {
           p_user_id: string

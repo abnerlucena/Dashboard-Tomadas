@@ -17,6 +17,36 @@ Formato de cada entrada:
 
 ---
 
+## [0.25.0] — 04/10/2026 — Calendário: vários dias numa operação só, com abrangência
+- Status: **Implementado** — aplicada no Supabase em 04/10/2026
+- Migration: `20261004100000_calendario_em_intervalo.sql` (0035)
+- Decisões: D61 (nova), D16, D17, D18
+
+### Pedido da interface (nota 2026-10-04-calendario-ligado.md)
+- **Intervalo atômico.** Férias coletivas viravam uma chamada por dia. Se a 5ª
+  falhasse, as 4 primeiras ficavam, e o calendário ficava pela metade.
+- **Abrangência.** Tudo entrava como "da empresa", mas o gestor vai cadastrar os
+  feriados de SC e de Itajaí.
+
+### Adicionado
+- Função `add_calendar_events(dates[], descrição, tipo, abrangência, turnos[])`:
+  o mesmo evento em vários dias, **tudo ou nada**. Dia repetido na lista conta
+  uma vez. Até 366 dias. Valida tipo, abrangência e turnos antes de gravar.
+  Exige `calendar.manage`.
+
+### Testes
+- Suíte 08 cresceu para 12 casos: intervalo numa chamada, dia repetido,
+  abrangência municipal com turnos, um erro barra o intervalo inteiro, abrangência
+  inventada recusada, operador recusado.
+
+### Impacto no frontend
+- Contrato: `calendar.addHolidays(dates, label, type, session, { shiftIds?, scope? })`,
+  que devolve quantos dias entraram. `Holiday` ganhou `scope?: HolidayScope`
+  (`national`, `state`, `municipal`, `company`).
+- `addHoliday` continua existindo, sempre como "da empresa".
+
+---
+
 ## [0.24.0] — 03/10/2026 — A linha do tempo de metas antes de 25/09 vem da planilha
 - Status: **Implementado** — aplicadas no Supabase em 03/10/2026
 - Migrations: `20261003120000_metas_historicas_da_planilha.sql` (0031),

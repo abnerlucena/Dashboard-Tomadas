@@ -106,6 +106,7 @@ export const gasDataSource: DataSource = {
     getHolidays: (session) => api("getHolidays", {}, session),
     async addHoliday(date, label, type, session) { await api("addHoliday", { date, label, type }, session); },
     async removeHoliday(id, session) { await api("removeHoliday", { id }, session); },
+    async addHolidays() { throw new Error("Cadastrar vários dias de uma vez só existe no modo Supabase."); },
   },
 
   users: {

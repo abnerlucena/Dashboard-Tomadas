@@ -13,14 +13,15 @@
 //     passava o número cru, e três pessoas na bancada davam 300% de
 //     atingimento.
 import type { Tables } from "../../database.types";
-import type { Holiday, Machine, OrdemProducao, ProdRecord } from "../../api";
+import type { Holiday, HolidayScope, Machine, OrdemProducao, ProdRecord } from "../../api";
 import type { UpdateEntryChanges } from "../types";
 
 export type SummaryRow = Tables<"production_summary">;
 export type OrderRow = Pick<Tables<"production_orders">, "production_record_id" | "order_number" | "quantity" | "is_rework" | "notes">;
 export type MachineRow = Pick<Tables<"machines">, "id" | "name" | "has_target" | "status"> &
   Partial<Pick<Tables<"machines">, "standard_operator_count" | "process">>;
-export type CalendarRow = Pick<Tables<"calendar_events">, "id" | "event_date" | "description" | "event_type" | "created_by" | "created_at"> & {
+export type CalendarRow = Pick<Tables<"calendar_events">, "id" | "event_date" | "description" | "event_type" | "created_by" | "created_at"> &
+  Partial<Pick<Tables<"calendar_events">, "scope">> & {
   calendar_event_shifts?: { shift_id: number }[] | null;
 };
 
@@ -170,6 +171,25 @@ export function toHoliday(row: CalendarRow, names: Map<string, string>): Holiday
     createdAt: row.created_at,
     eventType,
     shiftIds: (row.calendar_event_shifts || []).map(s => s.shift_id).sort(),
+    ...(isHolidayScope(row.scope) ? { scope: row.scope } : {}),
+  };
+}
+
+const isHolidayScope = (s: unknown): s is HolidayScope =>
+  s === "national" || s === "state" || s === "municipal" || s === "company";
+
+/** Argumentos de add_calendar_events (D61). */
+export function toAddCalendarArgs(
+  dates: string[], label: string, type: Holiday["type"],
+  options: { shiftIds?: number[]; scope?: HolidayScope } = {},
+) {
+  if (dates.length === 0) throw new Error("Informe ao menos um dia.");
+  return {
+    p_dates: dates,
+    p_description: label,
+    p_event_type: holidayTypeToEventType(type),
+    p_scope: options.scope ?? "company",
+    ...(options.shiftIds && options.shiftIds.length ? { p_shift_ids: options.shiftIds } : {}),
   };
 }
 

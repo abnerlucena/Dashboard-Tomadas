@@ -67,6 +67,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D58 | Os números de capacidade não são sigilosos | Aprovada | 03/10/2026 |
 | D59 | Mover um apontamento de dia leva a meta junto; o importado guarda a da planilha | Aprovada | 03/10/2026 |
 | D60 | A linha do tempo de metas antes de 25/09/2026 vem da planilha | Aprovada | 03/10/2026 |
+| D61 | Calendário: vários dias numa operação só, com abrangência | Aprovada | 04/10/2026 |
 
 ---
 
@@ -1186,3 +1187,23 @@ ensaiada antes da virada.
 - **Alternativa rejeitada:** apagar os degraus de reserva e não pôr nada no
   lugar. Antes da primeira meta acordada não haveria meta nenhuma, e os
   apontamentos antigos não teriam com o que ser comparados.
+
+### D61 — Calendário: vários dias numa operação só, com abrangência
+- **Status:** Aprovada (04/10/2026). Migration 0035.
+- **Contexto:** a tela de Calendário da interface cadastrava um intervalo (férias
+  coletivas, ponte) como uma chamada por dia. Se uma falhasse no meio, as
+  anteriores ficavam, e o calendário ficava pela metade sem ninguém pedir. E
+  tudo entrava como "da empresa", embora o gestor vá cadastrar os feriados de SC
+  e de Itajaí (decisão de 03/10: ele mesmo cadastra, pelo site).
+- **Decisão:** uma função que recebe a lista de dias e grava tudo ou nada, com a
+  abrangência (`national`, `state`, `municipal`, `company`) que a coluna `scope`
+  já aceitava desde a criação da tabela.
+- **Por que função, e não `insert` direto da tela:** só uma função consegue ser
+  tudo ou nada numa chamada só da API. As permissões são as da RLS: `calendar.manage`.
+- **Alternativa rejeitada:** `addHoliday` com `dateTo`. Uma lista de dias
+  deixa a tela pular sábado e domingo, ou escolher dias soltos, sem o banco
+  precisar saber dessas regras.
+- **O que a tela afirma, e foi conferido:** o feriado não muda o cálculo da
+  meta, e a produção dele conta; o dia anulado tira o dia ou o turno da meta,
+  inclusive de apontamentos já feitos, porque `is_excluded_day` é calculado na
+  leitura da `production_summary` (D16).

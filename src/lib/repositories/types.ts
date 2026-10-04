@@ -6,7 +6,7 @@
 //
 // As respostas mantêm o formato das respostas do Apps Script, para que as
 // telas não precisem ser reescritas agora.
-import type { Session, Machine, Holiday, ProdRecord, OrdemProducao } from "../api";
+import type { Session, Machine, Holiday, HolidayScope, ProdRecord, OrdemProducao } from "../api";
 import type { BaseDaMeta } from "../metas";
 
 export type DataSourceKind = "gas" | "supabase" | "mock";
@@ -232,6 +232,18 @@ export interface DataSource {
     getHolidays(session: Session | null): Promise<{ holidays?: Holiday[] | unknown[] }>;
     addHoliday(date: string, label: string, type: Holiday["type"], session: Session | null, shiftIds?: number[]): Promise<void>;
     removeHoliday(id: string, session: Session | null): Promise<void>;
+    /**
+     * Cadastra o mesmo evento em VÁRIOS dias, tudo ou nada (D61): férias
+     * coletivas, ponte. Se um dia falhar, nenhum entra. Dia repetido na lista
+     * conta uma vez. Até 366 dias por chamada.
+     *
+     * `scope` padrão: "company". `shiftIds` vazio = o dia inteiro.
+     * Devolve quantos dias entraram. Só modo Supabase.
+     */
+    addHolidays(
+      dates: string[], label: string, type: Holiday["type"], session: Session | null,
+      options?: { shiftIds?: number[]; scope?: HolidayScope },
+    ): Promise<number>;
   };
 
   users: {

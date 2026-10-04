@@ -122,6 +122,16 @@ export const gasDataSource: DataSource = {
     async listRoles() { return []; },
   },
 
+  workOrders: {
+    list: async () => { throw new Error("OPs só existem no modo Supabase."); },
+    create: async () => { throw new Error("OPs só existem no modo Supabase."); },
+    update: async () => { throw new Error("OPs só existem no modo Supabase."); },
+    setStage: async () => { throw new Error("OPs só existem no modo Supabase."); },
+    conversation: async () => { throw new Error("OPs só existem no modo Supabase."); },
+    postMessage: async () => { throw new Error("OPs só existem no modo Supabase."); },
+    markRead: async () => { throw new Error("OPs só existem no modo Supabase."); },
+  },
+
   alerts: {
     getAlertConfig: (session) => api("getAlertConfig", {}, session),
     async saveAlertConfig(config, session) { await api("saveAlertConfig", { config }, session); },

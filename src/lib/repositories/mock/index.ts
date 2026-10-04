@@ -45,6 +45,15 @@ export const mockDataSource: DataSource = {
     addHolidays: semBanco,
     removeHoliday: semBanco,
   },
+  workOrders: {
+    async list() { return []; },
+    create: semBanco,
+    update: semBanco,
+    setStage: semBanco,
+    async conversation() { return []; },
+    postMessage: semBanco,
+    markRead: semBanco,
+  },
   alerts: {
     async getAlertConfig() { return {}; },
     saveAlertConfig: semBanco,

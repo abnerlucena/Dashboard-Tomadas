@@ -17,6 +17,56 @@ Formato de cada entrada:
 
 ---
 
+## [0.26.0] — 04/10/2026 — A OP passa a existir por si: cadastro, situação e conversa
+- Status: **Implementado** — aplicada no Supabase em 04/10/2026
+- Migration: `20261004110000_ordens_de_producao.sql` (0036)
+- Decisões: D62 (nova), D57, D09, D10
+
+### Por quê
+A OP era só um número escrito em cada linha de apontamento. As telas de OPs e
+de Feedbacks da interface tratam a OP como coisa própria, com máquina, material,
+quantidade pedida, situação e conversa. Era a maior lacuna do banco.
+
+### O que o gestor definiu
+- **Origem:** por enquanto o distribuidor cadastra na aba OPs; o objetivo é
+  puxar do SAP, e o terreno fica pronto para isso.
+- **OP não cadastrada no apontamento:** entra, e a OP nasce "a conferir".
+- **Material:** pertence à OP, não ao apontamento.
+- **Conversa:** como a tela desenha. Gestão, preparadores e líderes conversam;
+  o operador não entra, mas a observação dele no apontamento aparece.
+
+### Adicionado
+- Permissão `work_orders.manage` (distribuidor, técnico, gestor, admin), já
+  sincronizada para quem estava aprovado.
+- Tabelas `work_orders` (a OP), `work_order_messages` (a conversa) e
+  `work_order_reads` (até onde cada pessoa leu), com RLS só de leitura.
+- Views `work_order_summary` (OP + produzido, sem retrabalho) e
+  `work_order_conversation` (mensagens + observações do operador, em ordem).
+- Funções: `create_work_order`, `update_work_order` (é também como se confere
+  uma OP "a conferir"), `set_work_order_stage` (só as passagens da tela; cada uma
+  vira mensagem do sistema), `post_work_order_message`, `mark_work_order_read`.
+- **A porta do SAP:** `importar_ops_do_sap(jsonb)`, idempotente pelo número.
+  O SAP manda nos dados da OP; a situação é da fábrica, e uma OP em produção não
+  volta para "aguardando". Exige `import.manage` ou o dono do banco.
+
+### Alterado
+- `insert_production_orders`: número de OP ainda não cadastrado vira OP "a
+  conferir", na máquina do apontamento. `IMPORTADO` fica de fora.
+
+### Testes
+- Suíte 12 nova (25 casos). Antes da migration ela nem rodava, porque as
+  tabelas não existiam. As 12 suítes passam (195 casos).
+
+### Impacto no frontend
+- Contrato: `workOrders.list`, `create`, `update`, `setStage`, `conversation`,
+  `postMessage`, `markRead`, com `WorkOrderRecord` e `WorkOrderMessage`.
+- `list` traz as não lidas de quem está lendo, sem contar as próprias.
+- Os tipos do banco destas tabelas foram escritos à mão em `database.types.ts`,
+  no formato do gerador, e conferidos contra as colunas reais. Regenerar quando
+  houver acesso ao gerador.
+
+---
+
 ## [0.25.0] — 04/10/2026 — Calendário: vários dias numa operação só, com abrangência
 - Status: **Implementado** — aplicada no Supabase em 04/10/2026
 - Migration: `20261004100000_calendario_em_intervalo.sql` (0035)

@@ -159,6 +159,13 @@ export const mockDataSource = {
       if (date.endsWith("-12-31")) throw new Error("Você não tem permissão para cadastrar no calendário.");
       F.holidays.push({ id: "c" + Math.random().toString(36).slice(2), date, label, type, createdBy: "Gabriela Gestora", eventType: type === "dia_anulado" ? "excluded_day" : "holiday", shiftIds: shiftIds || [] });
     },
+    async addHolidays(dates, label, type, _s, options) {
+      window.__calls = window.__calls || []; window.__calls.push({ addHolidays: dates, label, type, options });
+      // Tudo ou nada (D61): um dia ruim barra o intervalo inteiro
+      if (dates.some(d => d.endsWith("-12-31"))) throw new Error("Você não tem permissão para cadastrar no calendário.");
+      for (const date of new Set(dates)) F.holidays.push({ id: "c" + Math.random().toString(36).slice(2), date, label, type, createdBy: "Gabriela Gestora", eventType: type === "dia_anulado" ? "excluded_day" : "holiday", shiftIds: options?.shiftIds || [], scope: options?.scope || "company" });
+      return new Set(dates).size;
+    },
     async removeHoliday(id) { window.__calls = window.__calls || []; window.__calls.push({ removeHoliday: id }); F.holidays = F.holidays.filter(h => h.id !== id); },
   },
   alerts: { async getAlertConfig() { return {}; }, saveAlertConfig: no, testAlertEmail: no },

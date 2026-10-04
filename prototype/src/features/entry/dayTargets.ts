@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { BaseDaMeta } from "../../../../src/lib/metas";
 import { mensagemDeErro } from "../../../../src/lib/erros";
-import { DATA_ORIGIN, MACHINES, metaPerShift } from "@/data/machines";
+import { DATA_ORIGIN, MACHINES, META_EFFECTIVE_FROM, metaPerShift, toIsoDate } from "@/data/machines";
 import { useAccess } from "@/features/access/AccessContext";
 import { baseOf, crewOf } from "@/features/metas/metaBase";
 
@@ -21,6 +21,8 @@ export interface DayTarget {
   base: BaseDaMeta;
   /** lotação padrão do posto; null = o banco não conhece */
   lotacao: number | null;
+  /** desde quando vale este degrau ("2026-09-27"); vazio = não informado */
+  since: string;
 }
 
 /**
@@ -39,7 +41,10 @@ export type DayTargets =
 /** Demonstração: as metas e bases da tela de Metas (dados fictícios) */
 function demoTargets(): Record<string, DayTarget> {
   return Object.fromEntries(
-    MACHINES.map((m) => [m.id, { cadastrada: m.hasTarget ? metaPerShift(m) : 0, base: baseOf(m.id), lotacao: crewOf(m.id) }]),
+    MACHINES.map((m) => [
+      m.id,
+      { cadastrada: m.hasTarget ? metaPerShift(m) : 0, base: baseOf(m.id), lotacao: crewOf(m.id), since: toIsoDate(META_EFFECTIVE_FROM) },
+    ]),
   );
 }
 
@@ -66,6 +71,7 @@ export function useDayTargets(date: string, attempt = 0): DayTargets {
             cadastrada: targets.metas[m.id] ?? 0,
             base: targets.metasInfo[m.id]?.basis ?? "per_shift",
             lotacao: m.standardOperatorCount && m.standardOperatorCount > 0 ? m.standardOperatorCount : null,
+            since: targets.metasInfo[m.id]?.vigenciaInicio ?? "",
           };
         }
         setState({ status: "ready", byMachine });

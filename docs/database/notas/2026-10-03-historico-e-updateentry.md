@@ -58,6 +58,29 @@ Assim que o tipo estiver em `types.ts` na `main`, o diálogo "Editar" do Histór
 editar o apontamento inteiro: lista de OPs com quantidade e retrabalho, turno, regime,
 observação e nº de pessoas.
 
+## Metas também gravam
+
+A aba **Metas vigentes** lê e grava pelo contrato de hoje, sem mudança:
+
+- **Leitura:** metas, bases e "desde quando" vêm de `getMetasEm(hoje)`, e a lotação vem
+  de `getMachines` (`standardOperatorCount`).
+- **Salvar:** chama `saveMetas(metas, vigência, session, bases)` só com as máquinas
+  alteradas, seja o número ou a base. `bases` leva só as bases que mudaram (D53).
+- **Vigência:** o padrão é amanhã. Hoje é permitido (D31), e o aviso diz que os
+  apontamentos feitos antes guardam a meta antiga. O passado fica bloqueado.
+- **Depois de salvar:** a tela recarrega. O histórico vem de `getHistory`, e o Apontamento
+  já usa a meta nova.
+- **O que saiu com dados reais:** a coluna de capacidade e a comparação com o simulador.
+  "Turnos ativos" também saiu, porque era só simulação e o banco não guarda. A capacidade
+  volta quando o contrato trouxer os dados reais (D58). Até lá, o simulador avisa que usa
+  valores de exemplo.
+- **"Meta do mês" nesta tela é prevista:** turno × turnos × dias úteis, com as metas de
+  hoje. O atingimento é o de verdade (D08).
+
+**Pedido pequeno, sem pressa:** `TargetHistoryItem` com `basis?`. O histórico de metas
+hoje mostra "meta por turno 9.200 a partir de 04/10" quando a mudança foi só de base, e
+não dá para dizer "base: conforme a lotação → por turno".
+
 ## Outros
 
 - **`Machine.process`:** obrigado. Quando chegar à `main`, troco a dedução da linha pelo

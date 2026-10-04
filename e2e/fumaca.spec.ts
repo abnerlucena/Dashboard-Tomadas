@@ -15,6 +15,7 @@ test("gestor entra e navega pelas telas principais", async ({ page }) => {
   for (const [rota, titulo] of [
     ["historico", "Histórico"],
     ["metas", "Metas"],
+    ["calendario", "Calendário"],
     ["relatorios", "Relatórios"],
     ["ranking", "Ranking de máquinas"],
     ["usuarios", "Usuários"],
@@ -49,6 +50,19 @@ test("meta por pessoa exige o nº de operadores; OP aceita até 15 dígitos", as
   await page.locator("li", { has: page.locator("h3", { hasText: granel }) }).getByLabel("Nº de operadores").fill("3");
   await page.getByRole("button", { name: "Salvar apontamento" }).click();
   await expect(page.getByText("Apontamento salvo")).toBeVisible();
+});
+
+test("calendário cadastra e remove um dia (demonstração)", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await page.goto("/#/calendario");
+  await page.getByRole("button", { name: "Cadastrar", exact: true }).first().click();
+  await page.getByLabel("Descrição").fill("Ponte de teste");
+  await page.getByRole("dialog").getByRole("button", { name: "Cadastrar", exact: true }).click();
+  await expect(page.getByText("Ponte de teste: 1 dia cadastrado.")).toBeVisible();
+  await page.getByRole("button", { name: /^Remover Ponte de teste/ }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Remover" }).click();
+  await expect(page.getByText("1 dia removido.")).toBeVisible();
+  await expect(page.getByRole("listitem").filter({ hasText: "Ponte de teste" })).toHaveCount(0);
 });
 
 test("operador não vê a gestão de usuários", async ({ page }) => {

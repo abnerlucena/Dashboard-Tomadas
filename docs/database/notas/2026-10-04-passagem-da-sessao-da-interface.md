@@ -34,7 +34,8 @@ de 03/10 desta pasta. Este arquivo resume o estado e o caminho.
 | **Histórico** | grava: excluir, mover, trocar turno e observação, no apontamento inteiro. Corrigir quantidade/OP espera o `updateEntry` |
 | **Metas** | grava (`saveMetas`, só as alteradas; vigência ≥ hoje) |
 | OPs, Feedbacks | "ainda não ligada ao banco" (não há tabela de OP nem de conversa) |
-| Calendário, Máquinas (cadastro) | **telas ainda não existem** |
+| **Calendário** | grava (feito em 04/10, ver `2026-10-04-calendario-ligado.md`) |
+| Máquinas (cadastro) | **tela ainda não existe** |
 
 **Peças-chave:**
 - `prototype/src/data/fromBackend.ts`: o adaptador de leitura.
@@ -45,7 +46,8 @@ de 03/10 desta pasta. Este arquivo resume o estado e o caminho.
 
 ## Próximos passos, em ordem
 
-1. **Calendário (tela nova).** O gestor cadastra feriados de SC e de Itajaí e as paradas da
+1. ~~**Calendário (tela nova).**~~ **Feito em 04/10** (`features/calendar/`, com testes e
+   fumaça). O que segue era o plano. O gestor cadastra feriados de SC e de Itajaí e as paradas da
    fábrica pelo site.
    - Contrato: `calendar.getHolidays`, `addHoliday(date, label, type, session, shiftIds?)`,
      `removeHoliday(id)`.
@@ -118,6 +120,12 @@ pronto:
     (`npm run test:integration`);
   - a auditoria guarda o rastro de que o teste existiu.
 - **Nunca** colocar valores de credencial no repositório, em commit ou no chat.
+- **Situação em 04/10, na máquina Windows do usuário:** a rede alcança o Supabase (Auth
+  responde, a `anon key` é aceita, as tabelas recusam o anônimo, como manda o RLS). O
+  `.env.local` da raiz do worktree tem URL e chave (ignorado pelo git). **Ainda faltam as
+  contas de teste** (`TEST_MANAGER_*`, `TEST_OPERATOR_*`): sem elas, nada foi lido nem
+  gravado no banco real. Para subir a interface no banco aqui: `preview_start dash-supabase`
+  (usa `.env.supabase.local` com `VITE_DATA_SOURCE=supabase`).
 
 ## Armadilhas deste ambiente
 
@@ -130,6 +138,15 @@ pronto:
   ou `PW_CHROMIUM_PATH`). Não rode `playwright install`.
 - **Prettier:** vários arquivos antigos já estavam fora do formato. Formate só arquivos
   novos, e com `--print-width 140`, para não reformatar código alheio no diff.
+- **Na máquina Windows (worktree dentro de `Dash-v2/.claude/worktrees/`):**
+  - o `vitest` acha o `postcss.config.js` antigo do checkout principal, duas pastas acima, e
+    falha com "Cannot find module 'tailwindcss'". O `npm run dev`, o `build` e o e2e não
+    sofrem, porque a config da interface declara o PostCSS. Para os testes, use uma config
+    temporária fora do repositório com `css: { postcss: { plugins: [] } }`;
+  - não há Python: para editar texto com acento, use o Node ou o editor;
+  - vários arquivos usam CRLF; substituições com `\n` no Node precisam normalizar antes;
+  - o Playwright usa o Chromium já baixado em `%LOCALAPPDATA%/ms-playwright`
+    (`npx playwright test` funciona direto).
 - **`machines.ts` é compartilhado.** Mudança ali vai com aviso numa nota para o banco.
 - **Não escreva migration nem mexa em `src/lib/**`:** é da sessão do banco. Se faltar algo,
   proponha o tipo em `src/lib/repositories/types.ts` numa nota.

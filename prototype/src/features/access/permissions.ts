@@ -111,6 +111,8 @@ export const ROUTE_PERMISSION: Record<string, Permission> = {
   ops: "feedbacks.view",
   historico: "history.view",
   metas: "targets.view",
+  // Ver o calendário é consulta, como o dashboard; cadastrar é calendar.manage
+  calendario: "dashboard.view",
   feedbacks: "feedbacks.view",
   relatorios: "reports.export",
   tv: "tv_mode.view",

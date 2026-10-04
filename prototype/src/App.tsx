@@ -1,6 +1,7 @@
 import * as Popover from "@radix-ui/react-popover";
 import {
   Bell,
+  CalendarDays,
   CircleHelp,
   ClipboardList,
   Boxes,
@@ -62,6 +63,7 @@ import { MachinesPage, type DemoState } from "@/features/machines/MachinesPage";
 import { EntryPage } from "@/features/entry/EntryPage";
 import { MetasPage } from "@/features/metas/MetasPage";
 import { HistoryPage } from "@/features/history/HistoryPage";
+import { CalendarPage } from "@/features/calendar/CalendarPage";
 import { RankingPage } from "@/features/analysis/RankingPage";
 import { ReworkPage } from "@/features/analysis/ReworkPage";
 import { FeedbacksPage } from "@/features/feedbacks/FeedbacksPage";
@@ -92,6 +94,7 @@ const NAV_MAIN: NavEntry[] = [
   { id: "ops", label: "OPs", icon: ScrollText },
   { id: "historico", label: "Histórico", icon: History },
   { id: "metas", label: "Metas", icon: Target },
+  { id: "calendario", label: "Calendário", icon: CalendarDays },
   { id: "feedbacks", label: "Feedbacks", icon: MessageSquare },
   { id: "relatorios", label: "Relatórios", icon: FileText },
 ];
@@ -358,6 +361,8 @@ function Shell() {
             <EntryPage notify={notify} />
           ) : route === "metas" ? (
             <MetasPage notify={notify} />
+          ) : route === "calendario" ? (
+            <CalendarPage notify={notify} />
           ) : route === "historico" ? (
             <HistoryPage notify={notify} />
           ) : route === "ranking" ? (

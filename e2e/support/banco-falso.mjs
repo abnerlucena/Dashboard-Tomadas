@@ -12,8 +12,10 @@
 //   login: gestor@demo.local / 123456 (contas do mock do banco)
 //
 // Dados: 4 máquinas (ids 11–14), agosto e setembro/2026 até 21/09, feriado 07/09.
-// Erros simulados: OP "9999999" na máquina 12; trocar para o TURNO 3.
-const R = "/@fs" + process.cwd().split("\\").join("/") + "/src/lib/repositories/mock";
+// Erros simulados: OP "9999999" na máquina 12; trocar para o TURNO 3; cadastrar 31/12 no calendário.
+// No Windows o caminho começa com a letra do disco (C:/...): o /@fs/ precisa da barra
+const CWD = process.cwd().split("\\").join("/").replace(/^(?!\/)/, "/");
+const R = "/@fs" + CWD + "/src/lib/repositories/mock";
 const machines = [
   { id: 11, name: "Máquina de tomadas Composé (Aumaq)", hasMeta: true, defaultMeta: 11000, status: "ativo" },
   { id: 12, name: "Embaladora horizontal nº 1", hasMeta: true, defaultMeta: 9200, status: "ativo", standardOperatorCount: 4 },
@@ -122,7 +124,15 @@ export const mockDataSource = {
       async getMetasEm(date) { window.__metasEm = (window.__metasEm || []).concat(date); return on(date); },
     };
   })(),
-  calendar: { async getHolidays() { return { holidays: F.holidays }; }, addHoliday: no, removeHoliday: no },
+  calendar: {
+    async getHolidays() { return { holidays: F.holidays }; },
+    async addHoliday(date, label, type, _s, shiftIds) {
+      window.__calls = window.__calls || []; window.__calls.push({ addHoliday: date, label, type, shiftIds });
+      if (date.endsWith("-12-31")) throw new Error("Você não tem permissão para cadastrar no calendário.");
+      F.holidays.push({ id: "c" + Math.random().toString(36).slice(2), date, label, type, createdBy: "Gabriela Gestora", eventType: type === "dia_anulado" ? "excluded_day" : "holiday", shiftIds: shiftIds || [] });
+    },
+    async removeHoliday(id) { window.__calls = window.__calls || []; window.__calls.push({ removeHoliday: id }); F.holidays = F.holidays.filter(h => h.id !== id); },
+  },
   alerts: { async getAlertConfig() { return {}; }, saveAlertConfig: no, testAlertEmail: no },
 };
 export { resetarMock } from "${R}/acesso.ts";

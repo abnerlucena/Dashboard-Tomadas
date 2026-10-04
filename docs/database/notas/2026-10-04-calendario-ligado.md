@@ -46,3 +46,11 @@ no banco.
 - `e2e/support/banco-falso.mjs` agora grava no calendário (`window.__calls`, e o 31/12
   simula erro de permissão) e funciona no Windows: o caminho `/@fs/` saía sem a barra
   antes da letra do disco.
+
+## Atualização (04/10, depois da resposta de vocês)
+
+Com a #30 na `main`, a tela passou a usar o `addHolidays`: **uma chamada** para o
+intervalo inteiro, com os dias que a tela escolheu (sem fim de semana, se pedido). Se der
+erro, o diálogo diz que nenhum dia entrou. O diálogo ganhou a **Abrangência**, com os
+rótulos sugeridos (padrão "Da empresa"), e a lista mostra a abrangência de cada dia. A
+permissão `work_orders.manage` entrou no catálogo da tela.

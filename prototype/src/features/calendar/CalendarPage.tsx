@@ -15,12 +15,13 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { TextField } from "@/components/ui/TextField";
 import { useAccess } from "@/features/access/AccessContext";
 import { cn, plural, type Notify } from "@/lib/utils";
-import { planDays, shiftsLabel, toEntry, type CalendarEntry, type HolidayKind } from "./calendarPlan";
+import type { HolidayScope } from "../../../../src/lib/api";
+import { SCOPE_LABEL, planDays, shiftsLabel, toEntry, type CalendarEntry, type HolidayKind } from "./calendarPlan";
 
 /*
  * Calendário: feriados de SC e de Itajaí, paradas e férias coletivas, que o
  * gestor cadastra pelo site (calendar.manage). Contrato: calendar.getHolidays,
- * addHoliday (um dia por chamada), removeHoliday.
+ * addHolidays (o intervalo inteiro, tudo ou nada, com abrangência; D61), removeHoliday.
  *
  * - "Feriado" é contexto (D16): o dia sai dos dias úteis previstos, mas a
  *   produção apontada nele conta normalmente.
@@ -259,6 +260,7 @@ export function CalendarPage({ notify }: { notify: Notify }) {
                           <Lozenge appearance={TYPE_META[e.type].appearance}>{TYPE_META[e.type].label}</Lozenge>
                         )}
                         <span className="font-body-small text-subtle">{shiftsLabel(e.shiftIds)}</span>
+                        {e.scope && <span className="font-body-small text-subtle">· {SCOPE_LABEL[e.scope]}</span>}
                         {e.createdBy && <span className="font-body-small text-subtlest">· {e.createdBy}</span>}
                       </span>
                     </span>
@@ -278,7 +280,7 @@ export function CalendarPage({ notify }: { notify: Notify }) {
           existing={entries}
           today={todayIso}
           onClose={() => setAdding(false)}
-          onSave={async (days, label, type, shiftIds) => {
+          onSave={async (days, label, type, shiftIds, scope) => {
             if (!live || !client.reads) {
               const added = days.map((date, i) => ({
                 id: `n${Date.now()}-${i}`,
@@ -288,20 +290,17 @@ export function CalendarPage({ notify }: { notify: Notify }) {
                 isEvent: false,
                 shiftIds,
                 createdBy: session?.nome ?? "",
+                scope,
               }));
               setLoad({ status: "ready", entries: [...entries, ...added].sort((a, b) => a.date.localeCompare(b.date)) });
               return { saved: days.length };
             }
-            // Um dia por chamada; para no primeiro erro e diz quantos já foram
-            let saved = 0;
+            // Uma chamada para o intervalo inteiro: se um dia falhar, nenhum entra (D61)
+            let saved: number;
             try {
-              for (const date of days) {
-                await client.reads.calendar.addHoliday(date, label, type, session, shiftIds.length ? shiftIds : undefined);
-                saved++;
-              }
+              saved = await client.reads.calendar.addHolidays(days, label, type, session, { shiftIds, scope });
             } catch (e) {
-              if (saved > 0) await refresh();
-              return { saved, error: mensagemDeErro(e) };
+              return { saved: 0, error: mensagemDeErro(e) };
             }
             await refresh();
             return { saved };
@@ -358,13 +357,20 @@ interface AddDialogProps {
   existing: CalendarEntry[];
   today: string;
   onClose: () => void;
-  onSave: (days: string[], label: string, type: HolidayKind, shiftIds: number[]) => Promise<{ saved: number; error?: string }>;
+  onSave: (
+    days: string[],
+    label: string,
+    type: HolidayKind,
+    shiftIds: number[],
+    scope: HolidayScope,
+  ) => Promise<{ saved: number; error?: string }>;
   onDone: (saved: number, label: string, first: string) => void;
 }
 
 function AddDialog({ existing, today, onClose, onSave, onDone }: AddDialogProps) {
   const [label, setLabel] = useState("");
   const [type, setType] = useState<HolidayKind>("feriado");
+  const [scope, setScope] = useState<HolidayScope>("company");
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState("");
   const [skipWeekends, setSkipWeekends] = useState(true);
@@ -396,10 +402,10 @@ function AddDialog({ existing, today, onClose, onSave, onDone }: AddDialogProps)
     if (invalid) return;
     setSaving(true);
     setError(null);
-    const r = await onSave(plan.add, label.trim(), type, shifts);
+    const r = await onSave(plan.add, label.trim(), type, shifts, scope);
     setSaving(false);
     if (r.error) {
-      setError(r.saved > 0 ? `${plural(r.saved, "dia foi cadastrado", "dias foram cadastrados")} antes do erro. ${r.error}` : r.error);
+      setError(plan.add.length > 1 ? `Nenhum dia foi cadastrado. ${r.error}` : r.error);
       return;
     }
     onDone(r.saved, label.trim(), plan.add[0]);
@@ -440,6 +446,25 @@ function AddDialog({ existing, today, onClose, onSave, onDone }: AddDialogProps)
             options={(Object.keys(TYPE_META) as HolidayKind[]).map((t) => ({ value: t, label: TYPE_META[t].label }))}
           />
           <p className="font-body-small text-subtlest">{TYPE_META[type].hint}</p>
+        </div>
+        <div className="flex flex-col gap-050">
+          <span className="font-body-small font-semibold text-subtle">Abrangência</span>
+          <SegmentedControl
+            label="Abrangência"
+            iconOnly={false}
+            size="control"
+            value={scope}
+            onChange={(v) => setScope(v as HolidayScope)}
+            options={(["company", "municipal", "state", "national"] as HolidayScope[]).map((s) => ({
+              value: s,
+              label: SCOPE_LABEL[s].replace(/ \(.*\)/, ""),
+            }))}
+          />
+          <p className="font-body-small text-subtlest">
+            {scope === "company"
+              ? "Parada, férias coletivas ou ponte da fábrica."
+              : `${SCOPE_LABEL[scope]}. Os nacionais já vêm cadastrados todo ano.`}
+          </p>
         </div>
         <div className="grid grid-cols-1 gap-150 s:grid-cols-2">
           <DateField label={isRange ? "De" : "Data"} isRequired value={from} onChange={setFrom} today={today} />

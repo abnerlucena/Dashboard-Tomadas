@@ -19,16 +19,14 @@ type View = "entrar" | "cracha" | "cadastro" | "cadastroEnviado" | "recuperar" |
 const MIN_PASSWORD = 6;
 
 export function AccessPage() {
-  const { client, login, adopt, recovery, clearRecovery, notice } = useAccess();
-  // Formato do login: e-mail (Supabase, mock, demonstração) ou nome (Apps Script)
-  const isGas = !client.emailAccess;
+  const { client, login, recovery, clearRecovery, notice } = useAccess();
   const isDemo = client.kind === "demo";
 
   const [view, setView] = useState<View>(recovery?.tela === "novaSenha" ? "novaSenha" : recovery ? "recuperar" : "entrar");
   const [error, setError] = useState<string | null>(recovery?.tela === "recuperar" ? recovery.erro : null);
   const [busy, setBusy] = useState(false);
   const [tried, setTried] = useState(false);
-  const [form, setForm] = useState({ nome: "", email: "", senha: "", senha2: "", cracha: "", convite: "" });
+  const [form, setForm] = useState({ nome: "", email: "", senha: "", senha2: "", cracha: "" });
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   // A recuperação só vale nesta visita: depois de usada, some
@@ -59,14 +57,13 @@ export function AccessPage() {
   };
 
   /* ---------- Validação ---------- */
-  const emailOk = isGas ? !!form.email.trim() : /^\S+@\S+\.\S+$/.test(form.email.trim());
-  const errEmail = tried && !emailOk ? (isGas ? "Informe o nome de usuário" : "Informe um e-mail válido") : null;
+  const emailOk = /^\S+@\S+\.\S+$/.test(form.email.trim());
+  const errEmail = tried && !emailOk ? "Informe um e-mail válido" : null;
   const errSenha = tried && !form.senha ? "Informe a senha" : null;
   const errSenhaNova = tried && form.senha.length < MIN_PASSWORD ? `Use pelo menos ${MIN_PASSWORD} caracteres` : null;
   const errSenha2 = tried && form.senha2 !== form.senha ? "As senhas não são iguais" : null;
   const errCracha = tried && !form.cracha.trim() ? "Informe o nº do crachá" : null;
   const errNome = tried && !form.nome.trim() ? "Informe seu nome completo" : null;
-  const errConvite = tried && !form.convite.trim() ? "Informe o código de convite" : null;
 
   let body: ReactNode;
   if (view === "entrar") {
@@ -76,8 +73,8 @@ export function AccessPage() {
         {notice && !error && <Note icon={Info}>{notice}</Note>}
         {error && <ErrorMessage title="Não foi possível entrar">{error}</ErrorMessage>}
         <TextField
-          label={isGas ? "Nome de usuário" : "E-mail"}
-          type={isGas ? "text" : "email"}
+          label="E-mail"
+          type="email"
           autoComplete="username"
           autoFocus
           value={form.email}
@@ -130,43 +127,26 @@ export function AccessPage() {
       emailOk &&
       form.senha.length >= MIN_PASSWORD &&
       form.senha2 === form.senha &&
-      (isGas ? !!form.convite.trim() : !!form.cracha.trim());
+      !!form.cracha.trim();
     body = (
       <form noValidate onSubmit={(e) => run(e, valid, cadastrar)} className="flex flex-col gap-200">
         <Heading title="Criar conta" hint="Preencha seus dados para pedir acesso ao Dash." />
-        {!isGas && (
-          // O cadastro não entra direto: dizer isso antes evita a frustração depois
-          <Note icon={Info}>
-            <strong className="font-semibold">Seu acesso não é liberado na hora.</strong> Depois de enviar, um gestor precisa aprovar o
-            cadastro e escolher o seu perfil. Só então você consegue entrar.
-          </Note>
-        )}
+        {/* O cadastro não entra direto: dizer isso antes evita a frustração depois */}
+        <Note icon={Info}>
+          <strong className="font-semibold">Seu acesso não é liberado na hora.</strong> Depois de enviar, um gestor precisa aprovar o
+          cadastro e escolher o seu perfil. Só então você consegue entrar.
+        </Note>
         {error && <ErrorMessage title="Não foi possível criar a conta">{error}</ErrorMessage>}
         <TextField label="Nome completo" autoComplete="name" autoFocus value={form.nome} onChange={set("nome")} error={errNome} />
-        {isGas ? (
-          <>
-            <TextField label="Nome de usuário" autoComplete="username" value={form.email} onChange={set("email")} error={errEmail} />
-            <TextField
-              label="Código de convite"
-              helper="Peça ao administrador."
-              value={form.convite}
-              onChange={set("convite")}
-              error={errConvite}
-            />
-          </>
-        ) : (
-          <>
-            <TextField label="E-mail" type="email" autoComplete="email" value={form.email} onChange={set("email")} error={errEmail} />
-            <TextField
-              label="Nº do crachá"
-              inputMode="numeric"
-              value={form.cracha}
-              onChange={(e) => setForm((f) => ({ ...f, cracha: e.target.value.replace(/\D/g, "") }))}
-              error={errCracha}
-              inputClassName="tabular-nums"
-            />
-          </>
-        )}
+        <TextField label="E-mail" type="email" autoComplete="email" value={form.email} onChange={set("email")} error={errEmail} />
+        <TextField
+          label="Nº do crachá"
+          inputMode="numeric"
+          value={form.cracha}
+          onChange={(e) => setForm((f) => ({ ...f, cracha: e.target.value.replace(/\D/g, "") }))}
+          error={errCracha}
+          inputClassName="tabular-nums"
+        />
         <PasswordField
           label="Senha"
           autoComplete="new-password"
@@ -177,7 +157,7 @@ export function AccessPage() {
         />
         <PasswordField label="Repita a senha" autoComplete="new-password" value={form.senha2} onChange={set("senha2")} error={errSenha2} />
         <Button type="submit" appearance="primary" iconBefore={UserPlus} isLoading={busy}>
-          {isGas ? "Criar conta" : "Enviar cadastro para aprovação"}
+          Enviar cadastro para aprovação
         </Button>
         <BackButton onClick={() => go("entrar")} />
       </form>
@@ -204,11 +184,7 @@ export function AccessPage() {
         className="flex flex-col gap-200"
       >
         <Heading title="Recuperar senha" hint="Enviamos um link para você criar uma senha nova." />
-        {isGas ? (
-          <Note icon={Info}>No sistema atual não há recuperação por e-mail. Peça ao administrador para redefinir a sua senha.</Note>
-        ) : (
-          <>
-            {error && <ErrorMessage title="Não foi possível continuar">{error}</ErrorMessage>}
+        {error && <ErrorMessage title="Não foi possível continuar">{error}</ErrorMessage>}
             <TextField
               label="E-mail da conta"
               type="email"
@@ -221,8 +197,6 @@ export function AccessPage() {
             <Button type="submit" appearance="primary" isLoading={busy}>
               Enviar link
             </Button>
-          </>
-        )}
         <BackButton onClick={() => go("entrar")} />
       </form>
     );
@@ -324,17 +298,10 @@ export function AccessPage() {
   }
 
   async function cadastrar() {
-    const r = await client.auth.register(
-      isGas
-        ? { nome: form.email.trim(), senha: form.senha, inviteCode: form.convite.trim() }
-        : { nome: form.nome.trim(), senha: form.senha, email: form.email.trim(), badgeNumber: form.cracha.trim() },
-    );
-    // Apps Script entra direto; Supabase fica pendente de aprovação
-    if (r.loggedIn) adopt(r.session);
-    else {
-      setForm((f) => ({ ...f, senha: "", senha2: "" }));
-      go("cadastroEnviado");
-    }
+    // O cadastro fica pendente de aprovação do gestor (D20)
+    await client.auth.register({ nome: form.nome.trim(), senha: form.senha, email: form.email.trim(), badgeNumber: form.cracha.trim() });
+    setForm((f) => ({ ...f, senha: "", senha2: "" }));
+    go("cadastroEnviado");
   }
 
   return (

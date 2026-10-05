@@ -9,7 +9,7 @@ import type { ReadSource } from "@/data/fromBackend";
  * implementação.
  *
  * Qual fonte:
- * - VITE_DATA_SOURCE definido ("supabase", "gas" ou "mock", no .env.local da
+ * - VITE_DATA_SOURCE definido ("supabase" ou "mock", no .env.local da
  *   raiz): a camada de dados da sessão do banco, carregada sob demanda. O
  *   "mock" dela só liga em desenvolvimento (nunca num build).
  * - Sem configuração: a fonte de demonstração desta pasta (demoClient.ts), para
@@ -17,12 +17,6 @@ import type { ReadSource } from "@/data/fromBackend";
  */
 export interface AccessClient {
   kind: DataSourceKind | "demo";
-  /**
-   * Login por e-mail, cadastro com aprovação e permissões (D19–D23)? É a
-   * pergunta certa para o formato da tela — não "é Supabase?": o modo de
-   * demonstração também entra por e-mail (nota de 01/10, § 6).
-   */
-  emailAccess: boolean;
   auth: Pick<
     DataSource["auth"],
     "login" | "register" | "logout" | "isSessionValid" | "watchSession" | "requestPasswordReset" | "setNewPassword"
@@ -78,7 +72,7 @@ function realStore(kind: string): AccessClient["store"] {
 export const configuredSource = import.meta.env.VITE_DATA_SOURCE as string | undefined;
 
 export async function loadAccessClient(): Promise<AccessClient> {
-  if (configuredSource === "supabase" || configuredSource === "gas" || configuredSource === "mock") {
+  if (configuredSource === "supabase" || configuredSource === "mock") {
     const [repo, rec] = await Promise.all([import("../../../../src/lib/repositories"), import("../../../../src/lib/recovery")]);
     // Antes da primeira tela: liga o mock (se for o caso) e tira o token do endereço
     await repo.carregarModoDemonstracao();
@@ -87,7 +81,6 @@ export async function loadAccessClient(): Promise<AccessClient> {
     const { data } = repo;
     return {
       kind: data.kind,
-      emailAccess: repo.usaAcessoPorEmail,
       auth: data.auth,
       users: data.users,
       store: realStore(data.kind),

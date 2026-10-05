@@ -59,8 +59,7 @@ const demoMachines = (): RegistryMachine[] =>
 export function MachineRegistryPage({ notify }: { notify: Notify }) {
   const { can, session, client } = useAccess();
   const live = DATA_ORIGIN === "backend";
-  // No modo Apps Script, só leitura (como Metas, Histórico e Calendário)
-  const writable = !live || (!!client.reads && client.kind !== "gas");
+  const writable = !live || !!client.reads;
   const canManage = can("machines.manage") && writable;
 
   const [load, setLoad] = useState<Load>(() => (live ? { status: "loading" } : { status: "ready", machines: demoMachines() }));

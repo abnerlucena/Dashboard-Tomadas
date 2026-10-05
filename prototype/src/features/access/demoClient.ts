@@ -197,7 +197,6 @@ const KEY = "dash-proto.session";
 
 export const demoClient: AccessClient = {
   kind: "demo",
-  emailAccess: true,
   // Produção de demonstração: a de machines.ts, sem servidor
   reads: null,
   auth: {
@@ -211,9 +210,9 @@ export const demoClient: AccessClient = {
         if (!badgeNumber?.trim()) throw new DemoBadgeRequired();
         const operator = users.find((x) => x.badgeNumber === badgeNumber.trim() && x.status === "ativo");
         if (!operator) throw new Error("Crachá não encontrado ou sem cadastro ativo.");
-        return { session: sessionFor(u, operator), onboardingDone: true };
+        return { session: sessionFor(u, operator) };
       }
-      return { session: sessionFor(u), onboardingDone: true };
+      return { session: sessionFor(u) };
     },
     async register({ nome, senha, email, badgeNumber }) {
       await wait();

@@ -477,7 +477,28 @@ RLS habilitado em **todas** as 16 tabelas de `public` (conferido no banco: 0 sem
 
 Pendência de migração: apontamentos da máquina 19 ("RETRABALHO GERAL"), que não será recriada.
 
-## 10. Autenticação (Supabase Auth) — fora do schema `public`
+## 10. Fora do schema `public`
+
+### 10.0 `supabase_migrations.schema_migrations` — só no servidor interno [D65]
+
+O registro de quais migrations já foram aplicadas. É o formato da CLI do
+Supabase, e quem o cria e preenche é o `infra/servidor-interno/scripts/atualizar-banco.sh`.
+
+| Coluna | Tipo | O que é |
+|---|---|---|
+| `version` | `text` PK | os 14 primeiros caracteres do nome do arquivo (`aaaammddhhmmss`) |
+| `name` | `text` | o nome do arquivo, sem `.sql` |
+| `statements` | `text[]` | não usado (a CLI guarda o SQL; o script, não) |
+
+- O **seed estrutural** entra como um passo dessa lista, com a versão
+  `20260925100001`, logo depois da migration 13 (ver `supabase/INSTALAR.md`).
+- **No Supabase da nuvem essa tabela não existe** (conferido em 05/10/2026): lá as
+  migrations foram aplicadas pelo SQL Editor e por script, sem anotação. Ao copiar
+  o banco da nuvem para o servidor, ela tem de ser criada e preenchida com tudo o
+  que já está aplicado, ou o script tenta aplicar tudo de novo e falha (D65).
+- Sem RLS e sem acesso pela API: o PostgREST só expõe o `public`.
+
+### Autenticação (Supabase Auth)
 
 Senha, sessão e recuperação **não são tabelas deste schema**: ficam em `auth`,
 gerenciado pelo Supabase. O `public` só guarda o perfil (`profiles.id` é FK de

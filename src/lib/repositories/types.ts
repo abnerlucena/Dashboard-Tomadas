@@ -9,13 +9,8 @@
 import type { Session, Machine, Holiday, HolidayScope, ProdRecord, OrdemProducao } from "../api";
 import type { BaseDaMeta } from "../metas";
 
-/**
- * `"gas"` não existe mais como fonte (D64): a camada de dados nunca o devolve.
- * O literal fica no tipo SÓ para a interface compilar enquanto ainda tem ramos
- * "se for Apps Script" (comparar com um literal que não está no tipo é erro do
- * TypeScript). Sai quando a interface tirar esses ramos.
- */
-export type DataSourceKind = "supabase" | "mock" | "gas";
+/** A fonte de dados. Até 05/10/2026 havia também "gas", o Apps Script (D64). */
+export type DataSourceKind = "supabase" | "mock";
 
 export interface MetaInfoRaw {
   updatedBy: string;
@@ -30,32 +25,21 @@ export interface MetaInfoRaw {
 
 export interface LoginResponse {
   session: Session;
-  /**
-   * @deprecated Era a apresentação inicial do app antigo (D64). Não tem mais
-   * uso; fica até a demonstração da interface parar de preenchê-lo.
-   */
-  onboardingDone?: boolean;
 }
 
 export interface RegisterInput {
   nome: string;
   senha: string;
-  /** @deprecated Código de convite do Apps Script (D64). Fica até a tela de login tirar o ramo do Apps Script. */
-  inviteCode?: string;
   email?: string;
   badgeNumber?: string;
 }
 
 /**
- * Resultado do cadastro: aguardando aprovação do gestor (D20).
- *
- * A variante `loggedIn: true` era o Apps Script, em que o cadastro entrava
- * direto (D64). Nenhuma fonte a devolve mais; ela fica só até a tela de login
- * tirar o ramo do Apps Script.
+ * Resultado do cadastro: sempre aguardando a aprovação do gestor (D20). O
+ * `loggedIn: false` fica para a tela ler o resultado como sempre leu; o
+ * cadastro que entrava direto era o Apps Script (D64).
  */
-export type RegisterResponse =
-  | { loggedIn: true; session: Session; onboardingDone?: boolean }
-  | { loggedIn: false; message: string };
+export type RegisterResponse = { loggedIn: false; message: string };
 
 /** Linha de apontamento enviada pela tela de Apontamento (formato do legado). */
 export interface ProductionEntryPayload {
@@ -288,12 +272,6 @@ export interface DataSource {
 
   machines: {
     getMachines(session: Session | null): Promise<{ machines?: Machine[]; allMachines?: Machine[] }>;
-    /**
-     * @deprecated Use `createMachine`, que leva a linha (obrigatória, D63), a
-     * lotação e a base. Continua funcionando só durante a troca; meta 0 já vira
-     * máquina por demanda. Sai quando a tela usar `createMachine`.
-     */
-    addMachine(name: string, defaultMeta: number, session: Session | null): Promise<void>;
     /** Cadastra a máquina e a primeira meta (D63). Devolve o id. Só modo Supabase. */
     createMachine(input: NewMachineInput, session: Session | null): Promise<number>;
     /** Edita nome, linha e lotação (D63). O que não vier fica como está. Só modo Supabase. */

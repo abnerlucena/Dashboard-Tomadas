@@ -32,12 +32,12 @@ do $$ declare m public.machines; begin
 exception when others then insert into rc values (2, 'com meta', 'aceita', 'RECUSOU: ' || sqlerrm); end $$;
 
 do $$ begin
-  perform public.create_machine(p_name => 'TESTE D63 CONTRADICAO 1', p_initial_target => 0, p_has_target => true);
+  perform public.create_machine(p_name => 'TESTE D63 CONTRADICAO 1', p_initial_target => 0, p_has_target => true, p_process => 'assembly');
   insert into rc values (3, '"com meta" e meta zero', 'recusa', 'ACEITOU');
 exception when others then insert into rc values (3, '"com meta" e meta zero', 'recusa', 'RECUSOU'); end $$;
 
 do $$ begin
-  perform public.create_machine(p_name => 'TESTE D63 CONTRADICAO 2', p_initial_target => 800, p_has_target => false);
+  perform public.create_machine(p_name => 'TESTE D63 CONTRADICAO 2', p_initial_target => 800, p_has_target => false, p_process => 'assembly');
   insert into rc values (4, '"por demanda" com meta', 'recusa', 'ACEITOU');
 exception when others then insert into rc values (4, '"por demanda" com meta', 'recusa', 'RECUSOU'); end $$;
 
@@ -52,13 +52,21 @@ do $$ begin
   insert into rc values (6, 'meta conforme a lotação, sem lotação', 'recusa', 'ACEITOU');
 exception when others then insert into rc values (6, 'rateada sem lotação', 'recusa', 'RECUSOU'); end $$;
 
--- O caminho antigo (addMachine: só nome e meta) continua funcionando.
-do $$ declare m public.machines; begin
-  perform public.create_machine('TESTE D63 CAMINHO ANTIGO', 0);
-  m := pg_temp.maq('TESTE D63 CAMINHO ANTIGO');
-  insert into rc values (7, 'chamada antiga (nome e meta) ainda funciona, e meta 0 vira por demanda', 'aceita',
-    case when m.id is not null and m.has_target = false then 'ACEITOU' else 'RECUSOU' end);
-exception when others then insert into rc values (7, 'caminho antigo', 'aceita', 'RECUSOU: ' || sqlerrm); end $$;
+-- Sem linha, recusa — e com a mensagem que a tela mostra (0038). Até a 0037,
+-- a chamada antiga (só nome e meta) ainda passava.
+do $$ begin
+  perform public.create_machine('TESTE D63 SEM LINHA', 0);
+  insert into rc values (7, 'cadastro sem linha', 'recusa', 'ACEITOU');
+exception when others then
+  insert into rc values (7, 'cadastro sem linha recusado, pedindo a linha', 'recusa',
+    case when sqlerrm like 'Escolha a linha%' then 'RECUSOU' else 'ACEITOU: ' || sqlerrm end);
+end $$;
+
+-- E a coluna não aceita linha vazia nem por fora da função.
+do $$ begin
+  update public.machines set process = null where id = (pg_temp.maq('TESTE D63 POR DEMANDA')).id;
+  insert into rc values (13, 'apagar a linha de uma máquina', 'recusa', 'ACEITOU');
+exception when others then insert into rc values (13, 'apagar a linha de uma máquina', 'recusa', 'RECUSOU'); end $$;
 
 -- ─── Editar ─────────────────────────────────────────────────────────────────
 do $$ declare m public.machines; begin

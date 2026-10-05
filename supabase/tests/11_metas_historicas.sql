@@ -47,7 +47,7 @@ do $$ begin
     case when pg_temp.meta('EMBALADORA HORIZONTAL N°1', (now() at time zone 'America/Sao_Paulo')::date) = 10000 then 'ACEITOU'
          else 'RECUSOU' end);
   insert into rc values (6, 'Tomadas hoje: 12.500', 'aceita',
-    case when pg_temp.meta('MÁQUINA DE TOMADAS COMPOSÉ - AUMAQ', (now() at time zone 'America/Sao_Paulo')::date) = 12500 then 'ACEITOU'
+    case when pg_temp.meta('MÁQUINA DE TOMADAS', (now() at time zone 'America/Sao_Paulo')::date) = 12500 then 'ACEITOU'
          else 'RECUSOU' end);
 end $$;
 

@@ -33,6 +33,11 @@ um, como ler os rótulos de turno, e o que fazer com as células que têm texto
 no lugar de número. Quem quiser conferir uma decisão lê esse arquivo, sem
 precisar entender código.
 
+O mapa liga as colunas às máquinas **pelo nome**. Se alguém renomear uma
+máquina pela tela, o `.sql` gerado para logo no começo, com a mensagem
+"Máquinas do mapa que não existem no banco", e diz qual nome atualizar aqui
+(D63.1).
+
 **`extrair.cjs`** é só a mecânica: lê a planilha e aplica o mapa. Ele **não se
 conecta ao banco** — o repositório é público e não guarda credencial nenhuma.
 A saída é um arquivo `.sql` que alguém roda onde quiser.

@@ -360,6 +360,21 @@ const retrabalhoDe = (aba, celula) => RETRABALHO.find((c) => c.aba === aba && c.
   partes.push(`-- ${linhas.length} linhas. Rodar dentro de uma transação; conferir ANTES de carregar.`);
   partes.push('');
   partes.push('begin;');
+  // O mapa liga as colunas da planilha às máquinas PELO NOME, e o nome pode
+  // mudar pela tela de Cadastro (D63). Sem esta conferência, a linha de uma
+  // máquina renomeada entraria no preparo sem máquina. Aqui o arquivo para
+  // antes de gravar qualquer coisa e diz qual nome atualizar no mapa.cjs.
+  const centrosDoLote = [...new Set(linhas.map((l) => l.centro).filter(Boolean))].sort();
+  if (centrosDoLote.length) {
+    partes.push('do $$ declare v_faltam text; begin');
+    partes.push('  select string_agg(v.n, \', \' order by v.n) into v_faltam');
+    partes.push(`    from (values ${centrosDoLote.map((c) => `(${esc(c)})`).join(', ')}) as v(n)`);
+    partes.push('   where not exists (select 1 from public.machines m where lower(m.name) = lower(v.n));');
+    partes.push('  if v_faltam is not null then');
+    partes.push('    raise exception \'Máquinas do mapa que não existem no banco (renomeadas?): %. Atualize supabase/import/mapa.cjs.\', v_faltam;');
+    partes.push('  end if;');
+    partes.push('end $$;');
+  }
   partes.push(`insert into public.import_batches (id, source_file, description)`);
   const janela = datas.length ? `${br(datas[0])} a ${br(datas[datas.length - 1])}` : 'sem linhas';
   const descricao = (desde || ate || turno !== null ? 'Carga incremental ' : 'Histórico ') + janela

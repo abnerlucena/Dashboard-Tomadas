@@ -12,8 +12,7 @@ export interface Session {
   nome: string;
   role: "admin" | "user";
   expiresAt?: string;
-  // "gas" fica só enquanto a interface tiver ramos do Apps Script (ver DataSourceKind, D64).
-  source?: "gas" | "supabase" | "mock";
+  source?: "supabase" | "mock";
   userId?: string;
   permissions?: string[];
   /**

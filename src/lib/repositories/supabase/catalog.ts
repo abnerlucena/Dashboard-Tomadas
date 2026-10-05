@@ -25,11 +25,6 @@ export const supabaseMachines: DataSource["machines"] = {
     return { machines: all.filter(m => m.status !== "inativo"), allMachines: all };
   },
 
-  async addMachine(name, defaultMeta) {
-    const { error } = await getSupabase().rpc("create_machine", { p_name: name, p_initial_target: defaultMeta });
-    if (error) throw toError(error);
-  },
-
   async createMachine(input) {
     const { data, error } = await getSupabase().rpc("create_machine", toCreateMachineArgs(input));
     if (error) throw toError(error);

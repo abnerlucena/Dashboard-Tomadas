@@ -39,7 +39,17 @@ import { DetailedView } from "./DetailedView";
 import { machineColumns } from "./machineColumns";
 import { MachinePanel } from "./MachinePanel";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { csvName, machinesCsv, ordersCsv } from "./exportCsv";
+import { useAccess } from "@/features/access/AccessContext";
+
+/** "dash-maquinas-setembro-de-2026.xlsx" */
+const xlsxName = (...parts: string[]) =>
+  `${parts
+    .join("-")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")}.xlsx`;
 import { ShiftsView } from "./ShiftsView";
 
 export type DemoState = "live" | "loading" | "empty" | "error";
@@ -230,12 +240,22 @@ export function MachinesPage({
 
   const openPanel = (m: Machine) => setActiveId((id) => (id === m.id ? null : m.id));
 
-  /** Gera e baixa o CSV; avisa o que saiu (ou que a pessoa recusou o download) */
-  const download = async (name: string, csv: string, what: string) => {
+  /* ---------- Exportar (planilha .xlsx no padrão do Dash, src/lib/xlsx) ---------- */
+  const author = useAccess().session?.nome;
+  const exportFilters = (): Array<[string, string]> => [
+    ["Linha", title !== "Máquinas" ? title : ""],
+    ["Máquina", filters.machine === "all" ? "" : (pool.find((m) => m.id === filters.machine)?.name ?? "")],
+    ["Turno", shiftLabel ?? ""],
+    ["Situação", filters.status === "all" ? "" : STATUS_META[filters.status as Status].label],
+    ["Busca", search.trim()],
+  ];
+
+  /** Monta e baixa a planilha; avisa o que saiu (ou que a pessoa recusou o download) */
+  const download = async (name: string, build: () => Promise<Blob>, what: string) => {
     setExporting(true);
     try {
-      const r = await saveFile(name, new Blob([csv], { type: "text/csv;charset=utf-8" }));
-      if (r === "saved") notify("Planilha baixada", `${what} · ${periodText}. Abre no Excel (${name}).`);
+      const r = await saveFile(name, await build());
+      if (r === "saved") notify("Planilha baixada", `${what} · ${periodText} (${name}).`);
     } catch {
       notify("Não foi possível exportar", "Tente de novo. Se continuar, recarregue a página.", "error");
     } finally {
@@ -245,12 +265,38 @@ export function MachinesPage({
 
   const onAction = (action: string, m: Machine) => {
     if (action === "export")
-      void download(csvName("dash", m.name, periodText), ordersCsv(m, m.orders), `${m.name}: ${plural(m.orders.length, "apontamento", "apontamentos")}`);
+      void download(
+        xlsxName("dash", m.name, periodText),
+        async () =>
+          (await import("./dashboardReport")).buildMachineReport(m, { range, shift, period: periodText, filters: exportFilters(), author }),
+        m.name,
+      );
     else if (action === "entry") window.location.hash = "/apontamento";
     else notify("Histórico da máquina", "Ainda não existe uma tela só da máquina. Os apontamentos dela estão no Histórico.");
   };
 
-  const exportAll = () => void download(csvName("dash-maquinas", periodText), machinesCsv(rows), plural(rows.length, "máquina", "máquinas"));
+  const exportAll = () =>
+    void download(
+      xlsxName("dash", title, periodText),
+      async () => {
+        const group = MACHINE_GROUPS.find((g) => g.id === groupId);
+        const demand = DEMAND_MACHINES.filter((m) => !group || group.machineIds.includes(m.id))
+          .filter((m) => shift === "all" || shift <= m.regime)
+          .map((m) => scopeMachine(m, shift, range))
+          .filter((m) => !search.trim() || m.name.toLowerCase().includes(search.trim().toLowerCase()));
+        return (await import("./dashboardReport")).buildDashboardReport({
+          rows,
+          demand: filters.machine === "all" && filters.status === "all" ? demand : [],
+          range,
+          shift,
+          period: periodText,
+          filters: exportFilters(),
+          author,
+          comparison: showGrowth ? `${formatDecimal(Math.abs(growth))}% ${growth >= 0 ? "acima de" : "abaixo de"} ${growthLabel}` : undefined,
+        });
+      },
+      plural(rows.length, "máquina", "máquinas"),
+    );
 
   /* ---------- Estados compartilhados pelas abas ---------- */
   const emptyState =

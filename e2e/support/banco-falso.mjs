@@ -109,10 +109,24 @@ export const mockDataSource = {
     async bulkEditTurno(ids, t) { window.__calls = window.__calls || []; window.__calls.push({ bulkEditTurno: ids, t }); if (t === "TURNO 3") throw new Error("Já existe apontamento desta máquina neste dia e turno."); for (const r of F.records) if (ids.includes(r.id)) r.turno = t; } },
   machines: {
     async getMachines() { return { machines: F.machines.filter(m => m.status !== "inativo"), allMachines: F.machines }; },
-    async addMachine(name, defaultMeta) {
-      window.__calls = window.__calls || []; window.__calls.push({ addMachine: name, defaultMeta });
-      if (/recusa/i.test(name)) throw new Error("Você não tem permissão para cadastrar máquinas.");
-      F.machines.push({ id: 100 + F.machines.length, name, hasMeta: true, defaultMeta, status: "ativo" });
+    async createMachine(input) {
+      window.__calls = window.__calls || []; window.__calls.push({ createMachine: input });
+      if (/recusa/i.test(input.name)) throw new Error("Você não tem permissão para cadastrar máquinas.");
+      if (!input.process) throw new Error("Informe a linha da máquina.");
+      const hasMeta = input.hasMeta ?? input.defaultMeta > 0;
+      if (hasMeta && !(input.defaultMeta > 0)) throw new Error("Máquina com meta precisa de meta maior que zero. Para máquina por demanda, cadastre sem meta.");
+      if (input.basis === "per_shift_prorated" && !input.standardOperatorCount) throw new Error("Para a meta conforme a lotação, informe a lotação padrão.");
+      const id = 100 + F.machines.length;
+      F.machines.push({ id, name: input.name, hasMeta, defaultMeta: input.defaultMeta, status: "ativo", process: input.process, standardOperatorCount: input.standardOperatorCount ?? null });
+      return id;
+    },
+    async updateMachine(id, changes) {
+      window.__calls = window.__calls || []; window.__calls.push({ updateMachine: id, changes });
+      if (changes.name && F.machines.some(m => m.id !== id && m.name.toLowerCase() === changes.name.toLowerCase())) throw new Error('Já existe uma máquina com o nome "' + changes.name + '".');
+      const m = F.machines.find(x => x.id === id);
+      if (changes.name) m.name = changes.name;
+      if (changes.process) m.process = changes.process;
+      if (changes.standardOperatorCount) m.standardOperatorCount = changes.standardOperatorCount;
     },
     async toggleMachine(id) {
       window.__calls = window.__calls || []; window.__calls.push({ toggleMachine: id });

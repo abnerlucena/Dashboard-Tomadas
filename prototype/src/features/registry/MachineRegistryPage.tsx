@@ -1,4 +1,4 @@
-import { Factory, Plus, Power, PowerOff, RefreshCw } from "lucide-react";
+import { Factory, Pencil, Plus, Power, PowerOff, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { Machine as ApiMachine } from "../../../../src/lib/api";
 import { mensagemDeErro } from "../../../../src/lib/erros";
@@ -12,15 +12,29 @@ import { Modal } from "@/components/ui/Modal";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { TextField } from "@/components/ui/TextField";
 import { useAccess } from "@/features/access/AccessContext";
-import { baseLabel, crewOf, initialBaseOf } from "@/features/metas/metaBase";
+import { BASE_OPTIONS, baseLabel, crewOf, initialBaseOf } from "@/features/metas/metaBase";
+import type { MachineChanges, MachineProcess, NewMachineInput } from "../../../../src/lib/repositories/types";
+import type { BaseDaMeta } from "../../../../src/lib/metas";
 import { cn, formatNumber, type Notify } from "@/lib/utils";
-import { fromApi, sortMachines, validateNew, type RegistryMachine } from "./registry";
+import {
+  PROCESS_LABEL,
+  changesOf,
+  draftOf,
+  fromApi,
+  newDraft,
+  processOfLine,
+  sortMachines,
+  toNewInput,
+  validateDraft,
+  type MachineDraft,
+  type RegistryMachine,
+} from "./registry";
 
 /*
- * Cadastro de máquinas (machines.manage): ver todas, cadastrar e desativar ou
- * reativar. O contrato de hoje cadastra só nome e meta por turno (a meta vale
- * a partir de hoje, base "por turno"). A base muda na tela de Metas. Linha,
- * lotação e "sem meta" ainda não vão pelo contrato (pedido na nota de 04/10).
+ * Cadastro de máquinas (machines.manage): ver todas, cadastrar (createMachine,
+ * com linha, meta, base e lotação), editar nome, linha e lotação
+ * (updateMachine) e desativar ou reativar (D63). Meta e base de uma máquina que
+ * já existe têm vigência: mudam na tela de Metas.
  */
 
 type Load = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; machines: RegistryMachine[] };
@@ -33,6 +47,7 @@ const demoMachines = (): RegistryMachine[] =>
       id: m.id,
       name: m.name,
       line: m.line,
+      process: processOfLine(m.line),
       hasMeta: m.hasTarget,
       metaPerShift: m.hasTarget ? metaPerShift(m) : 0,
       basis: initialBaseOf(m.id),
@@ -52,6 +67,7 @@ export function MachineRegistryPage({ notify }: { notify: Notify }) {
   const [attempt, setAttempt] = useState(0);
   const [filter, setFilter] = useState<Filter>("active");
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<RegistryMachine | null>(null);
   const [toggling, setToggling] = useState<RegistryMachine | null>(null);
 
   const fetchMachines = useCallback(async () => {
@@ -203,7 +219,11 @@ export function MachineRegistryPage({ notify }: { notify: Notify }) {
                       <Lozenge appearance={m.active ? "success" : "neutral"}>{m.active ? "Ativa" : "Inativa"}</Lozenge>
                     </td>
                     {canManage && (
-                      <td className="px-150 py-100 text-right">
+                      <td className="flex justify-end gap-050 px-150 py-100">
+                        <Button appearance="subtle" spacing="compact" iconBefore={Pencil} onClick={() => setEditing(m)}>
+                          Editar
+                          <span className="sr-only"> {m.name}</span>
+                        </Button>
                         <Button
                           appearance="subtle"
                           spacing="compact"
@@ -224,38 +244,75 @@ export function MachineRegistryPage({ notify }: { notify: Notify }) {
 
         {load.status === "ready" && all.length > 0 && (
           <p className="font-body-small text-subtlest">
-            A linha é deduzida pelo nome da máquina. Meta e base mudam na tela de Metas; a lotação ainda é ajustada direto no banco.
+            Meta e base têm vigência: mudam na tela de Metas. Nome, linha e lotação mudam aqui, em Editar.
           </p>
         )}
       </PageBody>
 
       {adding && (
-        <AddDialog
+        <MachineDialog
           existing={all}
           onClose={() => setAdding(false)}
-          onSave={async (name, meta) => {
+          onSave={async (input: NewMachineInput) => {
             if (!live || !client.reads) {
               const m: RegistryMachine = {
                 id: `n${Date.now()}`,
-                name,
-                line: lineOf(name),
-                hasMeta: meta > 0,
-                metaPerShift: meta,
-                basis: "per_shift",
-                crew: null,
+                name: input.name,
+                line: lineOf(input.name, input.process),
+                process: input.process,
+                hasMeta: input.defaultMeta > 0,
+                metaPerShift: input.defaultMeta,
+                basis: input.basis ?? "per_shift",
+                crew: input.standardOperatorCount ?? null,
                 active: true,
               };
               setLoad({ status: "ready", machines: sortMachines([...all, m]) });
             } else {
-              await client.reads.machines.addMachine(name, meta, session);
+              await client.reads.machines.createMachine(input, session);
               await refresh();
             }
             setAdding(false);
             setFilter("active");
             notify(
               "Máquina cadastrada",
-              meta > 0 ? `${name}: meta de ${formatNumber(meta)} por turno a partir de hoje.` : `${name}, sem meta.`,
+              input.defaultMeta > 0
+                ? `${input.name}: meta de ${formatNumber(input.defaultMeta)} por turno a partir de hoje.`
+                : `${input.name}, por demanda (sem meta).`,
             );
+          }}
+        />
+      )}
+
+      {editing && (
+        <MachineDialog
+          existing={all}
+          machine={editing}
+          onClose={() => setEditing(null)}
+          onSave={async (changes: MachineChanges) => {
+            const m = editing;
+            if (!live || !client.reads) {
+              setLoad({
+                status: "ready",
+                machines: sortMachines(
+                  all.map((x) =>
+                    x.id === m.id
+                      ? {
+                          ...x,
+                          name: changes.name ?? x.name,
+                          process: changes.process ?? x.process,
+                          line: lineOf(changes.name ?? x.name, changes.process ?? x.process ?? undefined),
+                          crew: changes.standardOperatorCount ?? x.crew,
+                        }
+                      : x,
+                  ),
+                ),
+              });
+            } else {
+              await client.reads.machines.updateMachine(Number(m.id), changes, session);
+              await refresh();
+            }
+            setEditing(null);
+            notify("Máquina atualizada", changes.name ?? m.name);
           }}
         />
       )}
@@ -287,34 +344,38 @@ export function MachineRegistryPage({ notify }: { notify: Notify }) {
   );
 }
 
-/* ---------- Cadastrar ---------- */
+/* ---------- Cadastrar e editar ---------- */
 
-function AddDialog({
-  existing,
-  onClose,
-  onSave,
-}: {
-  existing: RegistryMachine[];
-  onClose: () => void;
-  /** Lança o erro do banco: a mensagem aparece no diálogo */
-  onSave: (name: string, meta: number) => Promise<void>;
-}) {
-  const [name, setName] = useState("");
-  const [meta, setMeta] = useState("");
+type DialogProps = { existing: RegistryMachine[]; onClose: () => void } & (
+  | { machine?: undefined; onSave: (input: NewMachineInput) => Promise<void> }
+  | { machine: RegistryMachine; onSave: (changes: MachineChanges) => Promise<void> }
+);
+
+/** Lança o erro do banco: a mensagem aparece no diálogo, como veio */
+function MachineDialog(props: DialogProps) {
+  const { existing, machine, onClose } = props;
+  const editing = !!machine;
+  const [draft, setDraft] = useState<MachineDraft>(() => (machine ? draftOf(machine) : newDraft()));
+  const [pickedLine, setPickedLine] = useState(editing);
   const [touched, setTouched] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const errors = validateNew(name, meta, existing);
-  const invalid = !!(errors.name || errors.meta);
-  const line = name.trim() ? lineOf(name) : null;
+  const errors = validateDraft(draft, existing, machine);
+  const changes = machine ? changesOf(draft, machine) : null;
+  const withMeta = /^\d+$/.test(draft.meta.trim()) && Number(draft.meta) > 0;
+  const set = (patch: Partial<MachineDraft>) => setDraft((d) => ({ ...d, ...patch }));
+
+  // Cadastro: a linha começa pela dedução do nome, até a pessoa escolher
+  const onName = (name: string) => set(pickedLine || !name.trim() ? { name } : { name, process: processOfLine(lineOf(name)) });
 
   const save = async () => {
     setTouched(true);
-    if (invalid) return;
+    if (errors.any || (editing && !changes)) return;
     setSaving(true);
     setError(null);
     try {
-      await onSave(name.trim().replace(/\s+/g, " "), Number(meta));
+      if (props.machine) await props.onSave(changes!);
+      else await props.onSave(toNewInput(draft));
     } catch (e) {
       setSaving(false);
       setError(mensagemDeErro(e));
@@ -325,37 +386,97 @@ function AddDialog({
     <Modal
       open
       onOpenChange={(o) => !o && !saving && onClose()}
-      title="Cadastrar máquina"
-      primary={{ label: "Cadastrar", onClick: save, isLoading: saving, isDisabled: touched && invalid }}
+      title={machine ? `Editar ${machine.name}` : "Cadastrar máquina"}
+      primary={{
+        label: editing ? "Salvar" : "Cadastrar",
+        onClick: save,
+        isLoading: saving,
+        isDisabled: (editing && !changes) || (touched && errors.any),
+      }}
     >
       <div className="flex flex-col gap-200">
         <TextField
           label="Nome"
           isRequired
-          value={name}
+          value={draft.name}
           maxLength={80}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => onName(e.target.value)}
           placeholder="Ex.: Embaladora horizontal nº 3"
           // Nome repetido avisa enquanto digita; o resto, só ao tentar salvar
           error={touched || errors.name?.startsWith("Já existe") ? errors.name : null}
-          helper={line ? `Vai aparecer na linha ${line} (deduzida pelo nome)` : undefined}
           autoFocus
         />
+        <div className="flex flex-col gap-050">
+          <span className="font-body-small font-semibold text-subtle">
+            Linha{" "}
+            <span aria-hidden className="text-danger">
+              *
+            </span>
+          </span>
+          <SegmentedControl
+            label="Linha"
+            iconOnly={false}
+            size="control"
+            value={draft.process}
+            onChange={(v) => {
+              setPickedLine(true);
+              set({ process: v as MachineProcess });
+            }}
+            options={(["assembly", "packaging"] as MachineProcess[]).map((p) => ({ value: p, label: PROCESS_LABEL[p] }))}
+          />
+          {touched && errors.process ? (
+            <p className="font-body-small text-danger">{errors.process}</p>
+          ) : (
+            <p className="font-body-small text-subtlest">
+              {!editing && draft.process && !pickedLine ? "Sugerida pelo nome. " : ""}As bancadas a granel ficam na Embalagem.
+            </p>
+          )}
+        </div>
+        {!editing && (
+          <>
+            <TextField
+              label="Meta por turno"
+              isRequired
+              inputMode="numeric"
+              value={draft.meta}
+              onChange={(e) => set({ meta: e.target.value.replace(/\D/g, "") })}
+              error={touched ? errors.meta : null}
+              helper="Peças boas por turno, valendo a partir de hoje. Use 0 para máquina por demanda (sem meta)."
+              elemAfter="peças"
+            />
+            {withMeta && (
+              <div className="flex flex-col gap-050">
+                <span className="font-body-small font-semibold text-subtle">Base da meta</span>
+                <SegmentedControl
+                  label="Base da meta"
+                  iconOnly={false}
+                  size="control"
+                  value={draft.basis}
+                  onChange={(v) => set({ basis: v as BaseDaMeta })}
+                  options={BASE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                />
+                <p className="font-body-small text-subtlest">{BASE_OPTIONS.find((o) => o.value === draft.basis)?.hint}</p>
+              </div>
+            )}
+          </>
+        )}
         <TextField
-          label="Meta por turno"
-          isRequired
+          label="Lotação padrão"
           inputMode="numeric"
-          value={meta}
-          onChange={(e) => setMeta(e.target.value)}
-          error={touched ? errors.meta : null}
-          helper="Peças boas por turno, valendo a partir de hoje. Use 0 para máquina sem meta (por demanda)."
-          elemAfter="peças"
+          value={draft.crew}
+          onChange={(e) => set({ crew: e.target.value.replace(/\D/g, "") })}
+          error={touched || errors.crew?.includes("não se apaga") ? errors.crew : null}
+          helper={
+            !editing && withMeta && draft.basis === "per_shift_prorated"
+              ? "Obrigatória: a meta é rateada por ela."
+              : "Pessoas num turno normal. Opcional, mas depois de informada não se apaga."
+          }
+          isRequired={!editing && withMeta && draft.basis === "per_shift_prorated"}
+          elemAfter="pessoas"
+          className="w-column-name"
         />
-        <p className="font-body-small text-subtle">
-          A meta entra com a base “por turno”. Se a máquina trabalha por pessoa ou conforme a lotação, ajuste a base na tela de Metas depois
-          de cadastrar.
-        </p>
-        {error && <ErrorMessage title="Não foi possível cadastrar">{error}</ErrorMessage>}
+        {editing && <p className="font-body-small text-subtle">Meta e base têm vigência: para mudar, use a tela de Metas.</p>}
+        {error && <ErrorMessage title={editing ? "Não foi possível salvar" : "Não foi possível cadastrar"}>{error}</ErrorMessage>}
       </div>
     </Modal>
   );

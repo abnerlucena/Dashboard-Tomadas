@@ -8,7 +8,7 @@ de 03/10 desta pasta. Este arquivo resume o estado e o caminho.
 
 ## Onde está o trabalho
 
-- **Branch:** `claude/metas-capacidade-lab-u3y2or`.
+- **Branch:** `claude/ops-no-banco` (a #29 foi mesclada em 04/10; o branch antigo `claude/metas-capacidade-lab-u3y2or` acabou).
 - **PR #29 aberta, não mesclada:** "Apontamento, Histórico e Metas gravam no banco". Não
   mesclar sem o usuário pedir.
 - **Repositório:** o remoto é `abnerlucena/Dash-v2`, renomeado para `Dashboard-Tomadas`. As
@@ -33,7 +33,7 @@ de 03/10 desta pasta. Este arquivo resume o estado e o caminho.
 | **Apontamento** | grava (`saveEntries`, uma máquina por chamada; acrescenta ordens, D30) |
 | **Histórico** | grava: excluir, mover e trocar turno em lote; "Editar" corrige o apontamento inteiro pelo `updateEntry` (04/10) |
 | **Metas** | grava (`saveMetas`, só as alteradas; vigência ≥ hoje) |
-| OPs, Feedbacks | "ainda não ligada ao banco" (não há tabela de OP nem de conversa) |
+| **OPs, Feedbacks** | gravam pelo `workOrders` (05/10, ver `2026-10-05-ops-ligadas.md`); no Apps Script, aviso |
 | **Calendário** | grava (feito em 04/10, ver `2026-10-04-calendario-ligado.md`) |
 | **Cadastro de máquinas** | grava (feito em 04/10, ver `2026-10-04-cadastro-de-maquinas.md`; `addMachine` completo proposto) |
 

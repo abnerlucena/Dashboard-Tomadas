@@ -1,10 +1,12 @@
-import { ArrowLeft, CheckCheck, Info, Lock, MessagesSquare, Search, SendHorizontal } from "lucide-react";
+import { ArrowLeft, CheckCheck, Info, Lock, MessagesSquare, RefreshCw, Search, SendHorizontal } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { MANAGER, SHIFT_META, machineById, type Accent, type OpMessage, type Shift, type WorkOrder } from "@/data/machines";
+import { SHIFT_META, machineById, type Accent, type OpMessage, type Shift, type WorkOrder } from "@/data/machines";
+import { mensagemDeErro } from "../../../../src/lib/erros";
 import { cn, formatLongDate, plural, type Notify } from "@/lib/utils";
 import { PageBody, PageHeader } from "@/components/layout/PageHeader";
 import { Button, IconButton } from "@/components/ui/Button";
-import { EmptyState } from "@/components/ui/Feedback";
+import { EmptyState, ErrorMessage } from "@/components/ui/Feedback";
+import { Spinner } from "@/components/ui/Spinner";
 import { Lozenge } from "@/components/ui/Lozenge";
 import { Avatar } from "@/components/ui/Misc";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
@@ -28,14 +30,18 @@ const QUICK_REPLIES = ["Ciente, obrigado.", "Já acionei a manutenção.", "Pode
 
 type View = "open" | "unread" | "closed";
 
+const shiftLabel = (m: OpMessage) => (m.shift ? ` · ${SHIFT_META[m.shift].label}` : "");
+/** Papel de quem escreveu. Com o banco, quem escreve na conversa vem só com o nome (`member`) */
 const roleLabel = (m: OpMessage) =>
   m.role === "manager"
     ? "Gestor"
     : m.role === "leader"
-      ? `Líder · ${SHIFT_META[m.shift!].label}`
+      ? `Líder${shiftLabel(m)}`
       : m.role === "setter"
-        ? `Preparador · ${SHIFT_META[m.shift!].label}`
-        : `Operador · ${SHIFT_META[m.shift!].label} · observação do apontamento`;
+        ? `Preparador${shiftLabel(m)}`
+        : m.role === "operator"
+          ? `Operador${shiftLabel(m)} · observação do apontamento`
+          : "";
 
 /**
  * Feedbacks = a conversa de cada OP. A observação do operador no apontamento
@@ -44,13 +50,12 @@ const roleLabel = (m: OpMessage) =>
  * se encerra (fica só para leitura).
  */
 export function FeedbacksPage({ opParam, notify }: { opParam?: string; notify: Notify }) {
-  const { ops, unread, unreadIn, markRead, markAllRead, markUnread } = useOps();
+  const { ops, totalUnread, unreadIn, markRead, markAllRead, markUnread, status, error, retry } = useOps();
   const [view, setView] = useState<View>("open");
   const [query, setQuery] = useState("");
   const selectedId = opParam ? `OP ${opParam}` : null;
   const selected = selectedId ? ops.find((op) => op.id === selectedId) : undefined;
 
-  const totalUnread = unread.size;
   const threads = useMemo(() => {
     const q = query.trim().toLowerCase();
     return ops
@@ -90,6 +95,18 @@ export function FeedbacksPage({ opParam, notify }: { opParam?: string; notify: N
         Visível para preparadores, líderes e gestores.
       </p>
       <PageBody>
+        {status === "error" && (
+          <ErrorMessage
+            title="Não foi possível carregar as conversas"
+            actions={
+              <Button iconBefore={RefreshCw} onClick={retry}>
+                Tentar de novo
+              </Button>
+            }
+          >
+            {error}
+          </ErrorMessage>
+        )}
         <div className="flex h-chat overflow-hidden rounded-xlarge border bg-surface">
           {/* ---------- Caixa de entrada ---------- */}
           <aside
@@ -129,7 +146,11 @@ export function FeedbacksPage({ opParam, notify }: { opParam?: string; notify: N
                 elemAfter={<Search aria-hidden className="size-icon-small" />}
               />
             </div>
-            {threads.length === 0 ? (
+            {status === "loading" ? (
+              <div className="m-auto py-400">
+                <Spinner label="Carregando as conversas" />
+              </div>
+            ) : threads.length === 0 ? (
               <EmptyState
                 icon={view === "unread" ? CheckCheck : Search}
                 title={view === "unread" ? "Nenhuma mensagem nova" : "Nenhuma conversa aqui"}
@@ -159,11 +180,18 @@ export function FeedbacksPage({ opParam, notify }: { opParam?: string; notify: N
                 op={selected}
                 notify={notify}
                 onRead={() => markRead(selected.id)}
-                onMarkUnread={() => {
-                  markUnread(selected.id);
-                  window.location.hash = "/feedbacks";
-                }}
+                onMarkUnread={
+                  markUnread &&
+                  (() => {
+                    markUnread(selected.id);
+                    window.location.hash = "/feedbacks";
+                  })
+                }
               />
+            ) : status === "loading" ? (
+              <div className="m-auto">
+                <Spinner label="Carregando as conversas" />
+              </div>
             ) : (
               <EmptyState
                 icon={MessagesSquare}
@@ -191,10 +219,12 @@ function ThreadItem({
   isCurrent: boolean;
   onOpen: () => void;
 }) {
+  const { me } = useOps();
   const m = machineById(op.machineId);
-  const last = op.messages[op.messages.length - 1];
+  // Com o banco, a última mensagem só é conhecida depois de abrir a conversa
+  const last = op.messages[op.messages.length - 1] as OpMessage | undefined;
   const stage = stageView(op);
-  const who = last.role === "system" ? "" : `${last.author === MANAGER ? "Você" : last.author.split(" ")[0]}: `;
+  const who = !last || last.role === "system" ? "" : `${last.author === me ? "Você" : last.author.split(" ")[0]}: `;
   return (
     <li>
       <button
@@ -218,8 +248,16 @@ function ThreadItem({
         </span>
         <span className={cn("flex items-center gap-100", unreadCount > 0 ? "font-semibold text-default" : "text-subtle")}>
           <span className="min-w-0 flex-1 truncate">
-            {who}
-            {last.text}
+            {last ? (
+              <>
+                {who}
+                {last.text}
+              </>
+            ) : unreadCount > 0 ? (
+              "Mensagens novas"
+            ) : (
+              "Abra para ver a conversa"
+            )}
           </span>
           {unreadCount > 0 && (
             <span className="flex h-250 min-w-250 shrink-0 items-center justify-center rounded-full bg-brand-bold px-075 font-body-small font-semibold text-inverse">
@@ -241,9 +279,10 @@ function Conversation({
   op: WorkOrder;
   notify: Notify;
   onRead: () => void;
-  onMarkUnread: () => void;
+  /** null = a fonte não oferece */
+  onMarkUnread: (() => void) | null;
 }) {
-  const { unread, send } = useOps();
+  const { unread, send, me, loadConversation } = useOps();
   const { actionsFor, dialogs } = useOpActions(notify);
   const [draft, setDraft] = useState("");
   const scroller = useRef<HTMLDivElement>(null);
@@ -251,28 +290,43 @@ function Conversation({
   const stage = stageView(op);
   const isClosed = op.stage === "done";
 
-  // Linha "Novas mensagens" antes da primeira não lida, fixada ao abrir a conversa
-  const [firstUnread] = useState(() => op.messages.find((msg) => unread.has(msg.id))?.id ?? null);
+  const loaded = op.conversationLoaded !== false;
+  const [sending, setSending] = useState(false);
+  // Com o banco, a conversa carrega ao abrir
   useEffect(() => {
-    onRead();
+    loadConversation(op.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // Linha "Novas mensagens" antes da primeira não lida, fixada quando a conversa chega; depois marca como lida
+  const [firstUnread, setFirstUnread] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (!loaded || firstUnread !== undefined) return;
+    setFirstUnread(op.messages.find((msg) => unread.has(msg.id))?.id ?? null);
+    onRead();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded]);
   // Rola até o fim ao abrir e a cada mensagem nova
   useEffect(() => {
     const el = scroller.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [op.messages.length]);
 
-  const submit = (text = draft) => {
+  const submit = async (text = draft) => {
     const t = text.trim();
-    if (!t) return;
-    send(op.id, t);
-    setDraft("");
+    if (!t || sending) return;
+    setSending(true);
+    try {
+      await send(op.id, t);
+      setDraft("");
+    } catch (e) {
+      notify("Não foi possível enviar", mensagemDeErro(e), "error");
+    }
+    setSending(false);
   };
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      submit();
+      void submit();
     }
   };
 
@@ -293,12 +347,20 @@ function Conversation({
               <Lozenge appearance={stage.appearance}>{stage.label}</Lozenge>
             </h2>
             <p className="truncate text-subtle">
-              Material <span className="font-code">{op.material}</span> · {op.product} · {m.name}
+              {op.material ? (
+                <>
+                  Material <span className="font-code">{op.material}</span> · {op.product} · {m.name}
+                </>
+              ) : (
+                <>Material a conferir · {m.name}</>
+              )}
             </p>
           </div>
-          <Button appearance="subtle" spacing="compact" onClick={onMarkUnread} className="hidden s:inline-flex">
-            Marcar como não lida
-          </Button>
+          {onMarkUnread && (
+            <Button appearance="subtle" spacing="compact" onClick={onMarkUnread} className="hidden s:inline-flex">
+              Marcar como não lida
+            </Button>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-150">
           <OpProgress op={op} className="w-column-name grow s:grow-0" />
@@ -317,6 +379,11 @@ function Conversation({
         aria-label={`Mensagens da ${op.id}`}
         className="scrollbar-thin flex flex-1 flex-col gap-150 overflow-y-auto px-200 py-200"
       >
+        {!loaded && (
+          <div className="m-auto">
+            <Spinner label="Carregando a conversa" />
+          </div>
+        )}
         {op.messages.map((msg) => {
           const dayLabel = formatLongDate(msg.at);
           const showDay = dayLabel !== lastDay;
@@ -333,7 +400,7 @@ function Conversation({
                   Novas mensagens
                 </p>
               )}
-              <Message msg={msg} />
+              <Message msg={msg} me={me} />
             </Fragment>
           );
         })}
@@ -350,12 +417,12 @@ function Conversation({
           className="flex flex-col gap-100 border-t px-200 py-150"
           onSubmit={(e) => {
             e.preventDefault();
-            submit();
+            void submit();
           }}
         >
           <div className="scrollbar-thin -mx-200 flex gap-075 overflow-x-auto px-200" role="group" aria-label="Respostas rápidas">
             {QUICK_REPLIES.map((r) => (
-              <Button key={r} appearance="default" spacing="compact" onClick={() => submit(r)} className="shrink-0">
+              <Button key={r} appearance="default" spacing="compact" onClick={() => void submit(r)} className="shrink-0" isDisabled={sending}>
                 {r}
               </Button>
             ))}
@@ -374,7 +441,7 @@ function Conversation({
               placeholder={`Responder na ${op.id}…`}
               className="min-h-600 w-full min-w-0 flex-1 resize-none rounded-medium border border-input bg-input px-100 py-075 text-default placeholder:text-subtlest hover:bg-input-hovered focus:border-focused"
             />
-            <Button appearance="primary" iconBefore={SendHorizontal} type="submit" isDisabled={!draft.trim()}>
+            <Button appearance="primary" iconBefore={SendHorizontal} type="submit" isDisabled={!draft.trim()} isLoading={sending}>
               Enviar
             </Button>
           </div>
@@ -386,7 +453,7 @@ function Conversation({
   );
 }
 
-function Message({ msg }: { msg: OpMessage }) {
+function Message({ msg, me }: { msg: OpMessage; me: string }) {
   if (msg.role === "system")
     return (
       <p className="mx-auto flex max-w-bubble items-center gap-075 rounded-full bg-neutral px-150 py-050 text-center font-body-small text-subtle">
@@ -397,7 +464,7 @@ function Message({ msg }: { msg: OpMessage }) {
       </p>
     );
 
-  const mine = msg.author === MANAGER;
+  const mine = msg.author === me;
   const accent: Accent = msg.role === "manager" ? "purple" : AVATAR_BY_SHIFT[msg.shift ?? 1];
   return (
     <article
@@ -408,7 +475,7 @@ function Message({ msg }: { msg: OpMessage }) {
       <div className={cn("flex min-w-0 flex-col gap-025", mine && "items-end")}>
         <p className="flex flex-wrap items-center gap-x-100 font-body-small">
           <span className="font-semibold text-default">{mine ? "Você" : msg.author}</span>
-          {!mine && <span className="text-subtle">{roleLabel(msg)}</span>}
+          {!mine && roleLabel(msg) && <span className="text-subtle">{roleLabel(msg)}</span>}
           <span className="text-subtlest">{time.format(msg.at)}</span>
           {msg.rework && <Lozenge appearance="warning">Retrabalho</Lozenge>}
         </p>

@@ -1,0 +1,82 @@
+# ─── Porta única de entrada ───────────────────────────────────
+# Site e API no MESMO endereço: o navegador não precisa de CORS, e um só
+# certificado HTTPS cobre tudo.
+#
+#   /Dashboard-Tomadas/   o site (pasta ./site)
+#   /auth/v1/             login (GoTrue)
+#   /rest/v1/             dados (PostgREST)
+#
+# ${NOME_DO_SERVIDOR} vem do .env; o resto é do próprio Nginx.
+
+# Freio contra tentativa de senha em massa: 10 por minuto por computador.
+limit_req_zone $binary_remote_addr zone=login:10m rate=10r/m;
+
+server {
+    listen 80;
+    server_name ${NOME_DO_SERVIDOR};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name ${NOME_DO_SERVIDOR};
+
+    ssl_certificate     /etc/nginx/certificados/servidor.crt;
+    ssl_certificate_key /etc/nginx/certificados/servidor.key;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy same-origin always;
+
+    client_max_body_size 20m;
+
+    # Resolve os nomes dos containers na hora de cada pedido, e não só ao
+    # ligar: assim o Nginx sobe mesmo se o auth ou o rest ainda estiverem
+    # reiniciando, e acha o container de novo depois de uma atualização.
+    resolver 127.0.0.11 valid=10s ipv6=off;
+    set $auth http://auth:9999;
+    set $rest http://rest:3000;
+
+    # Valem para os dois proxies abaixo (/auth e /rest).
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-Host $host;
+
+    # O app é publicado sob /Dashboard-Tomadas/ (base do build no Vite).
+    location = / {
+        return 302 /Dashboard-Tomadas/;
+    }
+
+    location /Dashboard-Tomadas/ {
+        root /usr/share/nginx/html;
+        try_files $uri $uri/ /Dashboard-Tomadas/index.html;
+    }
+
+    # Os arquivos com hash no nome nunca mudam: cache longo.
+    location /Dashboard-Tomadas/assets/ {
+        root /usr/share/nginx/html;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    location = /auth/v1/token {
+        limit_req zone=login burst=5 nodelay;
+        limit_req_status 429;
+        rewrite ^/auth/v1/(.*)$ /$1 break;
+        proxy_pass $auth;
+    }
+
+    location /auth/v1/ {
+        rewrite ^/auth/v1/(.*)$ /$1 break;
+        proxy_pass $auth;
+    }
+
+    location /rest/v1/ {
+        rewrite ^/rest/v1/(.*)$ /$1 break;
+        proxy_pass $rest;
+    }
+}

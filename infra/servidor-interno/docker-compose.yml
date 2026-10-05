@@ -1,0 +1,145 @@
+# ─── Dash de Produção no servidor da empresa ──────────────────
+# Supabase enxuto: só as peças que o app usa de fato.
+#
+#   web  (Nginx)     HTTPS, o site e a porta única de entrada
+#   auth (GoTrue)    login, cadastro, recuperação de senha
+#   rest (PostgREST) a API que lê e grava no banco
+#   db   (Postgres)  os dados
+#
+# Ficam de fora (o app não usa): Storage, Realtime, Edge Functions, Studio,
+# Analytics e o pooler. Menos peças, menos coisa para atualizar.
+#
+# As versões são as do docker-compose oficial do Supabase em 05/10/2026.
+# Guia completo: README.md desta pasta.
+
+name: dash-producao
+
+services:
+  db:
+    image: supabase/postgres:17.6.1.136
+    restart: unless-stopped
+    volumes:
+      # Rodam só na PRIMEIRA subida, com a pasta de dados vazia.
+      - ./db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:ro
+      - ./db/jwt.sql:/docker-entrypoint-initdb.d/init-scripts/99-jwt.sql:ro
+      - db-data:/var/lib/postgresql/data
+      - db-config:/etc/postgresql-custom
+    # Só o próprio servidor alcança o banco direto (para backup, psql e
+    # DBeaver/pgAdmin por túnel SSH). Os computadores da rede passam pelo web.
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    environment:
+      POSTGRES_HOST: /var/run/postgresql
+      PGPORT: 5432
+      POSTGRES_PORT: 5432
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: postgres
+      POSTGRES_DB: postgres
+      JWT_EXP: ${JWT_EXPIRY}
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf", "-c", "log_min_messages=fatal"]
+
+  auth:
+    image: supabase/gotrue:v2.196.0
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9999/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: ${ENDERECO}/auth/v1
+
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/postgres
+
+      # Para onde os links de e-mail mandam a pessoa, e quais destinos são aceitos.
+      GOTRUE_SITE_URL: ${ENDERECO}/Dashboard-Tomadas/
+      GOTRUE_URI_ALLOW_LIST: ${ENDERECO}/Dashboard-Tomadas/**
+      # O cadastro fica aberto: quem se cadastra entra como pendente e só
+      # usa o sistema depois que um administrador aprova (D19–D23).
+      GOTRUE_DISABLE_SIGNUP: "false"
+
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_EXP: ${JWT_EXPIRY}
+      GOTRUE_JWT_SECRET: ${JWT_SECRET}
+      GOTRUE_JWT_ISSUER: ${ENDERECO}/auth/v1
+
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_EXTERNAL_PHONE_ENABLED: "false"
+      GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED: "false"
+      GOTRUE_MAILER_AUTOCONFIRM: ${CONFIRMAR_CADASTRO_AUTOMATICAMENTE}
+
+      GOTRUE_SMTP_ADMIN_EMAIL: ${SMTP_REMETENTE}
+      GOTRUE_SMTP_HOST: ${SMTP_HOST}
+      GOTRUE_SMTP_PORT: ${SMTP_PORT}
+      GOTRUE_SMTP_USER: ${SMTP_USUARIO}
+      GOTRUE_SMTP_PASS: ${SMTP_SENHA}
+      GOTRUE_SMTP_SENDER_NAME: ${SMTP_NOME_REMETENTE}
+      GOTRUE_MAILER_URLPATHS_INVITE: /auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_CONFIRMATION: /auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_RECOVERY: /auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE: /auth/v1/verify
+      GOTRUE_MAILER_SUBJECTS_RECOVERY: "Dash de Produção — redefinir senha"
+      GOTRUE_MAILER_SUBJECTS_CONFIRMATION: "Dash de Produção — confirme seu e-mail"
+
+  rest:
+    image: postgrest/postgrest:v14.17
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "postgrest", "--ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@db:5432/postgres
+      PGRST_DB_SCHEMAS: public
+      PGRST_DB_MAX_ROWS: 1000
+      PGRST_DB_EXTRA_SEARCH_PATH: public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_ADMIN_SERVER_PORT: 3001
+      PGRST_ADMIN_SERVER_HOST: localhost
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+      PGRST_APP_SETTINGS_JWT_EXP: ${JWT_EXPIRY}
+    command: ["postgrest"]
+
+  web:
+    image: nginx:1.28-alpine
+    restart: unless-stopped
+    depends_on:
+      - auth
+      - rest
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./certificados:/etc/nginx/certificados:ro
+      # A pasta montada é ./site, e o app fica em ./site/Dashboard-Tomadas:
+      # o publicar-site.sh troca a subpasta inteira e o Nginx enxerga a nova
+      # na hora (trocar a própria pasta montada deixaria o Nginx com a antiga).
+      - ./site:/usr/share/nginx/html:ro
+    environment:
+      NOME_DO_SERVIDOR: ${NOME_DO_SERVIDOR}
+      # O Nginx só troca as variáveis listadas aqui; os $ próprios dele ficam.
+      NGINX_ENVSUBST_FILTER: "^NOME_DO_SERVIDOR$$"
+
+volumes:
+  db-data:
+  db-config:

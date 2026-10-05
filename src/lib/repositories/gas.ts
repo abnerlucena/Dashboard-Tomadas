@@ -80,6 +80,8 @@ export const gasDataSource: DataSource = {
 
   machines: {
     getMachines: (session) => api("getMachines", {}, session),
+    async createMachine() { throw new Error("Cadastro completo de máquina só existe no modo Supabase."); },
+    async updateMachine() { throw new Error("Editar máquina só existe no modo Supabase."); },
     async addMachine(name, defaultMeta, session) {
       await api("addMachine", { name, hasMeta: true, defaultMeta }, session);
     },

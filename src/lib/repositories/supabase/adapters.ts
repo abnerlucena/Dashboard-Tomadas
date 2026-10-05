@@ -14,7 +14,7 @@
 //     atingimento.
 import type { Tables } from "../../database.types";
 import type { Holiday, HolidayScope, Machine, OrdemProducao, ProdRecord } from "../../api";
-import type { UpdateEntryChanges, WorkOrderMessage, WorkOrderRecord, WorkOrderStage } from "../types";
+import type { MachineChanges, NewMachineInput, UpdateEntryChanges, WorkOrderMessage, WorkOrderRecord, WorkOrderStage } from "../types";
 
 export type SummaryRow = Tables<"production_summary">;
 export type OrderRow = Pick<Tables<"production_orders">, "production_record_id" | "order_number" | "quantity" | "is_rework" | "notes">;
@@ -194,6 +194,31 @@ export function contarNaoLidas(
     naoLidas.set(l.work_order_id, (naoLidas.get(l.work_order_id) ?? 0) + 1);
   }
   return naoLidas;
+}
+
+/** Argumentos de create_machine (D63). */
+export function toCreateMachineArgs(input: NewMachineInput) {
+  if (!input.name.trim()) throw new Error("O nome da máquina é obrigatório.");
+  return {
+    p_name: input.name.trim(),
+    p_process: input.process,
+    p_initial_target: Math.max(0, Math.round(input.defaultMeta || 0)),
+    ...(input.hasMeta !== undefined ? { p_has_target: input.hasMeta } : {}),
+    ...(input.standardOperatorCount !== undefined ? { p_standard_operator_count: input.standardOperatorCount } : {}),
+    ...(input.basis !== undefined ? { p_basis: input.basis } : {}),
+  };
+}
+
+/** Argumentos de update_machine (D63). Só o que veio. */
+export function toUpdateMachineArgs(id: number, c: MachineChanges) {
+  const args = {
+    p_id: id,
+    ...(c.name !== undefined ? { p_name: c.name } : {}),
+    ...(c.process !== undefined ? { p_process: c.process } : {}),
+    ...(c.standardOperatorCount !== undefined ? { p_standard_operator_count: c.standardOperatorCount } : {}),
+  };
+  if (Object.keys(args).length === 1) throw new Error("Nada para alterar.");
+  return args;
 }
 
 export function toOrdersJson(ordens: OrdemProducao[] | undefined) {

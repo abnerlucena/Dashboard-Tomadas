@@ -19,6 +19,7 @@ cada execução acontece dentro de uma transação que termina em `rollback`
 | `10_corrigir_apontamento.sql` | Corrigir um apontamento (migration 0030): OPs substituídas, D52, D54 e D57 na correção, mover de dia refaz a meta, o importado mantém a da planilha e aceita `IMPORTADO`, e o operador não corrige o apontamento de outra pessoa |
 | `11_metas_historicas.sql` | Linha do tempo de metas anterior a 25/09 vinda da planilha (migrations 0031 a 0033): sem degrau de reserva, valores da planilha, todo importado bate com a meta do seu dia, repetível, nenhuma máquina sem degrau, e a trava de vigência volta a valer |
 | `12_ordens_de_producao.sql` | OPs (migration 0036): cadastro, situação e suas passagens, OP nascida "a conferir" no apontamento, produzido sem retrabalho, conversa com a observação do operador, quem lê e quem escreve, e a porta do SAP |
+| `13_cadastro_de_maquinas.sql` | Cadastro completo de máquinas e edição (migration 0037): meta 0 é por demanda, combinações contraditórias recusadas, linha, base rateada sem lotação, o caminho antigo ainda funciona, editar e nome repetido |
 
 ## Como rodar (SQL Editor do Supabase)
 

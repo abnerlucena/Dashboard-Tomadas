@@ -1050,6 +1050,15 @@ export type Database = {
       }
     }
     Functions: {
+      update_machine: {
+        Args: {
+          p_id: number
+          p_name?: string
+          p_process?: string
+          p_standard_operator_count?: number
+        }
+        Returns: undefined
+      }
       create_work_order: {
         Args: {
           p_order_number: string
@@ -1163,6 +1172,7 @@ export type Database = {
           p_has_target?: boolean
           p_standard_operator_count?: number
           p_basis?: string
+          p_process?: string
         }
         Returns: number
       }

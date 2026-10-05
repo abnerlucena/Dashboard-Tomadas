@@ -1,5 +1,4 @@
 // ─── Utilitários do modo Supabase ─────────────────────────────
-import { clearSession } from "../../api";
 import type { TypedSupabaseClient } from "../../supabase";
 
 interface PgError { message?: string; code?: string }
@@ -8,7 +7,8 @@ interface PgError { message?: string; code?: string }
 export function toError(e: PgError | null | undefined, fallback = "Erro no servidor"): Error {
   let msg = e?.message || fallback;
   if (/JWT expired|invalid JWT|Invalid Refresh Token|refresh_token_not_found/i.test(msg)) {
-    clearSession();
+    // Recarregar basta: o supabase-js descarta sozinho o token que não renova.
+    // (Até 05/10/2026 aqui se apagava também a sessão do app antigo, D64.)
     window.location.reload();
     return new Error("Sessão expirada. Reconectando...");
   }

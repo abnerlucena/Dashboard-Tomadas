@@ -21,7 +21,7 @@ describe("mensagem de erro para a tela", () => {
   it("usa a mensagem do Error", () => {
     expect(mensagemDeErro(new Error("Meta inválida."))).toBe("Meta inválida.");
   });
-  it("aceita objeto com message (Supabase, Apps Script)", () => {
+  it("aceita objeto com message (como os erros do Supabase)", () => {
     expect(mensagemDeErro({ message: "RLS negou a escrita." })).toBe("RLS negou a escrita.");
   });
   it("aceita texto solto", () => {

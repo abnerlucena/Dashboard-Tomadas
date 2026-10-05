@@ -4,8 +4,6 @@ import type { AdminUser, DataSource, PermissionOption, UserPermission } from "..
 import { PROFILE_STATUS_TO_LEGACY } from "./adapters";
 import { loadProfileNames, toError } from "./helpers";
 
-const notAvailable = (what: string) => new Error(`${what} não existe no modo Supabase.`);
-
 export const supabaseUsers: DataSource["users"] = {
   async listUsers() {
     const sb = getSupabase();
@@ -110,10 +108,6 @@ export const supabaseUsers: DataSource["users"] = {
     if (!bateu) throw new Error("Você não tem permissão para alterar permissões de usuários.");
   },
 
-  async adminCreateUser() { throw notAvailable("Criar usuário pelo painel"); },
-  async resetPassword() { throw notAvailable("Redefinir senha pelo painel"); },
-  async generateInviteCode() { throw notAvailable("Código de convite"); },
-
   async approveUser(userId, roleId) {
     const { error } = await getSupabase().rpc("approve_user", { p_user_id: userId, p_role_id: roleId });
     if (error) throw toError(error);
@@ -124,12 +118,4 @@ export const supabaseUsers: DataSource["users"] = {
     if (error) throw toError(error);
     return data || [];
   },
-};
-
-// Alertas por e-mail não fazem parte do desenho do banco (e também não
-// existem no Main.gs atual). A tela mostra o aviso de indisponível.
-export const supabaseAlerts: DataSource["alerts"] = {
-  async getAlertConfig() { throw notAvailable("Configuração de alertas"); },
-  async saveAlertConfig() { throw notAvailable("Configuração de alertas"); },
-  async testAlertEmail() { throw notAvailable("E-mail de teste de alertas"); },
 };

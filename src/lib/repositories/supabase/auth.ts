@@ -4,8 +4,6 @@ import type { Session } from "../../api";
 import type { DataSource, LoginResponse } from "../types";
 import { toAuthError, toError } from "./helpers";
 
-const ONBOARDING_KEY = (userId: string) => `onboarding_done_${userId}`;
-
 /** Erro com código, para a tela de login pedir o crachá da conta compartilhada. */
 export class BadgeRequiredError extends Error {
   code = "BADGE_REQUIRED" as const;
@@ -45,9 +43,7 @@ async function buildSession(): Promise<LoginResponse> {
     // conjunto aparecerem iguais.
     roleName: (profile.roles as { name: string } | null)?.name ?? undefined,
   };
-  let onboardingDone = true;
-  try { onboardingDone = localStorage.getItem(ONBOARDING_KEY(profile.id)) === "1"; } catch { /* sem localStorage */ }
-  return { session, onboardingDone };
+  return { session };
 }
 
 export const supabaseAuth: DataSource["auth"] = {
@@ -118,11 +114,6 @@ export const supabaseAuth: DataSource["auth"] = {
 
   async logout() {
     try { await getSupabase().auth.signOut(); } catch { /* sem conexão: a sessão local é limpa mesmo assim */ }
-  },
-
-  async completeOnboarding(session) {
-    if (!session?.userId) return;
-    try { localStorage.setItem(ONBOARDING_KEY(session.userId), "1"); } catch { /* sem localStorage */ }
   },
 
   // O Supabase guarda UMA sessão por navegador, compartilhada entre as abas.

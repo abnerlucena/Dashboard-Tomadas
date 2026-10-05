@@ -8,7 +8,7 @@
 
 export function mensagemDeErro(e: unknown, padrao = "Erro inesperado. Tente novamente."): string {
   if (e instanceof Error && e.message) return e.message;
-  // Erros do Supabase e do Apps Script chegam como objeto com `message`.
+  // Erros do Supabase chegam como objeto com `message`.
   if (typeof e === "object" && e !== null) {
     const m = (e as { message?: unknown }).message;
     if (typeof m === "string" && m) return m;

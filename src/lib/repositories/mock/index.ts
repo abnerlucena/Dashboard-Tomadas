@@ -1,5 +1,5 @@
 // ─── Implementação de mentira (VITE_DATA_SOURCE=mock) ─────────
-// Para construir telas sem Supabase, sem Apps Script e sem ninguém cadastrado.
+// Para construir telas sem Supabase e sem ninguém cadastrado.
 //
 // O que é de verdade aqui: a ÁREA DE ACESSO inteira (login, crachá da conta
 // compartilhada, cadastro pendente, aprovação, bloqueio, recuperação de senha),
@@ -55,11 +55,6 @@ export const mockDataSource: DataSource = {
     async conversation() { return []; },
     postMessage: semBanco,
     markRead: semBanco,
-  },
-  alerts: {
-    async getAlertConfig() { return {}; },
-    saveAlertConfig: semBanco,
-    testAlertEmail: semBanco,
   },
 };
 

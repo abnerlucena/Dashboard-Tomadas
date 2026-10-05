@@ -32,6 +32,9 @@ const P = {
   apontar:   ["production.create", "production.edit_own"],
   corrigir:  ["production.edit", "production.delete"],
   lote:      ["production.bulk_edit", "production.bulk_delete"],
+  // D62: cadastrar OP e mudar a situação. No banco vai para os mesmos quatro
+  // perfis que têm edição em lote: distribuidor, técnico, gestor e admin.
+  ops:       ["work_orders.manage"],
   analise:   ["history.view", "feedbacks.view"],
   exportar:  ["reports.export"],
   painel:    ["dashboard.view", "targets.view", "tv_mode.view"],
@@ -42,10 +45,10 @@ const P = {
 export const PERFIS: Perfil[] = [
   { id: 1, code: "operator",    name: "Operador",     permissoes: [...P.apontar] },
   { id: 2, code: "preparer",    name: "Preparador",   permissoes: [...P.apontar, ...P.corrigir, ...P.analise] },
-  { id: 3, code: "distributor", name: "Distribuidor", permissoes: [...P.apontar, ...P.corrigir, ...P.lote, ...P.analise, ...P.exportar] },
-  { id: 4, code: "technician",  name: "Técnico",      permissoes: [...P.apontar, ...P.corrigir, ...P.lote, ...P.analise, ...P.exportar, ...P.painel, ...P.cadastros] },
-  { id: 5, code: "manager",     name: "Gestor",       permissoes: [...P.apontar, ...P.corrigir, ...P.lote, ...P.analise, ...P.exportar, ...P.painel, ...P.cadastros, ...P.gestao] },
-  { id: 6, code: "admin",       name: "Admin",        permissoes: [...P.apontar, ...P.corrigir, ...P.lote, ...P.analise, ...P.exportar, ...P.painel, ...P.cadastros, ...P.gestao] },
+  { id: 3, code: "distributor", name: "Distribuidor", permissoes: [...P.apontar, ...P.corrigir, ...P.lote, ...P.ops, ...P.analise, ...P.exportar] },
+  { id: 4, code: "technician",  name: "Técnico",      permissoes: [...P.apontar, ...P.corrigir, ...P.lote, ...P.ops, ...P.analise, ...P.exportar, ...P.painel, ...P.cadastros] },
+  { id: 5, code: "manager",     name: "Gestor",       permissoes: [...P.apontar, ...P.corrigir, ...P.lote, ...P.ops, ...P.analise, ...P.exportar, ...P.painel, ...P.cadastros, ...P.gestao] },
+  { id: 6, code: "admin",       name: "Admin",        permissoes: [...P.apontar, ...P.corrigir, ...P.lote, ...P.ops, ...P.analise, ...P.exportar, ...P.painel, ...P.cadastros, ...P.gestao] },
   { id: 7, code: "tv_display",  name: "TV",           permissoes: ["tv_mode.view"] },
 ];
 
@@ -88,6 +91,7 @@ export const CATALOGO_DE_PERMISSOES: Array<{ code: string; description: string }
   { code: "targets.view", description: "Ver metas" },
   { code: "tv_mode.view", description: "Usar o modo TV" },
   { code: "users.approve", description: "Aprovar usuários e ajustar permissões" },
+  { code: "work_orders.manage", description: "Cadastrar OPs e mudar a situação delas" },
 ];
 
 /** Crachás aceitos na conta compartilhada (D23): quem se identifica nela. */

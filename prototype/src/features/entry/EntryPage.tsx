@@ -25,6 +25,7 @@ import { reloadBackendData } from "@/data/fromBackend";
 import { cn, formatNumber, readToken, type Notify } from "@/lib/utils";
 import { useAccess } from "@/features/access/AccessContext";
 import { useOps } from "@/features/ops/OpsStore";
+import { opHint, releasedFor } from "./opHint";
 import { shiftAt } from "@/features/tv/tvMetrics";
 import { PageBody, PageHeader } from "@/components/layout/PageHeader";
 import { SegmentedBar } from "@/components/data/SegmentedBar";
@@ -524,9 +525,10 @@ function MachineEntryRow({
   onChange: (fn: (e: MachineEntry) => MachineEntry) => void;
 }) {
   const m = machineById(machineId);
-  const { ops } = useOps();
-  // OPs liberadas para esta máquina: o campo sugere os números
-  const openOps = ops.filter((op) => op.machineId === m.id && (op.stage === "running" || op.stage === "paused"));
+  const { ops, status: opsStatus } = useOps();
+  // OPs liberadas (em produção) nesta máquina: o campo sugere os números (D62)
+  const openOps = releasedFor(ops, m.id);
+  const hintFor = (op: string) => (opsStatus === "ready" && op.length >= 4 ? opHint(op, m.id, ops, (id) => machineById(id)?.name ?? "outra máquina") : null);
   const listId = `ops-${m.id}`;
   // Meta do turno NA DATA apontada, pela base e pelas pessoas informadas — a conta é a de src/lib/metas.ts (teto D49)
   const base = target?.base ?? "per_shift";
@@ -658,6 +660,7 @@ function MachineEntryRow({
                 value={r.op}
                 onChange={(e) => setRow(r.key, { op: e.target.value.replace(/\D/g, "").slice(0, 15) })}
                 error={showErrors || (r.qty && !r.op) ? errors.op : null}
+                warning={errors.op ? null : hintFor(r.op)}
                 inputClassName="font-code"
                 className="w-field-op flex-1 basis-field-op s:flex-none"
               />

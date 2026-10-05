@@ -49,5 +49,7 @@ Todas aditivas:
 - **O mock de vocês** (`src/lib/repositories/mock/contas.ts`): nenhum perfil tem
   `work_orders.manage`. O gestor só passa porque tem `system.admin`. Se quiserem que o
   distribuidor e o técnico do mock espelhem o banco, falta acrescentar.
-- **A lista de "OPs liberadas" no Apontamento** (`list` filtrado por máquina e
-  `running`) ainda não entrou: fica para a próxima PR da interface.
+- **OPs liberadas no Apontamento:** feito. A lista da máquina é `list` filtrado por máquina
+  e `running`, como sugerido. O campo da OP **avisa, sem barrar**, quando o número é de
+  outra máquina, está aguardando, pausado ou concluído, ou ainda não está cadastrado ("entra
+  como a conferir").

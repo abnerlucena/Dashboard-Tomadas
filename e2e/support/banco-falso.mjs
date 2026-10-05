@@ -13,7 +13,7 @@
 //
 // Dados: 4 máquinas (ids 11–14), agosto e setembro/2026 até 21/09, feriado 07/09.
 // Erros simulados: OP "9999999" na máquina 12; trocar para o TURNO 3; cadastrar 31/12 no calendário;
-// máquina com "recusa" no nome; corrigir para um destino ocupado; A Granél (13) sem nº de pessoas.
+// máquina com "recusa" no nome; OP repetida; passagem de etapa fora da regra; corrigir para um destino ocupado; A Granél (13) sem nº de pessoas.
 // No Windows o caminho começa com a letra do disco (C:/...): o /@fs/ precisa da barra
 const CWD = process.cwd().split("\\").join("/").replace(/^(?!\/)/, "/");
 const R = "/@fs" + CWD + "/src/lib/repositories/mock";
@@ -159,8 +159,70 @@ export const mockDataSource = {
       if (date.endsWith("-12-31")) throw new Error("Você não tem permissão para cadastrar no calendário.");
       F.holidays.push({ id: "c" + Math.random().toString(36).slice(2), date, label, type, createdBy: "Gabriela Gestora", eventType: type === "dia_anulado" ? "excluded_day" : "holiday", shiftIds: shiftIds || [] });
     },
+    async addHolidays(dates, label, type, _s, options) {
+      window.__calls = window.__calls || []; window.__calls.push({ addHolidays: dates, label, type, options });
+      // Tudo ou nada (D61): um dia ruim barra o intervalo inteiro
+      if (dates.some(d => d.endsWith("-12-31"))) throw new Error("Você não tem permissão para cadastrar no calendário.");
+      for (const date of new Set(dates)) F.holidays.push({ id: "c" + Math.random().toString(36).slice(2), date, label, type, createdBy: "Gabriela Gestora", eventType: type === "dia_anulado" ? "excluded_day" : "holiday", shiftIds: options?.shiftIds || [], scope: options?.scope || "company" });
+      return new Set(dates).size;
+    },
     async removeHoliday(id) { window.__calls = window.__calls || []; window.__calls.push({ removeHoliday: id }); F.holidays = F.holidays.filter(h => h.id !== id); },
   },
+  // OPs (D62): 4510248 em produção na Composé, 4519100 aguardando, 4599123 a conferir (nasceu de um apontamento)
+  workOrders: (() => {
+    const ME = "Gabriela Gestora";
+    const now = () => new Date().toISOString();
+    F.wo = F.wo || [
+      { id: "wo1", orderNumber: "4510248", machineId: 11, materialCode: "12345678", materialDescription: "Tomada 10A", plannedQuantity: 30000, producedQuantity: 10010, reworkQuantity: 0, stage: "running", pauseReason: null, releasedAt: "2026-09-20T10:00:00Z", closedAt: null, source: "app", createdAt: "2026-09-19T10:00:00Z", lastEntryAt: "2026-09-21T17:00:00Z", unread: 1 },
+      { id: "wo2", orderNumber: "4519100", machineId: 12, materialCode: "87654321", materialDescription: "Interruptor simples", plannedQuantity: 12000, producedQuantity: 0, reworkQuantity: 0, stage: "waiting", pauseReason: null, releasedAt: null, closedAt: null, source: "app", createdAt: "2026-09-21T09:00:00Z", lastEntryAt: null, unread: 0 },
+      { id: "wo3", orderNumber: "4599123", machineId: 12, materialCode: null, materialDescription: null, plannedQuantity: null, producedQuantity: 2500, reworkQuantity: 0, stage: "pending_review", pauseReason: null, releasedAt: null, closedAt: null, source: "apontamento", createdAt: "2026-09-21T15:00:00Z", lastEntryAt: "2026-09-21T15:00:00Z", unread: 0 },
+    ];
+    F.msgs = F.msgs || {
+      wo1: [
+        { id: "m1", workOrderId: "wo1", at: "2026-09-20T10:00:00Z", kind: "system", author: "", text: "OP liberada para produção por Gabriela Gestora.", shiftId: null, rework: false },
+        { id: "m2", workOrderId: "wo1", at: "2026-09-21T16:00:00Z", kind: "operator_note", author: "Ana Ribeiro", text: "Troca de bobina no meio do turno.", shiftId: 1, rework: false },
+      ],
+      wo2: [], wo3: [],
+    };
+    const log = (c) => { window.__calls = window.__calls || []; window.__calls.push(c); };
+    const sys = (id, text) => F.msgs[id].push({ id: "s" + Math.random().toString(36).slice(2), workOrderId: id, at: now(), kind: "system", author: "", text, shiftId: null, rework: false });
+    const PASSAGENS = { waiting: ["running"], running: ["paused", "done"], paused: ["running", "done"], done: ["running"] };
+    return {
+      async list() { await new Promise(r => setTimeout(r, 150)); return F.wo.map(w => ({ ...w })); },
+      async create(input) {
+        log({ createWorkOrder: input });
+        if (F.wo.some(w => w.orderNumber === input.orderNumber)) throw new Error("Já existe uma OP com esse número.");
+        const id = "wo" + (F.wo.length + 1);
+        F.wo.unshift({ id, orderNumber: input.orderNumber, machineId: input.machineId, materialCode: input.materialCode ?? null, materialDescription: input.materialDescription ?? null, plannedQuantity: input.plannedQuantity ?? null, producedQuantity: 0, reworkQuantity: 0, stage: "waiting", pauseReason: null, releasedAt: null, closedAt: null, source: "app", createdAt: now(), lastEntryAt: null, unread: 0 });
+        F.msgs[id] = []; sys(id, "OP cadastrada por " + ME + ". Aguardando liberação.");
+        return id;
+      },
+      async update(id, changes) {
+        log({ updateWorkOrder: id, changes });
+        const w = F.wo.find(x => x.id === id); Object.assign(w, changes);
+        if (w.stage === "pending_review") { w.stage = "waiting"; sys(id, "OP conferida por " + ME + "."); }
+      },
+      async setStage(id, stage, reason) {
+        log({ setStage: id, stage, reason });
+        const w = F.wo.find(x => x.id === id);
+        if (!(PASSAGENS[w.stage] || []).includes(stage)) throw new Error("Passagem não permitida: de " + w.stage + " para " + stage + ".");
+        if (stage === "paused" && !reason) throw new Error("Informe o motivo da pausa.");
+        w.stage = stage; w.pauseReason = stage === "paused" ? reason : null;
+        if (stage === "running" && !w.releasedAt) w.releasedAt = now();
+        w.closedAt = stage === "done" ? now() : null;
+        sys(id, stage === "paused" ? "Pausada por " + ME + ": " + reason + "." : stage === "done" ? "OP concluída por " + ME + "." : "OP em produção (" + ME + ").");
+      },
+      async conversation(id) { await new Promise(r => setTimeout(r, 100)); return F.msgs[id].map(m => ({ ...m })); },
+      async postMessage(id, text) {
+        log({ postMessage: id, text });
+        const w = F.wo.find(x => x.id === id);
+        if (w.stage === "done") throw new Error("A OP está concluída: a conversa não aceita mensagem nova.");
+        F.msgs[id].push({ id: "u" + Math.random().toString(36).slice(2), workOrderId: id, at: now(), kind: "message", author: ME, text, shiftId: null, rework: false });
+        w.unread = 0;
+      },
+      async markRead(id) { log({ markRead: id }); F.wo.find(x => x.id === id).unread = 0; },
+    };
+  })(),
   alerts: { async getAlertConfig() { return {}; }, saveAlertConfig: no, testAlertEmail: no },
 };
 export { resetarMock } from "${R}/acesso.ts";

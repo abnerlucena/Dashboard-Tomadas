@@ -32,7 +32,7 @@ import {
  * da OP, motivo de retrabalho, minutos por OP (lacunas 1, 2 e 4).
  */
 
-export type ReadSource = Pick<DataSource, "production" | "machines" | "targets" | "calendar">;
+export type ReadSource = Pick<DataSource, "production" | "machines" | "targets" | "calendar" | "workOrders">;
 
 export interface BackendInput {
   records: ProdRecord[];

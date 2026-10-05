@@ -1,12 +1,12 @@
-import type { Holiday } from "../../../../src/lib/api";
+import type { Holiday, HolidayScope } from "../../../../src/lib/api";
 import { parseDay } from "@/data/fromBackend";
 import { fromIsoDate, isWeekendDate, toIsoDate } from "@/data/machines";
 
 /*
  * Regras da tela de Calendário que não dependem de React.
  *
- * O contrato cadastra UM dia por chamada (`calendar.addHoliday`): um intervalo
- * (férias coletivas, ponte) vira um cadastro por dia, feito pela tela em laço.
+ * Um intervalo (férias coletivas, ponte) vai numa chamada só, `calendar.addHolidays`,
+ * tudo ou nada (D61). Quem escolhe os dias (e pula o fim de semana) é a tela.
  */
 
 /** Teto de dias por cadastro: evita um laço enorme por engano na data final */
@@ -24,7 +24,16 @@ export interface CalendarEntry {
   isEvent: boolean;
   shiftIds: number[];
   createdBy: string;
+  /** Abrangência (D61); vazio = o banco não informou (Apps Script) */
+  scope?: HolidayScope;
 }
+
+export const SCOPE_LABEL: Record<HolidayScope, string> = {
+  company: "Da empresa",
+  municipal: "Municipal (Itajaí)",
+  state: "Estadual (SC)",
+  national: "Nacional",
+};
 
 export function toEntry(h: Holiday): CalendarEntry | null {
   const day = parseDay(h.date);
@@ -37,6 +46,7 @@ export function toEntry(h: Holiday): CalendarEntry | null {
     isEvent: h.eventType === "special_event",
     shiftIds: [...(h.shiftIds ?? [])].sort((a, b) => a - b),
     createdBy: h.createdBy ?? "",
+    ...(h.scope ? { scope: h.scope } : {}),
   };
 }
 

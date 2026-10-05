@@ -436,18 +436,26 @@ function buildMachine(raw: RawCenter, index: number): Machine {
  * OPs (ordens de produção) e a conversa de cada uma
  * ============================================================ */
 
-/** Etapas: Aguardando liberação → Em produção ⇄ Pausada → Concluída */
-export type OpStage = "waiting" | "running" | "paused" | "done";
+/**
+ * Etapas: Aguardando liberação → Em produção ⇄ Pausada → Concluída.
+ * Com o banco há também "A conferir" (D62): a OP nasceu de um apontamento com
+ * número ainda não cadastrado, e alguém confere material e quantidade.
+ */
+export type OpStage = "pending_review" | "waiting" | "running" | "paused" | "done";
 
 export const OP_STAGE_META: Record<OpStage, { label: string; appearance: "neutral" | "information" | "warning" | "success" }> = {
+  pending_review: { label: "A conferir", appearance: "warning" },
   waiting: { label: "Aguardando liberação", appearance: "neutral" },
   running: { label: "Em produção", appearance: "information" },
   paused: { label: "Pausada", appearance: "warning" },
   done: { label: "Concluída", appearance: "success" },
 };
 
-/** operator = observação vinda do apontamento (o operador não acessa a conversa) */
-export type MessageRole = "operator" | "setter" | "leader" | "manager" | "system";
+/**
+ * operator = observação vinda do apontamento (o operador não acessa a conversa).
+ * member = alguém escreveu, com o banco: o contrato traz o nome, não o papel.
+ */
+export type MessageRole = "operator" | "setter" | "leader" | "manager" | "member" | "system";
 
 export interface OpMessage {
   id: string;
@@ -479,6 +487,14 @@ export interface WorkOrder {
   pauseReason: string | null;
   entryIds: string[];
   messages: OpMessage[];
+  /** Só com o banco: o id (uuid) que as ações recebem; `id` continua "OP 4501234" */
+  dbId?: string;
+  /** Só com o banco: não lidas por quem está vendo, sem contar as próprias */
+  unreadCount?: number;
+  /** Só com o banco: última atividade (a conversa só carrega ao abrir) */
+  lastActivityAt?: Date;
+  /** Só com o banco: a conversa já foi carregada em `messages` */
+  conversationLoaded?: boolean;
 }
 
 /** Atingiu a quantidade da OP: o sistema sugere concluir, uma pessoa confirma */

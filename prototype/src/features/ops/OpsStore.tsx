@@ -21,18 +21,37 @@ export interface NewOp {
   planned: number;
 }
 
+/** Conferir uma OP "a conferir": os dados que faltavam */
+export type ReviewOp = Omit<NewOp, "number">;
+
 export interface OpsState {
+  /** Com o banco: lê e grava pelo contrato `workOrders` (D62). Sem "Desfazer": o banco só aceita as passagens da tela */
+  live: boolean;
+  status: "loading" | "ready" | "error";
+  error: string | null;
+  retry: () => void;
+  /** Cadastrar, conferir e mudar a etapa (work_orders.manage, com o banco) */
+  canManage: boolean;
+  /** Nome de quem está vendo, para "Você" na conversa */
+  me: string;
   ops: WorkOrder[];
   opById: (id: string) => WorkOrder | undefined;
+  /** ids das mensagens não lidas conhecidas (com o banco, só das conversas abertas) */
   unread: Set<string>;
+  totalUnread: number;
   unreadIn: (op: WorkOrder) => number;
   markRead: (opId: string) => void;
   markAllRead: () => void;
-  markUnread: (opId: string) => void;
-  send: (opId: string, text: string) => void;
+  /** null = a fonte não oferece (o banco não tem "marcar como não lida") */
+  markUnread: ((opId: string) => void) | null;
+  /** Com o banco, a conversa carrega ao abrir a OP */
+  loadConversation: (opId: string) => void;
+  /** As que gravam devolvem promessa: o erro sobe para quem chamou mostrar */
+  send: (opId: string, text: string) => Promise<void>;
   /** muda a etapa; `reason` obrigatório para pausar */
-  setStage: (opId: string, stage: OpStage, reason?: string) => void;
-  create: (op: NewOp) => string;
+  setStage: (opId: string, stage: Exclude<OpStage, "pending_review">, reason?: string) => Promise<void>;
+  create: (op: NewOp) => Promise<string>;
+  review: (opId: string, data: ReviewOp) => Promise<void>;
 }
 
 // Exportado para o OpsProvider, que vive em OpsProvider.tsx: um arquivo que
@@ -52,7 +71,10 @@ export function stageView(op: WorkOrder) {
 }
 
 /** Última atividade da conversa (para ordenar a caixa de entrada) */
-export const lastActivity = (op: WorkOrder) => op.messages[op.messages.length - 1]?.at ?? op.releasedAt;
+export function lastActivity(op: WorkOrder) {
+  const last = op.messages[op.messages.length - 1]?.at ?? op.releasedAt;
+  return op.lastActivityAt && op.lastActivityAt > last ? op.lastActivityAt : last;
+}
 
 /** Número sem o prefixo, para URLs e colunas estreitas */
 export const opNumber = (id: string) => id.replace("OP ", "");

@@ -230,11 +230,11 @@ function Gate() {
 
 function Shell() {
   const { route: rawRoute, param } = useHashRoute();
-  const { canOpen } = useAccess();
+  const { canOpen, client } = useAccess();
   // Início: o Dashboard; quem não pode vê-lo cai na primeira tela liberada
   const home = [...NAV_MAIN, ...NAV_SECTIONS.flatMap((s) => s.items)].find((n) => canOpen(n.id))?.id ?? "ajuda";
   const route = rawRoute === "dashboard" && !canOpen("dashboard") ? home : rawRoute;
-  const { unread } = useOps();
+  const { totalUnread } = useOps();
   const colorMode = useColorMode();
   const [search, setSearch] = useState("");
   const [demoState, setDemoState] = useState<DemoState>("live");
@@ -282,7 +282,7 @@ function Shell() {
                 <SearchField value={search} onChange={setSearch} />
               </TopNavMiddle>
               <TopNavEnd>
-                <Notifications unreadFeedbacks={unread.size} />
+                <Notifications unreadFeedbacks={totalUnread} />
                 {/* No mobile, ajuda fica no menu lateral e tema/estados vão para o menu do avatar (estados só na demonstração) */}
                 <span className="hidden items-center gap-050 s:flex">
                   <IconButton icon={CircleHelp} label="Ajuda" onClick={() => (window.location.hash = "/ajuda")} />
@@ -309,7 +309,7 @@ function Shell() {
                     href={`#/${n.id}`}
                     label={n.label}
                     icon={n.icon}
-                    count={n.id === "feedbacks" && unread.size > 0 ? unread.size : undefined}
+                    count={n.id === "feedbacks" && totalUnread > 0 ? totalUnread : undefined}
                     isCurrent={route === n.id}
                   />
                 ))}
@@ -350,7 +350,7 @@ function Shell() {
                 action={{ label: "Ir para o início", icon: LayoutDashboard, onClick: () => (window.location.hash = `/${home}`) }}
               />
             </div>
-          ) : current && !isConnected(route) ? (
+          ) : current && !isConnected(route, client.kind) ? (
             <NotConnected title={current.label} route={route} />
           ) : route === "dashboard" || LINE_ROUTES[route] || SHIFT_ROUTES[route] ? (
             <MachinesPage

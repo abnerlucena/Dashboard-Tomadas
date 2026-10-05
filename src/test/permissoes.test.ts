@@ -16,7 +16,7 @@ const codigos = async (id: string, s: Awaited<ReturnType<typeof comoGestor>>) =>
 describe("catálogo de permissões", () => {
   it("traz código e descrição em português", async () => {
     const catalogo = await mockUsers.listPermissions(await comoGestor());
-    expect(catalogo.length).toBe(20);
+    expect(catalogo.length).toBe(21);
     expect(catalogo.find(p => p.code === "targets.manage")?.description).toBe("Alterar metas");
   });
 });
@@ -95,5 +95,22 @@ describe("nome do perfil na sessão", () => {
   it("vem pronto, em vez de ser deduzido das permissões", async () => {
     expect((await comoGestor()).roleName).toBe("Gestor");
     expect((await comoOperador()).roleName).toBe("Operador");
+  });
+});
+
+// D62: work_orders.manage vai para os mesmos perfis que no banco (distribuidor,
+// técnico, gestor e admin). Sem isto, no mock só o gestor cadastrava OP, e só
+// porque tem system.admin (nota da interface de 05/10).
+describe("permissão das OPs no mock, como no banco", () => {
+  it("o catálogo tem work_orders.manage", async () => {
+    const catalogo = await mockUsers.listPermissions(await comoGestor());
+    expect(catalogo.map(p => p.code)).toContain("work_orders.manage");
+  });
+
+  it("técnico e gestor têm; operador não", async () => {
+    const tecnico = (await mockAuth.login("tecnico@demo.local", SENHA_DEMO)).session;
+    expect(tecnico.permissions).toContain("work_orders.manage");
+    expect((await comoGestor()).permissions).toContain("work_orders.manage");
+    expect((await comoOperador()).permissions).not.toContain("work_orders.manage");
   });
 });

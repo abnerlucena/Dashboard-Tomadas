@@ -170,8 +170,9 @@ describe("installBackendData", () => {
     expect(week.produced).toBe(12100);
     expect(week.target).toBe(11000);
 
-    expect(data.PREVIOUS_MONTH_PRODUCED).toBe(5500);
-    expect(data.PREVIOUS_MONTH_LABEL).toBe("agosto");
+    // Setembro vai até o dia 15: compara com 1 a 15 de agosto, e o apontamento de 20/08 fica fora
+    expect(data.PREVIOUS_MONTH_PRODUCED).toBe(0);
+    expect(data.PREVIOUS_MONTH_LABEL).toBe("agosto até o dia 15");
     expect(data.targetOn(data.MACHINES, new Date(2026, 8, 15))).toBe(11000);
     // o histórico vê todos os apontamentos da janela, inclusive o de agosto
     expect(data.ALL_ORDERS.some((o) => o.date.getMonth() === 7)).toBe(true);

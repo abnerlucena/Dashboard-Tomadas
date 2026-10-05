@@ -25,7 +25,7 @@ import {
   type Shift,
   type Status,
 } from "@/data/machines";
-import { formatDecimal, formatNumber, plural, readToken } from "@/lib/utils";
+import { formatDecimal, formatNumber, plural, readToken, saveFile, type Notify } from "@/lib/utils";
 import { DataTable, type SortState, type TableState } from "@/components/data/DataTable";
 import { KpiStrip, type KpiItem } from "@/components/data/KpiStrip";
 import { Button } from "@/components/ui/Button";
@@ -39,6 +39,7 @@ import { DetailedView } from "./DetailedView";
 import { machineColumns } from "./machineColumns";
 import { MachinePanel } from "./MachinePanel";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { csvName, machinesCsv, ordersCsv } from "./exportCsv";
 import { ShiftsView } from "./ShiftsView";
 
 export type DemoState = "live" | "loading" | "empty" | "error";
@@ -56,7 +57,7 @@ interface MachinesPageProps {
   onClearSearch: () => void;
   demoState: DemoState;
   onDemoStateChange: (s: DemoState) => void;
-  notify: (title: string, description?: string) => void;
+  notify: Notify;
 }
 
 const SHIFT_OPTIONS: FilterOption[] = [
@@ -229,19 +230,27 @@ export function MachinesPage({
 
   const openPanel = (m: Machine) => setActiveId((id) => (id === m.id ? null : m.id));
 
+  /** Gera e baixa o CSV; avisa o que saiu (ou que a pessoa recusou o download) */
+  const download = async (name: string, csv: string, what: string) => {
+    setExporting(true);
+    try {
+      const r = await saveFile(name, new Blob([csv], { type: "text/csv;charset=utf-8" }));
+      if (r === "saved") notify("Planilha baixada", `${what} · ${periodText}. Abre no Excel (${name}).`);
+    } catch {
+      notify("Não foi possível exportar", "Tente de novo. Se continuar, recarregue a página.", "error");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const onAction = (action: string, m: Machine) => {
-    if (action === "export") notify("Exportação pronta", `${m.name} · ${periodText} (.xlsx)`);
+    if (action === "export")
+      void download(csvName("dash", m.name, periodText), ordersCsv(m, m.orders), `${m.name}: ${plural(m.orders.length, "apontamento", "apontamentos")}`);
     else if (action === "entry") window.location.hash = "/apontamento";
     else notify("Histórico da máquina", "Ainda não existe uma tela só da máquina. Os apontamentos dela estão no Histórico.");
   };
 
-  const exportAll = () => {
-    setExporting(true);
-    window.setTimeout(() => {
-      setExporting(false);
-      notify("Exportação pronta", `${plural(rows.length, "máquina", "máquinas")} · ${periodText} (.xlsx)`);
-    }, readToken("--ds-motion-duration-skeleton") / 2);
-  };
+  const exportAll = () => void download(csvName("dash-maquinas", periodText), machinesCsv(rows), plural(rows.length, "máquina", "máquinas"));
 
   /* ---------- Estados compartilhados pelas abas ---------- */
   const emptyState =

@@ -1,0 +1,6 @@
+# Nada daqui pode ir para o repositório (é público).
+.env
+certificados/*
+!certificados/LEIA-ME.md
+site/
+backups/

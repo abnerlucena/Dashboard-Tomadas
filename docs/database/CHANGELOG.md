@@ -17,6 +17,45 @@ Formato de cada entrada:
 
 ---
 
+## [0.27.0] — 05/10/2026 — Cadastro completo de máquinas, e editar nome, linha e lotação
+- Status: **Implementado** — aplicada no Supabase em 05/10/2026
+- Migration: `20261005100000_cadastro_completo_de_maquinas.sql` (0037)
+- Decisões: D63 (nova), D38, D47, D53, D37
+
+### Pedido da interface, com as respostas aprovadas pelo gestor
+1. **Meta 0 é "por demanda".** Cadastrar com meta 0 criava máquina "com meta" e
+   meta zero, contradizendo a D38. Agora, sem dizer o contrário, meta 0 → por
+   demanda; e as duas combinações contraditórias são recusadas.
+2. **A linha é obrigatória.** Máquina sem linha some dos agrupamentos.
+3. **Editar** nome, linha e lotação de uma máquina existente.
+
+### Alterado
+- `create_machine` ganhou `p_process`; `p_has_target` passou a ser deduzido da
+  meta quando ausente. Recusa: "com meta" e 0; "por demanda" e meta > 0; linha
+  desconhecida; lotação ≤ 0; base `per_shift_prorated` sem lotação. A assinatura
+  antiga foi derrubada antes (D53.1), e as permissões refeitas.
+
+### Adicionado
+- `update_machine(id, name?, process?, standard_operator_count?)`. Meta e base
+  não mudam por aqui: têm vigência e mudam pela tela de Metas. A lotação não se
+  apaga, só se troca: é o divisor da meta rateada.
+
+### A linha obrigatória em dois passos
+A tela de Cadastro de máquinas, já na `main`, usa `addMachine(nome, meta)`, que
+não manda a linha. Exigir agora no banco a quebraria. Então: **o contrato novo**
+(`createMachine`) **exige a linha já**, e o `tsc` cobra; **o banco passa a exigir**
+(`not null` na coluna) quando a tela trocar. Até lá `addMachine` continua, marcado
+como obsoleto.
+
+### Testes
+- Suíte 13 nova (12 casos). As 13 suítes passam (207 casos).
+
+### Impacto no frontend
+- Contrato: `machines.createMachine(NewMachineInput)` → id, e
+  `machines.updateMachine(id, MachineChanges)`. `addMachine` @deprecated.
+
+---
+
 ## [0.26.0] — 04/10/2026 — A OP passa a existir por si: cadastro, situação e conversa
 - Status: **Implementado** — aplicada no Supabase em 04/10/2026
 - Migration: `20261004110000_ordens_de_producao.sql` (0036)

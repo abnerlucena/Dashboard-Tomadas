@@ -1,7 +1,7 @@
 // ─── Máquinas, metas e calendário ─────────────────────────────
 import { getSupabase } from "../../supabase";
 import type { DataSource, MetaInfoRaw } from "../types";
-import { toAddCalendarArgs, MACHINE_STATUS_TO_LEGACY, holidayTypeToEventType, toHoliday, toMachine, type CalendarRow } from "./adapters";
+import { toCreateMachineArgs, toUpdateMachineArgs, toAddCalendarArgs, MACHINE_STATUS_TO_LEGACY, holidayTypeToEventType, toHoliday, toMachine, type CalendarRow } from "./adapters";
 import { loadProfileNames, toError } from "./helpers";
 
 async function currentTargets() {
@@ -27,6 +27,17 @@ export const supabaseMachines: DataSource["machines"] = {
 
   async addMachine(name, defaultMeta) {
     const { error } = await getSupabase().rpc("create_machine", { p_name: name, p_initial_target: defaultMeta });
+    if (error) throw toError(error);
+  },
+
+  async createMachine(input) {
+    const { data, error } = await getSupabase().rpc("create_machine", toCreateMachineArgs(input));
+    if (error) throw toError(error);
+    return data as number;
+  },
+
+  async updateMachine(id, changes) {
+    const { error } = await getSupabase().rpc("update_machine", toUpdateMachineArgs(id, changes));
     if (error) throw toError(error);
   },
 

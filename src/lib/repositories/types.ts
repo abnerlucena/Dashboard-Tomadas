@@ -139,6 +139,36 @@ export interface NewWorkOrder {
   plannedQuantity?: number;
 }
 
+/** Linha da fábrica (D37): montagem ou embalagem. */
+export type MachineProcess = "assembly" | "packaging";
+
+/** Cadastro de uma máquina nova (D63). */
+export interface NewMachineInput {
+  name: string;
+  /** Obrigatória: máquina sem linha some dos agrupamentos por linha. */
+  process: MachineProcess;
+  /** Meta por turno inicial, valendo hoje. 0 = por demanda (D38). */
+  defaultMeta: number;
+  /**
+   * Ausente = deduzido da meta: 0 é por demanda, maior que 0 é com meta. O
+   * banco recusa as combinações contraditórias ("com meta" e 0; "por demanda"
+   * e meta maior que 0).
+   */
+  hasMeta?: boolean;
+  /** Lotação padrão do posto (D47). Obrigatória se a base for "per_shift_prorated". */
+  standardOperatorCount?: number;
+  /** Base da meta (D53). Ausente = per_shift. */
+  basis?: BaseDaMeta;
+}
+
+/** O que se edita numa máquina existente. Meta e base mudam pela tela de Metas. */
+export interface MachineChanges {
+  name?: string;
+  process?: MachineProcess;
+  /** Maior que zero. Não se apaga: é o divisor da meta rateada (D47). */
+  standardOperatorCount?: number;
+}
+
 export interface SaveEntriesOptions {
   /** Só modo Supabase: 'overtime' marca o lote como hora extra (D27). */
   workMode?: "regular" | "overtime";
@@ -254,7 +284,16 @@ export interface DataSource {
 
   machines: {
     getMachines(session: Session | null): Promise<{ machines?: Machine[]; allMachines?: Machine[] }>;
+    /**
+     * @deprecated Use `createMachine`, que leva a linha (obrigatória, D63), a
+     * lotação e a base. Continua funcionando só durante a troca; meta 0 já vira
+     * máquina por demanda. Sai quando a tela usar `createMachine`.
+     */
     addMachine(name: string, defaultMeta: number, session: Session | null): Promise<void>;
+    /** Cadastra a máquina e a primeira meta (D63). Devolve o id. Só modo Supabase. */
+    createMachine(input: NewMachineInput, session: Session | null): Promise<number>;
+    /** Edita nome, linha e lotação (D63). O que não vier fica como está. Só modo Supabase. */
+    updateMachine(id: number, changes: MachineChanges, session: Session | null): Promise<void>;
     toggleMachine(machineId: number, session: Session | null): Promise<{ newStatus: string }>;
   };
 

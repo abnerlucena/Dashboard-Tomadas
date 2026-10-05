@@ -69,6 +69,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D60 | A linha do tempo de metas antes de 25/09/2026 vem da planilha | Aprovada | 03/10/2026 |
 | D61 | Calendário: vários dias numa operação só, com abrangência | Aprovada | 04/10/2026 |
 | D62 | A OP passa a existir por si, com o terreno pronto para o SAP | Aprovada | 04/10/2026 |
+| D63 | Cadastro completo de máquinas: meta 0 é por demanda, linha obrigatória, editar | Aprovada | 05/10/2026 |
 
 ---
 
@@ -1238,3 +1239,22 @@ ensaiada antes da virada.
   disse que é o distribuidor quem cadastra.
 - **Em aberto:** a mesma OP apontada em outra máquina não é barrada. A OP
   continua na máquina em que foi cadastrada.
+
+### D63 — Cadastro completo de máquinas: meta 0 é por demanda, linha obrigatória, editar
+- **Status:** Aprovada (05/10/2026), pelo gestor, respondendo às três perguntas da
+  interface (nota 2026-10-04-cadastro-de-maquinas.md). Migration 0037.
+- **Decisões:**
+  1. **Meta 0 sem dizer o contrário = por demanda.** "Com meta" e meta zero se
+     contradizem (D38). As duas combinações contraditórias são recusadas, em vez
+     de o banco escolher uma por conta própria.
+  2. **A linha (montagem ou embalagem) é obrigatória.** Sem ela a máquina some
+     dos agrupamentos por linha.
+  3. **Nome, linha e lotação se editam** por uma função. Meta e base, não: têm
+     vigência e histórico (D13, D53), e mudam pela tela de Metas.
+- **A linha obrigatória em dois passos:** a tela de Cadastro já estava na `main`
+  com o contrato antigo, que não manda a linha. Exigir no banco de uma vez a
+  quebraria, e ela é da outra sessão. O contrato novo exige já; o banco passa a
+  exigir quando a tela trocar.
+- **A lotação não se apaga pela edição:** é o divisor da meta rateada (D47) e o
+  valor de reserva da meta por pessoa (D54). Só se troca por outro número.
+- **E a base rateada exige lotação no cadastro**, pelo mesmo motivo.

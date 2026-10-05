@@ -3,10 +3,11 @@
 Esta pasta é a **fonte oficial** sobre o banco de dados do Dash de Produção (Supabase / PostgreSQL).
 Ela registra **o que existe, como funciona, por que foi decidido assim e o que mudou**.
 
-> **Estado atual do schema:** `v0.20.0` — **implementado** no Supabase (projeto de testes), com o histórico real carregado: 2.507 apontamentos de 20/12/2025 a 21/09/2026, 17.627.977 peças.
-> A `0.17.1` não mexeu no schema: registra a **recuperação de senha por e-mail** (D45), hoje **em uso**.
-> A `0.18.0` e a `0.19.0` puseram a **meta que depende da lotação** no cálculo (D39/D46/D47): três bases — meta do turno, meta do turno rateada pela lotação, e meta por pessoa. A `0.19.3` pôs **teto** no rateio (D49).
-> O sistema em produção continua sendo Google Sheets + Google Apps Script (`Main.gs`).
+> **Estado atual do schema:** `v0.27.0` — **implementado** no Supabase, no projeto que virou o de
+> produção (D55), com o histórico real carregado: 2.712 apontamentos de 20/12/2025 a 30/09/2026.
+> A interface oficial é a de `prototype/` (D56). O Google Apps Script foi aposentado em 05/10/2026
+> (D64): até a virada, a produção é registrada à mão na planilha `.xlsx`, que entra no banco pelo
+> extrator de `supabase/import/`. O histórico de cada versão está no `CHANGELOG.md`.
 
 ## Os documentos
 
@@ -57,8 +58,8 @@ Estas regras valem para pessoas **e** para o Claude Code (ver `CLAUDE.md` na rai
 
 ## Como o app usa o banco
 
-- Chave liga/desliga: `VITE_DATA_SOURCE` = `gas` (padrão, Apps Script) ou `supabase`. Ver `src/lib/repositories/index.ts`.
-- `src/lib/repositories/` — uma operação por ação do Apps Script; `gas.ts` repassa ao `api()` atual, `supabase/` usa as views e RPCs deste schema. Adaptadores em `supabase/adapters.ts` (produção boa como produção, meta zerada para hora extra e dia anulado).
+- `VITE_DATA_SOURCE` = `supabase` (padrão) ou `mock` (dados de mentira, só em desenvolvimento). Ver `src/lib/repositories/index.ts`. Até 05/10/2026 havia também `gas`, o Apps Script, aposentado (D64).
+- `src/lib/repositories/` — o contrato (`types.ts`) e as fontes: `supabase/` usa as views e RPCs deste schema; `mock/` é a demonstração. Adaptadores em `supabase/adapters.ts` (produção boa como produção, meta zerada para hora extra e dia anulado).
 - `src/lib/database.types.ts` — tipos do schema. **Regenerar após cada migration** (`npx supabase gen types typescript --project-id <ref>`, com login na CLI; ou o script de introspecção usado em 20/09/2026, que tem o mesmo formato).
 - Pastas do banco: `supabase/migrations/`, `supabase/seed/`, `supabase/tests/` (verificação SQL com `rollback`), `supabase/import/`.
 - Teste de ponta a ponta da camada: `npm run test:integration` (precisa de `.env.local` e das variáveis `TEST_*` de usuários de teste).

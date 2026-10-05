@@ -209,8 +209,6 @@ Dois detalhes propositais:
 - **O link vale uma vez e expira.** Se der erro, basta pedir outro — a própria
   tela oferece.
 
-Enquanto o sistema em produção for a planilha (Apps Script), a recuperação por
-e-mail não existe ali, e a tela continua mandando falar com o administrador.
 Detalhes e o que ainda falta configurar: decisão **D45**.
 
 ## 9. Rastreabilidade
@@ -235,7 +233,7 @@ flowchart LR
   B --> C["Dados iniciais<br/>(turnos, perfis, máquinas, metas)"]
   C --> D["App lê e grava no Supabase<br/>atrás de uma chave liga/desliga"]
   D --> E["Migração dos dados<br/>da planilha"]
-  E --> F["Desligar o Apps Script"]
+  E --> F["Desligar o Apps Script<br/>✅ 05/10 (D64)"]
 ```
 
 - O banco está **completo** no Supabase: as 16 tabelas, as 2 views, as regras de negócio e a segurança.

@@ -1,23 +1,21 @@
 // ─── Fachada da camada de dados ───────────────────────────────
 // Ponto único que as telas e o AuthContext usam para ler e gravar dados.
 //
-// Chave liga/desliga: variável de ambiente VITE_DATA_SOURCE
-//   "gas"      → Google Apps Script + planilhas (PADRÃO; comportamento de hoje)
+// Chave: variável de ambiente VITE_DATA_SOURCE
 //   "supabase" → banco Supabase (precisa de VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY)
 //   "mock"     → dados de mentira para construir telas (ver ./mock/index.ts).
 //                Só em desenvolvimento: um build de produção nunca liga o mock.
-// Qualquer outro valor, ou a variável ausente, cai no "gas".
+// Qualquer outro valor cai no Supabase, a única fonte real. Até 05/10/2026 o
+// padrão era o Google Apps Script, aposentado (D64).
 import type { DataSource, DataSourceKind } from "./types";
-import { gasDataSource } from "./gas";
 import { supabaseDataSource } from "./supabase";
 
 function escolher(): DataSourceKind {
   const pedido = import.meta.env.VITE_DATA_SOURCE;
-  if (pedido === "supabase") return "supabase";
   // import.meta.env.DEV é falso em qualquer `vite build`: esquecer a variável
   // num .env nunca publica o site com contas de mentira.
   if (pedido === "mock" && import.meta.env.DEV) return "mock";
-  return "gas";
+  return "supabase";
 }
 
 export const DATA_SOURCE: DataSourceKind = escolher();
@@ -36,7 +34,7 @@ export const usaAcessoPorEmail = isSupabase || isMock;
  *
  * Nenhuma tela guarda esta referência: todas chamam `data.algo()` na hora.
  */
-export let data: DataSource = isSupabase ? supabaseDataSource : gasDataSource;
+export let data: DataSource = supabaseDataSource;
 
 /**
  * Carrega o modo de demonstração, se for o caso. Chamado uma vez em main.tsx,

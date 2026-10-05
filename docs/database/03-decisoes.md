@@ -70,6 +70,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D61 | Calendário: vários dias numa operação só, com abrangência | Aprovada | 04/10/2026 |
 | D62 | A OP passa a existir por si, com o terreno pronto para o SAP | Aprovada | 04/10/2026 |
 | D63 | Cadastro completo de máquinas: meta 0 é por demanda, linha obrigatória, editar | Aprovada | 05/10/2026 |
+| D64 | O Google Apps Script e o Dash antigo saem do repositório | Aprovada | 05/10/2026 |
 
 ---
 
@@ -1258,3 +1259,36 @@ ensaiada antes da virada.
 - **A lotação não se apaga pela edição:** é o divisor da meta rateada (D47) e o
   valor de reserva da meta por pessoa (D54). Só se troca por outro número.
 - **E a base rateada exige lotação no cadastro**, pelo mesmo motivo.
+
+### D64 — O Google Apps Script e o Dash antigo saem do repositório
+- **Status:** Aprovada (05/10/2026), pelo gestor.
+- **Contexto:** o repositório guardava o `Main.gs` (Google Apps Script) e uma
+  camada de dados que falava com ele (`gas.ts`, `api()`), que era o padrão
+  quando nenhuma fonte era escolhida. A conferência de 05/10 mostrou que:
+  - o `Main.gs` não tem tela própria: é só uma API, e a única tela dele era o
+    app antigo;
+  - o app antigo saiu do ar em 03/10 (D56), e a publicação nem aceita mais o
+    Apps Script como fonte;
+  - **a fábrica não usava nenhum dos dois**: a produção é registrada à mão na
+    planilha `.xlsx`, e foi dela que veio todo o histórico do banco (D35).
+- **Decisão:** tirar o Apps Script e todo resquício do Dash antigo do
+  repositório. Até a virada, a planilha `.xlsx` é a fonte da produção, e entra
+  no banco pelo extrator (carga incremental, D35.4).
+- **O que saiu:** `Main.gs`; `src/lib/repositories/gas.ts`; o endereço do
+  script, a sessão e o cache do app antigo em `src/lib/api.ts` (que ficou só com
+  os tipos); as operações que só o Apps Script tinha (criar usuário pelo
+  painel, redefinir senha pelo painel, código de convite, apresentação inicial,
+  configuração de alertas). O padrão da camada de dados passou a ser o Supabase.
+- **O que ficou, de propósito, e por quê:**
+  - **o literal `"gas"` no tipo `DataSourceKind`, e três campos marcados
+    `@deprecated`** (`inviteCode`, o cadastro que "entrava direto" e
+    `onboardingDone`): a interface ainda tem ramos "se for Apps Script" em oito
+    arquivos. Tirar os tipos agora quebraria a compilação dela, e os arquivos
+    são da outra sessão. Saem quando ela tirar os ramos;
+  - **os formatos de resposta herdados do Apps Script** (status "ativo",
+    turno "TURNO 1", data em texto): a interface converte a partir deles.
+    Simplificar é mudança de contrato a combinar com ela;
+  - **o registro histórico**: decisões, ata de mudanças e notas antigas citam
+    o Apps Script, e decisão antiga não se apaga.
+- **A permissão `alerts.manage`** continua no catálogo do banco, sem função
+  por trás. Fica para quando houver alertas de verdade.

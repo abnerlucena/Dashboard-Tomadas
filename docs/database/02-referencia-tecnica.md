@@ -444,7 +444,11 @@ RLS habilitado em **todas** as 16 tabelas de `public` (conferido no banco: 0 sem
 | `users.approve` | Gestão | | | | | ✓ | ✓ | |
 | `system.admin` | Sistema | | | | | ✓ | ✓ | |
 
-## 9. Mapeamento do sistema legado (Google Sheets)
+## 9. Mapeamento do sistema legado (Google Sheets) — *histórico*
+
+> O Apps Script (`Main.gs`) e as abas abaixo foram aposentados em 05/10/2026 (D64).
+> A tabela fica como registro do desenho de 14/09/2026. O histórico que está no
+> banco veio de outra fonte: a planilha `.xlsx` preenchida à mão (D35).
 
 | Aba | Coluna antiga | Destino |
 |---|---|---|
@@ -516,5 +520,4 @@ acrescenta. Testes da leitura desse endereço: `src/test/recovery.test.ts`.
    (poucos envios por hora; em projetos novos, só para a equipe do projeto).
    **Sem SMTP próprio a recuperação não atende a fábrica.**
 
-No modo `gas` a operação não existe: `src/lib/repositories/gas.ts` responde com o
-aviso de procurar o administrador.
+

@@ -19,7 +19,6 @@ import {
 const CHAVE_CONTAS = "mock.contas";
 const CHAVE_SESSAO = "mock.sessao";            // quem está logado (id da conta)
 const CHAVE_RECUPERACAO = "mock.recuperacao";  // e-mail com link de recuperação aberto
-const ONBOARDING = (id: string) => `onboarding_done_${id}`;
 
 /** Atraso de rede fingido: sem ele, estados de "carregando" nunca aparecem. */
 const ATRASO_MS = import.meta.env.MODE === "test" ? 0 : 350;
@@ -77,9 +76,7 @@ function montarSessao(conta: ContaDemo, identificado?: string): LoginResponse {
     accountType: conta.tipo,
     roleName: perfil(conta.perfilId)?.name ?? undefined,
   };
-  let onboardingDone = true;
-  try { onboardingDone = localStorage.getItem(ONBOARDING(conta.id)) === "1"; } catch { /* sem localStorage */ }
-  return { session, onboardingDone };
+  return { session };
 }
 
 // ── observadores de sessão (o equivalente ao onAuthStateChange) ─
@@ -146,11 +143,6 @@ export const mockAuth: DataSource["auth"] = {
     avisar();
   },
 
-  async completeOnboarding(session) {
-    if (!session?.userId) return;
-    try { localStorage.setItem(ONBOARDING(session.userId), "1"); } catch { /* sem localStorage */ }
-  },
-
   async isSessionValid(session) {
     if (session.source !== "mock") return false;
     const id = ler<string | null>(CHAVE_SESSAO, null);
@@ -198,7 +190,6 @@ export const mockAuth: DataSource["auth"] = {
 const STATUS_LEGADO: Record<ContaDemo["status"], string> = {
   active: "ativo", blocked: "bloqueado", pending: "pendente",
 };
-const naoExiste = (o: string) => new Error(`${o} não existe no modo Supabase.`);
 
 export const mockUsers: DataSource["users"] = {
   async listUsers(session) {
@@ -290,7 +281,4 @@ export const mockUsers: DataSource["users"] = {
     avisar();
   },
 
-  async adminCreateUser() { throw naoExiste("Criar usuário pelo painel"); },
-  async resetPassword() { throw naoExiste("Redefinir senha pelo painel"); },
-  async generateInviteCode() { throw naoExiste("Código de convite"); },
 };

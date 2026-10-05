@@ -8,7 +8,7 @@ describe("a meta do turno conforme a base (D39, D47)", () => {
     expect(m.dependeDaLotacao).toBe(false);
   });
 
-  it("sem base informada, trata como per_shift (modo Apps Script)", () => {
+  it("sem base informada, trata como per_shift", () => {
     expect(metaDoTurno({ cadastrada: 500 }).valor).toBe(500);
     expect(metaDoTurno({ cadastrada: 500, base: null, pessoas: 9 }).valor).toBe(500);
   });

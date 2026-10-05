@@ -14,7 +14,11 @@
 
 ## Sistema legado
 
-- `Main.gs` (Google Apps Script) e as planilhas continuam em produção. Não alterar sem pedido explícito.
+- O **Google Apps Script** (`Main.gs`) e o Dash antigo foram **aposentados em
+  05/10/2026** e saíram do repositório (D64). Ninguém na fábrica os usava: a
+  produção é registrada à mão na planilha `ITAJAI - CONTROLE DE PRODUÇÃO 2026.xlsx`.
+- Até a virada, essa planilha é a fonte da produção. Ela entra no banco pelo
+  extrator de `supabase/import/` (carga incremental com `--desde` e `--ate`).
 
 ## Duas sessões trabalham neste repositório
 

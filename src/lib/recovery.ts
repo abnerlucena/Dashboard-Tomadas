@@ -21,7 +21,6 @@
 //    recuperação nunca funcionaria.
 //
 // Por isso `prepararRecuperacaoDeSenha()` roda em main.tsx, antes do render.
-import { clearSession } from "./api";
 import { isMock, isSupabase } from "./repositories";
 import { getSupabase } from "./supabase";
 
@@ -125,8 +124,7 @@ export function recuperacaoEmAndamento(): EstadoRecuperacao | null {
  * qualquer problema vira a tela de "pedir outro e-mail", com o motivo escrito.
  */
 export async function prepararRecuperacaoDeSenha(): Promise<void> {
-  // No modo Apps Script não existe recuperação por e-mail, e criar o cliente do
-  // Supabase ali não faria sentido nenhum.
+  // Só há recuperação por e-mail com o Supabase (e na demonstração).
   if (!isSupabase && !isMock) return;
 
   let pedido: PedidoDeRecuperacao | null = null;
@@ -137,10 +135,10 @@ export async function prepararRecuperacaoDeSenha(): Promise<void> {
   }
   if (!pedido) return;
 
-  // Quem chega pelo link tem de cair na tela de senha nova. Se este navegador
-  // tivesse um login guardado, o app abriria o dashboard e a tela nunca
-  // apareceria — então o login antigo sai de cena.
-  try { clearSession(); } catch { /* sem localStorage */ }
+  // Quem chega pelo link tem de cair na tela de senha nova, mesmo que este
+  // navegador tenha um login guardado. É a interface quem decide isso, lendo
+  // `recuperacaoEmAndamento()`. (Até 05/10/2026 aqui se apagava também a
+  // sessão do app antigo, D64.)
 
   if (pedido.tipo === "erro") {
     estado = { tela: "recuperar", erro: pedido.mensagem };

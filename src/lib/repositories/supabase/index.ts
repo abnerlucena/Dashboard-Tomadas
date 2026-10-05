@@ -3,7 +3,7 @@ import type { DataSource } from "../types";
 import { supabaseAuth } from "./auth";
 import { supabaseProduction } from "./production";
 import { supabaseCalendar, supabaseMachines, supabaseTargets } from "./catalog";
-import { supabaseAlerts, supabaseUsers } from "./users";
+import { supabaseUsers } from "./users";
 import { supabaseWorkOrders } from "./workOrders";
 
 export const supabaseDataSource: DataSource = {
@@ -15,7 +15,6 @@ export const supabaseDataSource: DataSource = {
   calendar: supabaseCalendar,
   users: supabaseUsers,
   workOrders: supabaseWorkOrders,
-  alerts: supabaseAlerts,
 };
 
 export { BadgeRequiredError } from "./auth";

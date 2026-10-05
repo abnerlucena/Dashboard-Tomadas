@@ -18,10 +18,12 @@ Interruptores. Vite + React + TypeScript.
 | `e2e/` | Teste de fumaça no navegador (Playwright), no modo de demonstração |
 | `supabase/` | Migrations, seeds, testes SQL, importação da planilha e calendário |
 | `docs/database/` | **Fonte da verdade sobre o banco**: visão geral, referência técnica, decisões (ADR) e ata de mudanças |
-| `Main.gs` | Sistema **legado** (Google Apps Script + planilhas), ainda usado pela fábrica até a virada. Não alterar sem pedido explícito |
 
 A UI antiga (telas de `src/`) foi aposentada em 03/10/2026, antes de ir para
-produção: a interface de `prototype/` é a única.
+produção: a interface de `prototype/` é a única. O Google Apps Script
+(`Main.gs`) foi aposentado em 05/10/2026 e saiu do repositório (D64). Até a
+virada, a fábrica registra a produção à mão na planilha `.xlsx`, que entra no
+banco pelo extrator de `supabase/import/`.
 
 ## Como rodar
 

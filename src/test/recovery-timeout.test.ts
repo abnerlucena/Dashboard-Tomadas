@@ -20,7 +20,6 @@ vi.mock("@/lib/supabase", () => ({
   }),
 }));
 vi.mock("@/lib/repositories", () => ({ isSupabase: true, isMock: false }));
-vi.mock("@/lib/api", () => ({ clearSession: () => {} }));
 
 beforeEach(() => {
   vi.useFakeTimers();

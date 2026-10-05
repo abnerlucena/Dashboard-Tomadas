@@ -67,9 +67,9 @@ interface CurrentMetasProps {
 function CurrentMetas({ notify, history, setHistory, proposal, onDismissProposal }: CurrentMetasProps) {
   const { can, session, client } = useAccess();
   // Com o banco: metas, bases e lotação de HOJE vêm de lá, e salvar grava (save_machine_targets).
-  // No modo Apps Script, só leitura. Na demonstração, tudo local.
+  // Na demonstração, tudo local.
   const live = DATA_ORIGIN === "backend";
-  const writable = !live || (!!client.reads && client.kind !== "gas");
+  const writable = !live || !!client.reads;
   // Ver metas é targets.view (rota); alterar é targets.manage
   const canManage = can("targets.manage") && writable;
   const todayIso = toIsoDate(new Date());

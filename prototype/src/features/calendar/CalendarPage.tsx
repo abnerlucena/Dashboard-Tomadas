@@ -73,8 +73,7 @@ const entriesOf = (list: Holiday[]) =>
 export function CalendarPage({ notify }: { notify: Notify }) {
   const { can, session, client } = useAccess();
   const live = DATA_ORIGIN === "backend";
-  // No modo Apps Script, só leitura (como Metas e Histórico)
-  const writable = !live || (!!client.reads && client.kind !== "gas");
+  const writable = !live || !!client.reads;
   const canManage = can("calendar.manage") && writable;
   const todayIso = toIsoDate(live ? new Date() : NOW);
 

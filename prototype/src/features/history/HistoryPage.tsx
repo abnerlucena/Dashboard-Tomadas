@@ -67,10 +67,10 @@ type Dialog =
 export function HistoryPage({ notify }: { notify: Notify }) {
   const [orders, setOrders] = useState<ProductionOrder[]>(ALL_ORDERS);
   // O que cada perfil pode corrigir (a tela esconde; quem barra de verdade é o banco, D24).
-  // Com o banco, as correções gravam lá; no modo Apps Script, só leitura.
+  // Com o banco, as correções gravam lá.
   const { can: canDo, session, client } = useAccess();
   const live = DATA_ORIGIN === "backend";
-  const readOnly = live && (client.kind === "gas" || !client.reads);
+  const readOnly = live && !client.reads;
   const [busy, setBusy] = useState(false);
   const can = (p: Parameters<typeof canDo>[0]) => !readOnly && canDo(p);
   const canEdit = (o: ProductionOrder) => can("production.edit") || (can("production.edit_own") && o.operator === session?.nome);

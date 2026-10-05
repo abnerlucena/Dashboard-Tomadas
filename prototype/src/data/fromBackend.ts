@@ -112,7 +112,7 @@ const normalize = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLo
 
 /**
  * Linha do centro: a do banco (`machines.process`, D37) quando vier. Sem ela
- * (centro cadastrado pelo app, ou fonte Apps Script), deduz pelo nome.
+ * (centro antigo, ainda sem linha), deduz pelo nome.
  * "Granel" não é linha: é agrupamento de tela, sempre pelo nome.
  */
 export function lineOf(name: string, process?: ApiMachine["process"]): Line {

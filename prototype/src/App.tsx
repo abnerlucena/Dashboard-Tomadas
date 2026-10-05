@@ -81,8 +81,6 @@ import { AccessProvider } from "@/features/access/AccessProvider";
 import { accessLabel } from "@/features/access/permissions";
 import { UsersPage } from "@/features/access/UsersPage";
 import { BackendGate } from "@/features/data/BackendGate";
-import { NotConnected } from "@/features/data/NotConnected";
-import { isConnected } from "@/features/data/connection";
 import { Spinner } from "@/components/ui/Spinner";
 import { useColorMode, type ColorModePreference } from "@/lib/hooks";
 import { cn, plural, readToken, storageGet, storageSet, type Notify } from "@/lib/utils";
@@ -230,7 +228,7 @@ function Gate() {
 
 function Shell() {
   const { route: rawRoute, param } = useHashRoute();
-  const { canOpen, client } = useAccess();
+  const { canOpen } = useAccess();
   // Início: o Dashboard; quem não pode vê-lo cai na primeira tela liberada
   const home = [...NAV_MAIN, ...NAV_SECTIONS.flatMap((s) => s.items)].find((n) => canOpen(n.id))?.id ?? "ajuda";
   const route = rawRoute === "dashboard" && !canOpen("dashboard") ? home : rawRoute;
@@ -350,8 +348,6 @@ function Shell() {
                 action={{ label: "Ir para o início", icon: LayoutDashboard, onClick: () => (window.location.hash = `/${home}`) }}
               />
             </div>
-          ) : current && !isConnected(route, client.kind) ? (
-            <NotConnected title={current.label} route={route} />
           ) : route === "dashboard" || LINE_ROUTES[route] || SHIFT_ROUTES[route] ? (
             <MachinesPage
               key={route}

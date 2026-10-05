@@ -24,7 +24,7 @@ export interface CalendarEntry {
   isEvent: boolean;
   shiftIds: number[];
   createdBy: string;
-  /** Abrangência (D61); vazio = o banco não informou (Apps Script) */
+  /** Abrangência (D61); vazio = o banco não informou */
   scope?: HolidayScope;
 }
 

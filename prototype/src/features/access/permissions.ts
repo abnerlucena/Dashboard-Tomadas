@@ -72,25 +72,9 @@ export const PERMISSION_GROUPS: Array<{ title: string; codes: Permission[] }> = 
  */
 export const STRONG_PERMISSIONS = new Set<string>(["system.admin", "users.approve", "targets.manage", "production.delete", "production.bulk_delete", "import.manage"]);
 
-/**
- * Modo Apps Script (legado): a sessão não traz permissões, só `role`.
- * admin = tudo; user = o que o operador fazia no sistema da planilha.
- */
-const LEGACY_USER: Permission[] = [
-  "production.create",
-  "production.edit_own",
-  "history.view",
-  "feedbacks.view",
-  "dashboard.view",
-  "targets.view",
-  "tv_mode.view",
-  "reports.export",
-];
-
 export function can(session: Session | null, permission: Permission): boolean {
   if (!session) return false;
-  const list = session.permissions;
-  if (!list) return session.role === "admin" || LEGACY_USER.includes(permission);
+  const list = session.permissions ?? [];
   return list.includes("system.admin") || list.includes(permission);
 }
 
@@ -127,7 +111,7 @@ export const canOpen = (session: Session | null, route: string) => {
   return p ? can(session, p) : !!session;
 };
 
-/** Rótulo do perfil, para o menu do usuário (dedução só para o modo Apps Script) */
+/** Rótulo do perfil, para o menu do usuário (sem o nome do perfil, deduz pelas permissões) */
 export function accessLabel(session: Session): string {
   // O nome do perfil vem do banco (roleName); deduzir pelas permissões deixava
   // duas pessoas de perfis diferentes com o mesmo conjunto iguais

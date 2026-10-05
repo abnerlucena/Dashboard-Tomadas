@@ -94,10 +94,6 @@ export function AccessProvider({ children, fallback }: { children: ReactNode; fa
           setSession(s);
         },
         logout,
-        adopt: (s) => {
-          client.store.save(s);
-          setSession(s);
-        },
         recovery,
         clearRecovery: () => setRecovery(null),
         notice,

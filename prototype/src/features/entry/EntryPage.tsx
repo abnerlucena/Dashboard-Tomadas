@@ -297,19 +297,6 @@ export function EntryPage({ notify }: EntryPageProps) {
     machines: g.machineIds.map(machineById).filter((m) => listed(m) && (!q || m.name.toLowerCase().includes(q))),
   })).filter((g) => g.machines.length > 0);
 
-  // Apps Script: o salvar de lá SUBSTITUI as ordens do turno, e esta tela acrescenta (D30)
-  if (live && client.kind === "gas")
-    return (
-      <div className="px-200 pt-300 m:px-400">
-        <h1 className="font-heading-large text-default">Apontamento</h1>
-        <EmptyState
-          icon={Save}
-          title="Apontar daqui só com o Supabase"
-          hint="No modo Apps Script, salvar substitui as ordens do turno, e esta tela foi feita para acrescentar. Aponte pela planilha até a virada."
-        />
-      </div>
-    );
-
   const status = savedAt ? (
     <Lozenge appearance="success">
       Salvo às {savedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}

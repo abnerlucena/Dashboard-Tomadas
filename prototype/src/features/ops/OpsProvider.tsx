@@ -32,12 +32,12 @@ const system = (opId: string, text: string): OpMessage => ({
 
 /**
  * Fonte das OPs para as abas OPs e Feedbacks e para o contador do menu.
- * Com o banco (fora do Apps Script), é o contrato `workOrders` (D62); na
+ * Com o banco, é o contrato `workOrders` (D62); na
  * demonstração, as OPs geradas em machines.ts, em memória.
  */
 export function OpsProvider({ children }: { children: ReactNode }) {
   const { client } = useAccess();
-  const live = DATA_ORIGIN === "backend" && !!client.reads && client.kind !== "gas";
+  const live = DATA_ORIGIN === "backend" && !!client.reads;
   return live ? <BackendOps>{children}</BackendOps> : <DemoOps>{children}</DemoOps>;
 }
 

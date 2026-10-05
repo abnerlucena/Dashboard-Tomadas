@@ -14,8 +14,6 @@ export interface AccessState {
   /** Lança o erro da camada de dados (use codigoDoErro/mensagemDeErro) */
   login: (email: string, password: string, badgeNumber?: string) => Promise<void>;
   logout: (notice?: string) => Promise<void>;
-  /** Adota uma sessão que já veio pronta (cadastro no modo Apps Script entra direto) */
-  adopt: (session: Session) => void;
   /** Visita que veio do link de recuperação de senha */
   recovery: EstadoRecuperacao | null;
   clearRecovery: () => void;

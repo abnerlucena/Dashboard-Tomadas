@@ -8,6 +8,8 @@ Ela registra **o que existe, como funciona, por que foi decidido assim e o que m
 > A interface oficial é a de `prototype/` (D56). O Google Apps Script foi aposentado em 05/10/2026
 > (D64): até a virada, a produção é registrada à mão na planilha `.xlsx`, que entra no banco pelo
 > extrator de `supabase/import/`. O histórico de cada versão está no `CHANGELOG.md`.
+> **Onde roda (D65):** a produção começa no Supabase da nuvem; depois, o mesmo banco
+> passa para um servidor interno da WEG, sem pressa e com ensaio antes.
 
 ## Os documentos
 
@@ -24,8 +26,11 @@ Ela registra **o que existe, como funciona, por que foi decidido assim e o que m
 Rode, no SQL Editor do Supabase:
 
 1. **as migrations de `supabase/migrations/`, em ordem de nome.** O nome começa
-   com a data e a hora justamente para a ordem ser óbvia. Todas são idempotentes:
-   rodar de novo não quebra nada.
+   com a data e a hora justamente para a ordem ser óbvia. **Cada uma roda uma vez
+   só:** elas não são idempotentes, e a primeira já falha com `relation "shifts"
+   already exists` se for rodada de novo. Quem aplica precisa anotar o que já
+   aplicou (é o que o `atualizar-banco.sh` do servidor interno faz, D65). A
+   ordem exata, com o seed no meio, está em [`supabase/INSTALAR.md`](../../supabase/INSTALAR.md).
 2. **`supabase/seed/01_estrutural.sql`** — papéis, permissões, turnos, os 22
    centros de trabalho e as metas reais.
 3. **`select public.bootstrap_admin('seu.email@empresa.com');`** depois de se

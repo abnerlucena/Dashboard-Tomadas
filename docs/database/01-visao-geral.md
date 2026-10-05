@@ -239,6 +239,9 @@ flowchart LR
 - O banco está **completo** no Supabase: as 16 tabelas, as 2 views, as regras de negócio e a segurança.
 - Cada regra foi **testada no banco real** (44 testes automáticos): por exemplo, um operador não consegue mexer no apontamento de outro, e um cadastro pendente não enxerga nada.
 - O sistema em produção **continua sendo a planilha** até a migração dos dados e a virada.
+- **Onde o sistema roda (D65, 05/10/2026):** a virada acontece no **Supabase da
+  nuvem**. Depois, o mesmo banco passa para um **servidor da WEG**, na rede interna,
+  quando a TI tiver a máquina pronta. Para quem usa, nada muda além do endereço.
 - O que o usuário vai notar quando o app passar a usar o banco:
   - login por **e-mail e senha**, com cadastro que **aguarda aprovação do gestor**;
   - marcação de **hora extra** no apontamento;

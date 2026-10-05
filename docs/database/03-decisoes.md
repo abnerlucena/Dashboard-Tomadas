@@ -71,6 +71,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D62 | A OP passa a existir por si, com o terreno pronto para o SAP | Aprovada | 04/10/2026 |
 | D63 | Cadastro completo de máquinas: meta 0 é por demanda, linha obrigatória, editar | Aprovada | 05/10/2026 |
 | D64 | O Google Apps Script e o Dash antigo saem do repositório | Aprovada | 05/10/2026 |
+| D65 | Produção começa no Supabase da nuvem e passa depois para um servidor da WEG | Aprovada | 05/10/2026 |
 
 ---
 
@@ -1085,6 +1086,10 @@ Espaço **não** é o problema: o banco tem 26 MB, dos quais 10 MB são a área 
 preparo da importação e a auditoria. Os apontamentos crescem ~286 por mês, uns
 poucos MB por ano, contra um limite de 500 MB.
 
+*Atualizado em 05/10/2026 (D65): no servidor interno, o backup diário e a
+restauração já vêm prontos (`infra/servidor-interno/`). Enquanto a produção
+estiver na nuvem, a pendência desta seção continua aberta.*
+
 O problema é só a ausência de cópia. **Backup que nunca foi restaurado não é
 backup** — qualquer que seja a saída escolhida, a restauração precisa ser
 ensaiada antes da virada.
@@ -1292,3 +1297,35 @@ ensaiada antes da virada.
     o Apps Script, e decisão antiga não se apaga.
 - **A permissão `alerts.manage`** continua no catálogo do banco, sem função
   por trás. Fica para quando houver alertas de verdade.
+
+### D65 — Produção começa no Supabase da nuvem e passa depois para um servidor da WEG
+- **Status:** Aprovada (05/10/2026), pelo gestor. Complementa a D55.
+- **Contexto:** a PR #32 trouxe `infra/servidor-interno/`: o mesmo Supabase,
+  enxuto (Postgres, login, API e Nginx), num servidor Linux da rede interna,
+  com backup e restauração prontos. A nota que veio com ela dizia que o
+  servidor já estava decidido, mas a D55 mantinha a produção na nuvem.
+- **Decisão:** as duas coisas, em ordem.
+  1. A **virada** acontece no Supabase da nuvem, no projeto atual (D55).
+  2. Depois, sem data marcada, a produção **passa para o servidor da WEG**,
+     levando o banco inteiro: contas, apontamentos, metas e auditoria.
+- **Por quê:** a nuvem já está pronta e conferida. O servidor depende da TI
+  (máquina, nome na rede, certificado, e-mail do Office 365), e nada disso
+  deveria segurar a virada.
+- **O que não muda:** o schema é o mesmo nos dois lugares, e as migrations
+  continuam valendo para ambos. Enquanto os dois existirem, toda migration
+  nova é aplicada nos dois.
+- **O que a passagem exige** (a fazer antes da data da troca, com ensaio):
+  - **copiar `public` e as contas de `auth`** da nuvem para o servidor;
+  - **criar no servidor o registro de migrations**
+    (`supabase_migrations.schema_migrations`) já preenchido com tudo o que a
+    cópia trouxe. A nuvem não tem esse registro, e sem ele o
+    `atualizar-banco.sh` tentaria aplicar tudo de novo;
+  - **conferir a versão do serviço de login.** O `auth` da nuvem estava na
+    versão `20260831180000` em 05/10/2026. A imagem do servidor tem de ser da
+    mesma versão ou mais nova, ou as contas copiadas podem não abrir;
+  - **congelar a nuvem durante a cópia**, para nenhum apontamento cair no
+    banco errado, e só então trocar o endereço do site;
+  - **ensaiar tudo antes**: copiar, entrar com uma conta real, conferir as
+    contagens (apontamentos, OPs, metas) e só depois marcar a data.
+- **Enquanto a produção estiver na nuvem, o backup continua pendente**
+  (D55.1). A virada não deveria acontecer sem uma cópia fora do Supabase.

@@ -30,7 +30,6 @@ export const mockDataSource: DataSource = {
   },
   machines: {
     async getMachines() { return { machines: [], allMachines: [] }; },
-    addMachine: semBanco,
     createMachine: semBanco,
     updateMachine: semBanco,
     toggleMachine: semBanco,

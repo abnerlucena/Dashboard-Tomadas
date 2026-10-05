@@ -22,8 +22,6 @@ export const DATA_SOURCE: DataSourceKind = escolher();
 
 export const isSupabase = DATA_SOURCE === "supabase";
 export const isMock = DATA_SOURCE === "mock";
-/** Modos com login por e-mail, cadastro com aprovação e permissões (D19–D23). */
-export const usaAcessoPorEmail = isSupabase || isMock;
 
 /**
  * A fonte de dados em uso.

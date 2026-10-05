@@ -17,6 +17,38 @@ Formato de cada entrada:
 
 ---
 
+## [0.28.0] — 05/10/2026 — A linha da máquina é obrigatória no banco; contrato sem resquícios
+- Status: **Implementado** — aplicada no Supabase em 05/10/2026
+- Migration: `20261005110000_linha_da_maquina_obrigatoria.sql` (0038)
+- Decisões: D63 (segundo passo e D63.1, nova), D64
+
+### Alterado
+- **`machines.process` é `not null`.** As 30 máquinas já tinham linha
+  (conferido antes de aplicar).
+- **`create_machine` recusa a linha ausente** com "Escolha a linha da máquina:
+  montagem ou embalagem.", em vez do erro genérico da coluna. A assinatura não
+  mudou.
+- **Extrator da planilha (D63.1):** o mapa foi atualizado com os dois nomes que o
+  gestor mudou pela tela ("MÁQUINA DE TOMADAS" e "MÁQUINA DE PLUGUE"), e o `.sql`
+  gerado agora confere se todas as máquinas do lote existem antes de gravar.
+- Suítes: 01 e 06 passam a informar a linha; a 13 troca o caso "o caminho
+  antigo ainda funciona" por "sem linha é recusado" e ganha "a coluna não aceita
+  linha vazia" (13 casos); a 11 usa o nome novo da máquina de tomadas. Total:
+  **208 casos**, todos passando.
+
+### Removido (contrato, `src/lib/repositories/types.ts`)
+- `machines.addMachine` (D63): a tela usa `createMachine` desde a PR #36.
+- O literal `"gas"` de `DataSourceKind` e de `Session.source`;
+  `RegisterInput.inviteCode`; a variante `loggedIn: true` de `RegisterResponse`;
+  `LoginResponse.onboardingDone`; e `usaAcessoPorEmail` (D64). A interface tirou
+  os ramos na PR #38.
+
+### Impacto no frontend
+- Nenhum: nada do que saiu era usado (conferido com o `tsc` dos dois lados,
+  107 + 46 testes, lint e build).
+
+---
+
 ## [0.27.0] — 05/10/2026 — Cadastro completo de máquinas, e editar nome, linha e lotação
 - Status: **Implementado** — aplicada no Supabase em 05/10/2026
 - Migration: `20261005100000_cadastro_completo_de_maquinas.sql` (0037)

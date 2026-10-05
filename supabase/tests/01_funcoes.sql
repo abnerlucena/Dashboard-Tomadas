@@ -94,10 +94,10 @@ do $$ begin perform public.save_machine_targets('{"1": 1}'::jsonb, '2020-01-01':
 exception when others then insert into results(test, ok, info) values ('meta no passado recusada', true, sqlerrm); end $$;
 -- 12. gestora cria máquina com meta inicial
 do $$ declare v int; begin
-  v := public.create_machine('Máquina Teste Noturno', 321);
+  v := public.create_machine('Máquina Teste Noturno', 321, p_process => 'assembly');
   insert into results(test, ok, info) values ('create_machine', v > 18, format('id=%s', v));
 exception when others then insert into results(test, ok, info) values ('create_machine', false, sqlerrm); end $$;
-do $$ begin perform public.create_machine('embaladora horizontal n°1', 1);
+do $$ begin perform public.create_machine('embaladora horizontal n°1', 1, p_process => 'packaging');
   insert into results(test, ok, info) values ('máquina duplicada recusada', false, 'aceitou!');
 exception when others then insert into results(test, ok, info) values ('máquina duplicada recusada', true, sqlerrm); end $$;
 -- 13. nomes para exibição e exclusão

@@ -217,13 +217,13 @@ do $$ declare v_maq int; v_base text; v_qtd int; n int; begin
   exception when others then insert into rc values (22, 'base inventada', 'recusa', 'RECUSOU'); end;
 
   -- máquina nova já nasce com a base certa
-  v_maq := public.create_machine('POSTO DE TESTE D53', 9000, true, 2::smallint, 'per_shift_prorated');
+  v_maq := public.create_machine('POSTO DE TESTE D53', 9000, true, 2::smallint, 'per_shift_prorated', 'packaging');
   v_base := public.machine_target_basis_on(v_maq, (now() at time zone 'America/Sao_Paulo')::date);
   insert into rc values (23, 'máquina nova nasce com a base pedida', 'aceita',
     case when v_base = 'per_shift_prorated' then 'ACEITOU' else format('RECUSOU: %s', v_base) end);
 
   -- sem pedir base, continua nascendo per_shift
-  v_maq := public.create_machine('POSTO DE TESTE D53 SEM BASE', 500);
+  v_maq := public.create_machine('POSTO DE TESTE D53 SEM BASE', 500, p_process => 'assembly');
   v_base := public.machine_target_basis_on(v_maq, (now() at time zone 'America/Sao_Paulo')::date);
   insert into rc values (24, 'sem pedir base, nasce per_shift', 'aceita',
     case when v_base = 'per_shift' then 'ACEITOU' else format('RECUSOU: %s', v_base) end);

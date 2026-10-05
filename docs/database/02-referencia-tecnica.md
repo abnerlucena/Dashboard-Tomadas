@@ -1,6 +1,6 @@
 # Referência Técnica do Schema
 
-> Versão do schema: `v0.27.0` · Última atualização: 05/10/2026 · Status: **implementado no Supabase**, no projeto que virou o de produção (D55), com o histórico da planilha já carregado. A interface oficial é a de `prototype/` (D56). O sistema em uso na fábrica continua sendo o Google Sheets até a virada.
+> Versão do schema: `v0.28.0` · Última atualização: 05/10/2026 · Status: **implementado no Supabase**, no projeto que virou o de produção (D55), com o histórico da planilha já carregado. A interface oficial é a de `prototype/` (D56). O sistema em uso na fábrica continua sendo o Google Sheets até a virada.
 > SGBD: PostgreSQL (Supabase) · Schema: `public` (+ `auth`, gerenciado pelo Supabase)
 > Decisões citadas como `[Dxx]` estão em [03-decisoes.md](03-decisoes.md).
 
@@ -55,7 +55,7 @@ Legenda: **PK** chave primária · **FK** chave estrangeira · **NN** not null �
 | `status` | `text` | NN, default `'active'`, CHECK `active`/`inactive`/`maintenance`/`preventive_maintenance`/`planned` | `planned` = prevista, ainda não existe na fábrica [D05, D41] |
 | `status_updated_at` | `timestamptz` | | Última mudança de status (gatilho `set_machine_status_updated_at`) |
 | `standard_operator_count` | `smallint` | CHECK `>= 0` | Lotação padrão [D12] |
-| `process` | `text` | CHECK `assembly`/`packaging` | Processo do centro de trabalho. Nulo nas 18 máquinas antigas até a parte 2 [D37] |
+| `process` | `text` | NOT NULL, CHECK `assembly`/`packaging` | Linha (processo) do centro de trabalho [D37]. Obrigatória desde a migration 0038 [D63] |
 | `pieces_per_minute` | `numeric(10,3)` | CHECK `> 0` | Da planilha de capacidade. Só alarme de meta impossível, nunca cálculo da meta [D40] |
 | `efficiency` | `numeric(4,3)` | CHECK `> 0 e <= 1` | Eficiência esperada (a fábrica usa 0,60 a 0,90) [D40] |
 | `started_on` | `date` | | Entrada em operação; turnos anteriores não são cobrados [D41, D35] |
@@ -374,7 +374,7 @@ Ambas criadas com `security_invoker = true`: respeitam o RLS de quem consulta.
 | `post_work_order_message(id, body)` | `uuid` | Escreve na conversa; OP concluída não aceita. Exige `feedbacks.view` |
 | `mark_work_order_read(id)` | `void` | Marca a conversa como lida para quem chamou |
 | `importar_ops_do_sap(ops jsonb)` | `integer` | Upsert pelo número. O SAP manda nos dados; a situação é da fábrica. `import.manage` ou dono do banco (D62) |
-| `create_machine(name, initial_target = 0, has_target = null, standard_operator_count = null, basis = 'per_shift', process = null)` | `integer` | Cadastra a máquina e a primeira meta. `has_target` nulo = deduzido da meta (0 = por demanda, D38); recusa as combinações contraditórias e a base rateada sem lotação. A linha vira obrigatória quando a tela usar `createMachine` (D63). Exige `machines.manage` |
+| `create_machine(name, initial_target = 0, has_target = null, standard_operator_count = null, basis = 'per_shift', process = null)` | `integer` | Cadastra a máquina e a primeira meta. `has_target` nulo = deduzido da meta (0 = por demanda, D38); recusa as combinações contraditórias, a base rateada sem lotação e **a linha ausente** ("Escolha a linha da máquina…", 0038). Exige `machines.manage` (D63) |
 | `update_machine(id, name?, process?, standard_operator_count?)` | `void` | Edita nome, linha e lotação; nulo mantém; lotação só maior que zero. Meta e base mudam pela tela de Metas. Exige `machines.manage` (D63) |
 | `descrever_destino(machine_id, date, shift_id, work_mode)` | `text` | Interna. Texto do destino para as mensagens de destino ocupado (D59) |
 

@@ -1260,10 +1260,29 @@ ensaiada antes da virada.
 - **A linha obrigatória em dois passos:** a tela de Cadastro já estava na `main`
   com o contrato antigo, que não manda a linha. Exigir no banco de uma vez a
   quebraria, e ela é da outra sessão. O contrato novo exige já; o banco passa a
-  exigir quando a tela trocar.
+  exigir quando a tela trocar. *Concluído em 05/10/2026: a tela trocou (PR #36),
+  a migration 0038 pôs `not null` na coluna, e o `addMachine` saiu do contrato.*
 - **A lotação não se apaga pela edição:** é o divisor da meta rateada (D47) e o
   valor de reserva da meta por pessoa (D54). Só se troca por outro número.
 - **E a base rateada exige lotação no cadastro**, pelo mesmo motivo.
+
+#### D63.1 — O extrator confere os nomes das máquinas antes de gravar
+
+O mapa da planilha (`supabase/import/mapa.cjs`) liga cada coluna a uma
+máquina **pelo nome**, e desde a D63 o nome se edita pela tela. Em 05/10/2026
+o gestor renomeou duas máquinas ("MÁQUINA DE TOMADAS COMPOSÉ - AUMAQ" →
+"MÁQUINA DE TOMADAS", "MÁQUINA DE PLUGUE SLIN - AUMAQ" → "MÁQUINA DE
+PLUGUE"), e a carga incremental seguinte gravaria as linhas delas **sem
+máquina**.
+
+- **Corrigido:** o mapa foi atualizado com os nomes novos.
+- **Prevenido:** o `.sql` gerado pelo extrator começa conferindo se todas as
+  máquinas do lote existem no banco. Se alguma não existir, ele para antes de
+  gravar qualquer coisa e diz o nome a atualizar no `mapa.cjs`.
+- **Alternativa descartada:** ligar o mapa pelo id da máquina. Resolveria de
+  vez, mas o mapa deixaria de ser legível para quem confere as decisões sem
+  ler código, que é a razão de ele existir. A carga incremental acaba na
+  virada, e a conferência basta até lá.
 
 ### D64 — O Google Apps Script e o Dash antigo saem do repositório
 - **Status:** Aprovada (05/10/2026), pelo gestor.
@@ -1289,7 +1308,9 @@ ensaiada antes da virada.
     `@deprecated`** (`inviteCode`, o cadastro que "entrava direto" e
     `onboardingDone`): a interface ainda tem ramos "se for Apps Script" em oito
     arquivos. Tirar os tipos agora quebraria a compilação dela, e os arquivos
-    são da outra sessão. Saem quando ela tirar os ramos;
+    são da outra sessão. Saem quando ela tirar os ramos. *Concluído em
+    05/10/2026: a interface tirou os ramos (PR #38), e o literal, os três campos
+    e o `usaAcessoPorEmail` saíram do contrato;*
   - **os formatos de resposta herdados do Apps Script** (status "ativo",
     turno "TURNO 1", data em texto): a interface converte a partir deles.
     Simplificar é mudança de contrato a combinar com ela;

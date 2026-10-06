@@ -47,7 +47,7 @@ const FAQ: Array<{ q: string; a: string }> = [
   },
   {
     q: "Como exporto os dados?",
-    a: "Em Relatórios, escolha o tipo, o período, as máquinas e os turnos. O PDF serve para imprimir; a planilha (CSV) abre direto no Excel. O botão Exportar da tela Máquinas baixa a visão atual.",
+    a: "Em Relatórios, escolha o tipo, o período, as máquinas e os turnos. O PDF serve para imprimir; a planilha do Excel traz resumo com gráficos, tabela por máquina, mapa diário e todos os apontamentos. O botão Exportar da tela Máquinas baixa a visão atual no mesmo padrão.",
   },
   {
     q: "O que é o Modo TV?",

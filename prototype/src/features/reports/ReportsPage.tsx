@@ -17,7 +17,7 @@ import {
   workingDatesIn,
   type DateRange,
   type Line,
-  type ProductionOrder,
+  type Shift,
 } from "@/data/machines";
 import { cn, formatNumber, saveFile, type Notify } from "@/lib/utils";
 import { DataTable, type Column } from "@/components/data/DataTable";
@@ -30,6 +30,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { DateRangePicker } from "@/components/ui/DateRangePicker";
 import { Tag } from "@/components/ui/Tag";
 import { TextField } from "@/components/ui/TextField";
+import { useAccess } from "@/features/access/AccessContext";
 import { buildReportPdf, scopedTarget, type ReportType } from "./reportPdf";
 
 const TYPES: Record<ReportType, { title: string; description: string; icon: LucideIcon }> = {
@@ -44,7 +45,7 @@ interface Generated {
   id: string;
   name: string;
   period: string;
-  format: "PDF" | "CSV";
+  format: "PDF" | "XLSX";
   createdAt: Date;
   size: string;
   /** arquivo gerado nesta sessão (os exemplos da lista não têm) */
@@ -74,34 +75,14 @@ function Step({ n, title, hint, children }: { n: number; title: string; hint?: s
   );
 }
 
-/** CSV real: separador ";" e BOM, como o Excel em pt-BR espera */
-const csvBlob = (orders: ProductionOrder[]) => new Blob(["\uFEFF" + toCsv(orders)], { type: "text/csv;charset=utf-8" });
-
-function toCsv(orders: ProductionOrder[]) {
-  const header = ["Data", "Máquina", "Turno", "OP", "Material", "Descrição do material", "Quantidade", "Retrabalho", "Motivo", "Operador", "Observação"];
-  const rows = orders.map((o) => [
-    o.date.toLocaleDateString("pt-BR"),
-    machineById(o.machineId).name,
-    SHIFT_META[o.shift].label,
-    o.opId.replace("OP ", ""),
-    o.material,
-    o.product,
-    String(o.quantity),
-    o.rework ? "Sim" : "Não",
-    o.reworkReason ?? "",
-    o.operator,
-    o.note?.text ?? "",
-  ]);
-  return [header, ...rows].map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(";")).join("\r\n");
-}
-
 export function ReportsPage({ notify }: { notify: Notify }) {
+  const { session } = useAccess();
   const [type, setType] = useState<ReportType>("production");
   // Padrão: do início do mês do último dado até ele (com o banco, a janela pode ter muitos meses)
   const [range, setRange] = useState<DateRange>({ from: MONTH_RANGE.from < DATA_START ? DATA_START : MONTH_RANGE.from, to: DATA_END });
   const [machines, setMachines] = useState<Set<string>>(new Set(MACHINES.map((m) => m.id)));
   const [shifts, setShifts] = useState<Set<number>>(new Set(SHIFTS));
-  const [format, setFormat] = useState<"PDF" | "CSV">("PDF");
+  const [format, setFormat] = useState<"PDF" | "XLSX">("PDF");
   const [sections, setSections] = useState<Set<string>>(new Set(SECTIONS.slice(0, 3)));
   const [generating, setGenerating] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
@@ -111,7 +92,7 @@ export function ReportsPage({ notify }: { notify: Notify }) {
   // Na demonstração a lista começa com dois relatórios de exemplo; com o banco, vazia
   const [generated, setGenerated] = useState<Generated[]>(DATA_ORIGIN === "backend" ? [] : [
     { id: "g2", name: "Produção mensal · fevereiro", period: "01/02/2026 a 27/02/2026", format: "PDF", createdAt: new Date(2026, 2, 2, 8, 30), size: "412 KB" },
-    { id: "g1", name: "Apontamentos detalhados · fevereiro", period: "01/02/2026 a 27/02/2026", format: "CSV", createdAt: new Date(2026, 2, 2, 8, 31), size: "38 KB" },
+    { id: "g1", name: "Apontamentos detalhados · fevereiro", period: "01/02/2026 a 27/02/2026", format: "XLSX", createdAt: new Date(2026, 2, 2, 8, 31), size: "184 KB" },
   ]);
 
   const machinesError = machines.size === 0 ? "Escolha pelo menos uma máquina" : null;
@@ -156,9 +137,9 @@ export function ReportsPage({ notify }: { notify: Notify }) {
       return;
     }
     setGenerating(true);
-    const filename = `dash-producao-${type}-${iso(range.from)}-a-${iso(range.to)}.${format === "PDF" ? "pdf" : "csv"}`;
+    const filename = `dash-producao-${type}-${iso(range.from)}-a-${iso(range.to)}.${format === "PDF" ? "pdf" : "xlsx"}`;
     try {
-      // PDF de verdade (jsPDF, carregado sob demanda) ou CSV; o arquivo fica na lista para baixar de novo
+      // PDF (jsPDF) ou planilha no padrão do Dash (ExcelJS), os dois carregados sob demanda; o arquivo fica na lista
       const blob =
         format === "PDF"
           ? await buildReportPdf({
@@ -174,7 +155,17 @@ export function ReportsPage({ notify }: { notify: Notify }) {
               workingDays,
               sections,
             })
-          : csvBlob(orders);
+          : await (await import("./reportXlsx")).buildReportXlsx({
+              type,
+              title: TYPES[type].title,
+              period,
+              scope: `${machinesSummary} · ${shiftsSummary}`,
+              orders,
+              machines: chosen,
+              shifts: [...shifts] as Shift[],
+              range,
+              author: session?.nome,
+            });
       setGenerated((g) => [{ id: `g${Date.now()}`, name, period, format, createdAt: new Date(), size: sizeLabel(blob), file: { blob, filename } }, ...g]);
       const result = await saveFile(filename, blob);
       if (result === "saved") notify(format === "PDF" ? "Relatório baixado" : "Planilha baixada", `${filename} · ${sizeLabel(blob)}`);
@@ -189,7 +180,7 @@ export function ReportsPage({ notify }: { notify: Notify }) {
   const columns: Column<Generated>[] = [
     { id: "name", header: "Relatório", className: "min-w-column-name", cell: (g) => <span className="font-medium text-default">{g.name}</span> },
     { id: "period", header: "Período", cell: (g) => <span className="tabular-nums text-subtle">{g.period}</span> },
-    { id: "format", header: "Formato", cell: (g) => <Lozenge appearance={g.format === "PDF" ? "information" : "success"}>{g.format}</Lozenge> },
+    { id: "format", header: "Formato", cell: (g) => <Lozenge appearance={g.format === "PDF" ? "information" : "success"}>{g.format === "PDF" ? "PDF" : "Excel"}</Lozenge> },
     { id: "created", header: "Gerado em", cell: (g) => <span className="tabular-nums text-subtle">{dateTime.format(g.createdAt)}</span> },
     { id: "size", header: "Tamanho", align: "end", cell: (g) => <span className="tabular-nums text-subtle">{g.size}</span> },
     {
@@ -399,10 +390,10 @@ export function ReportsPage({ notify }: { notify: Notify }) {
                 iconOnly={false}
                 size="control"
                 value={format}
-                onChange={(v) => setFormat(v as "PDF" | "CSV")}
+                onChange={(v) => setFormat(v as "PDF" | "XLSX")}
                 options={[
                   { value: "PDF", label: "PDF para imprimir", icon: FileText },
-                  { value: "CSV", label: "Planilha (CSV)", icon: FileSpreadsheet },
+                  { value: "XLSX", label: "Planilha (Excel)", icon: FileSpreadsheet },
                 ]}
               />
               {format === "PDF" ? (
@@ -529,7 +520,7 @@ export function ReportsPage({ notify }: { notify: Notify }) {
                   <span className="text-danger">{machinesError ?? shiftsError}</span>
                 ) : (
                   <>
-                    <span className="font-semibold text-default">{orders.length} OPs</span> · {format === "PDF" ? `${sections.size} seções` : "uma linha por OP"}
+                    <span className="font-semibold text-default">{orders.length} OPs</span> · {format === "PDF" ? `${sections.size} seções` : "resumo com gráficos, máquinas, diário e apontamentos"}
                   </>
                 )}
               </p>

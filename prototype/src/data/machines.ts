@@ -894,6 +894,21 @@ export interface BackendData {
 const monthYear = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" });
 const monthOnly = new Intl.DateTimeFormat("pt-BR", { month: "long" });
 
+/**
+ * O mês anterior, comparável com o mês do último dado. Mês ainda em curso
+ * (o último dado não é o fim do mês) compara com o mês anterior ATÉ O MESMO DIA:
+ * 1 a 21 de setembro × 1 a 21 de agosto. Comparar com agosto inteiro inventava
+ * uma queda que é só o mês ainda não ter acabado.
+ */
+export function comparableMonthBefore(dataEnd: Date): DateRange & { label: string } {
+  const from = new Date(dataEnd.getFullYear(), dataEnd.getMonth() - 1, 1);
+  const full = endOfMonth(from);
+  const month = monthOnly.format(from);
+  if (dataEnd.getDate() >= endOfMonth(dataEnd).getDate()) return { from, to: full, label: month };
+  const day = Math.min(dataEnd.getDate(), full.getDate());
+  return { from, to: new Date(from.getFullYear(), from.getMonth(), day), label: `${month} até o dia ${day}` };
+}
+
 /** Troca os dados de demonstração pelos do banco. Chamado uma vez, depois do login, antes das telas montarem. */
 export function installBackendData(d: BackendData) {
   DATA_ORIGIN = "backend";
@@ -945,10 +960,9 @@ export function installBackendData(d: BackendData) {
   FEEDBACKS = ALL_ORDERS.filter((o) => o.note);
   META_CHANGES = d.metaChanges;
 
-  const previousFrom = new Date(MONTH_RANGE.from.getFullYear(), MONTH_RANGE.from.getMonth() - 1, 1);
-  const previous = { from: previousFrom, to: endOfMonth(previousFrom) };
+  const previous = comparableMonthBefore(DATA_END);
   PREVIOUS_MONTH_PRODUCED = TARGET_MACHINES.reduce((s, m) => s + computeScope(m, "all", previous).produced, 0);
-  PREVIOUS_MONTH_LABEL = monthOnly.format(previousFrom);
+  PREVIOUS_MONTH_LABEL = previous.label;
   const weekBefore = new Date(DATA_END.getFullYear(), DATA_END.getMonth(), DATA_END.getDate() - 7);
   const beforeCutoff = workingDatesIn({ from: MONTH_RANGE.from, to: weekBefore });
   COMPARISON_CUTOFF = beforeCutoff.length ? beforeCutoff[beforeCutoff.length - 1] : null;

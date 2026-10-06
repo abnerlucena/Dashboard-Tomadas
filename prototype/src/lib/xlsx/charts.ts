@@ -122,7 +122,7 @@ export function attainmentChart(items: Array<{ name: string; percent: number; st
       ],
     },
     720,
-    Math.max(420, 40 + sorted.length * 30),
+    Math.max(340, 40 + sorted.length * 28),
   );
 }
 
@@ -207,6 +207,6 @@ export function shareChart(items: Array<{ name: string; value: number; color: st
       ],
     },
     900,
-    560,
+    460,
   );
 }

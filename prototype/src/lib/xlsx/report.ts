@@ -265,7 +265,7 @@ export class Report {
     const w = cols * 92 - 14;
     const h = Math.round((w * image.height) / image.width);
     ws.addImage(id, { tl: { col: c - 1 + 0.1, row: this.summaryRow + 0.2 }, ext: { width: w, height: h } });
-    this.chartRows = Math.max(this.chartRows, Math.ceil(h / 20) + 2);
+    this.chartRows = Math.max(this.chartRows, Math.ceil(h / 20));
     this.chartCol += cols;
     if (this.chartCol >= 12) {
       this.chartCol = 0;
@@ -280,7 +280,6 @@ export class Report {
     const ws = this.summary;
     if (!ws) return this;
     let r = this.summaryRow + (this.chartCol ? this.chartRows : 0) + 1;
-    ws.getRow(r - 1).addPageBreak();
     ws.mergeCells(r, 1, r, 12);
     this.style(ws.getCell(r, 1), { bold: true, size: 11, color: COLOR.brandDark });
     ws.getCell(r, 1).value = "Como ler";

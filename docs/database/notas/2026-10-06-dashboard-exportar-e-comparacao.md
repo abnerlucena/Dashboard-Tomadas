@@ -25,14 +25,26 @@ A regra está em `comparableMonthBefore(dataEnd)`, nova e exportada, com testes.
 `installBackendData` usa ela para `PREVIOUS_MONTH_PRODUCED` e `PREVIOUS_MONTH_LABEL`. O
 teste antigo do adaptador, que fixava a comparação com o mês inteiro, foi atualizado.
 
-## 2. Exportar
+## 2. Exportar: planilha .xlsx com gráficos, e um padrão para todas as exportações
 
 Os dois botões "Exportar" (o do topo e o do painel da máquina) mostravam "Exportação
-pronta (.xlsx)" sem baixar nada. Agora baixam um **CSV que o Excel abre direto**, com
-BOM, `;` e acentos:
+pronta (.xlsx)" sem baixar nada. Agora baixam um **.xlsx de verdade**, no padrão novo de
+planilhas do Dash (`prototype/src/lib/xlsx/`: tema, construtor e gráficos):
 
-- **topo:** a tabela como está na tela (filtros e ordem);
-- **painel:** os apontamentos da máquina no período.
+- **topo, 7 abas:**
+  - Resumo: quadro de informações, 8 indicadores, 4 gráficos e "Como ler";
+  - Máquinas: 18 colunas, com totais que respeitam o filtro;
+  - Por demanda;
+  - Diário e Atingimento diário: mapas de calor;
+  - Turnos;
+  - Apontamentos;
+- **painel da máquina, 3 abas:** Resumo com gráficos, Diário por turno e Apontamentos.
 
-Não há biblioteca de `.xlsx` no projeto. Se um dia precisarem de `.xlsx` de verdade (por
-exemplo, no servidor interno), combinamos.
+As contas são as mesmas da tela: produção só a boa (D11), meta = soma das metas dos turnos
+apontados (D08).
+
+**Dependência nova:** `exceljs@4.4.0` (MIT) em `package.json`. Ela é carregada **só ao
+clicar em Exportar**, num pedaço separado do pacote (939 kB, 271 kB comprimido), e o pacote
+inicial não cresceu. Os gráficos são PNG desenhados com o ECharts que já está no projeto,
+porque nenhuma biblioteca de navegador cria gráfico nativo do Excel. Conferido: os arquivos
+abrem no Excel sem aviso de reparo.

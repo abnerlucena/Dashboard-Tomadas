@@ -44,7 +44,7 @@ export const PERMISSION_LABEL: Record<Permission, string> = {
   "work_orders.manage": "Cadastrar OPs e mudar a situação delas",
   "history.view": "Ver histórico de apontamentos",
   "feedbacks.view": "Ver e editar observações (feedbacks)",
-  "reports.export": "Exportar relatórios (PDF/CSV)",
+  "reports.export": "Exportar relatórios (PDF/Excel)",
   "dashboard.view": "Ver o dashboard",
   "targets.view": "Ver metas",
   "tv_mode.view": "Usar o modo TV",

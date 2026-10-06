@@ -280,6 +280,8 @@ export class Report {
     const ws = this.summary;
     if (!ws) return this;
     let r = this.summaryRow + (this.chartCol ? this.chartRows : 0) + 1;
+    // Página já com duas fileiras de gráficos: as notas começam na próxima (não ficam partidas)
+    if (this.chartsAdded % 2 === 0) ws.getRow(r - 1).addPageBreak();
     ws.mergeCells(r, 1, r, 12);
     this.style(ws.getCell(r, 1), { bold: true, size: 11, color: COLOR.brandDark });
     ws.getCell(r, 1).value = "Como ler";

@@ -43,6 +43,8 @@ planilhas do Dash (`prototype/src/lib/xlsx/`: tema, construtor e gráficos):
 As contas são as mesmas da tela: produção só a boa (D11), meta = soma das metas dos turnos
 apontados (D08).
 
+**Relatórios:** a opção "Planilha (CSV)" virou **"Planilha (Excel)"**, no mesmo padrão: Resumo com gráficos, Máquinas, Diário e Apontamentos, mais a aba **Retrabalho por motivo** no relatório de retrabalho. Como os Relatórios escolhem vários turnos ao mesmo tempo, a planilha sai dos apontamentos do recorte e usa a mesma meta do PDF (`scopedTarget`).
+
 **Dependência nova:** `exceljs@4.4.0` (MIT) em `package.json`. Ela é carregada **só ao
 clicar em Exportar**, num pedaço separado do pacote (939 kB, 271 kB comprimido), e o pacote
 inicial não cresceu. Os gráficos são PNG desenhados com o ECharts que já está no projeto,

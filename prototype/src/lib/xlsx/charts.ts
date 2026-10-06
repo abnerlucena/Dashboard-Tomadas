@@ -150,9 +150,11 @@ export function shiftsChart(names: string[], byShift: [number[], number[], numbe
 
 /** Produção diária (barras) com a meta do dia (linha) */
 export function dailyChart(days: string[], produced: Array<number | null>, target: Array<number | null>) {
+  // Sem meta no recorte (Relatórios), a linha e a legenda dela saem
+  const hasTarget = target.some((t) => t != null);
   return renderPng(
     {
-      legend: { ...legend, data: ["Produção do dia", "Meta do dia"] },
+      legend: { ...legend, data: hasTarget ? ["Produção do dia", "Meta do dia"] : ["Produção do dia"] },
       grid: { left: 64, right: 16, top: 36, bottom: 32 },
       xAxis: { type: "category", data: days, ...axis, splitLine: { show: false } },
       yAxis: { type: "value", ...axis, axisLabel: { ...axis.axisLabel, formatter: (v: number) => compact.format(v) } },
@@ -164,15 +166,19 @@ export function dailyChart(days: string[], produced: Array<number | null>, targe
           barMaxWidth: 22,
           itemStyle: { color: CHART.brand, borderRadius: [3, 3, 0, 0] },
         },
-        {
-          name: "Meta do dia",
-          type: "line",
-          step: "middle",
-          data: target,
-          symbol: "none",
-          lineStyle: { width: 2, type: "dashed", color: CHART.target },
-          itemStyle: { color: CHART.target },
-        },
+        ...(!hasTarget
+          ? []
+          : [
+              {
+                name: "Meta do dia",
+                type: "line",
+                step: "middle",
+                data: target,
+                symbol: "none",
+                lineStyle: { width: 2, type: "dashed", color: CHART.target },
+                itemStyle: { color: CHART.target },
+              },
+            ]),
       ],
     },
     1400,

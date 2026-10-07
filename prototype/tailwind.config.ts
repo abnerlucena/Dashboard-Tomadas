@@ -118,6 +118,7 @@ const sizeKeys = [
   "column-text",
   "field-search",
   "table-min",
+  "touch-target",
   "content-max",
   "kbd",
   "modal",

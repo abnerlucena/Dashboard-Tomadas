@@ -94,3 +94,17 @@ test("senha errada mostra o motivo", async ({ page }) => {
   await page.getByRole("button", { name: /^entrar$/i }).click();
   await expect(page.getByText("E-mail ou senha incorretos.")).toBeVisible();
 });
+
+test("nenhuma tela rola de lado no celular", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await entrar(page, "gestor@demo.weg");
+  await expect(page.getByRole("heading", { name: "Máquinas", level: 1 })).toBeVisible();
+  const rotas = ["dashboard", "apontamento", "ops", "historico", "metas", "calendario", "feedbacks", "relatorios", "ranking", "retrabalho", "usuarios", "cadastro-maquinas", "ajuda"];
+  for (const rota of rotas) {
+    await page.goto(`/#/${rota}`);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    // tabelas largas rolam dentro do próprio cartão; a página, nunca
+    const sobra = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(sobra, `#/${rota} rola de lado`).toBeLessThanOrEqual(0);
+  }
+});

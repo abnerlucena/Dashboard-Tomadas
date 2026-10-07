@@ -1,7 +1,7 @@
 import * as RadixTooltip from "@radix-ui/react-tooltip";
 import { useState } from "react";
 import type { DayPoint } from "@/data/machines";
-import { cn, formatNumber, formatShortDate } from "@/lib/utils";
+import { cn, formatNumber, formatShortDate, plural } from "@/lib/utils";
 import { TOOLTIP_CONTENT_CLASS } from "@/components/ui/Tooltip";
 
 interface SparklineProps {
@@ -29,7 +29,7 @@ export function Sparkline({ points, threshold, label }: SparklineProps) {
       <RadixTooltip.Trigger asChild>
         <span
           role="img"
-          aria-label={`${label}: ${above} de ${points.length} dias acima da meta diária de ${formatNumber(threshold)}; ${missing} dias sem apontamento`}
+          aria-label={`${label}: ${above} de ${points.length} dias acima da meta diária de ${formatNumber(threshold)}; ${plural(missing, "dia", "dias")} sem apontamento`}
           onPointerLeave={() => setActive(null)}
           className="relative flex h-sparkline-height items-end"
         >

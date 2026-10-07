@@ -36,6 +36,17 @@ export function HeatCell({ date, value, dailyTarget, mode, machineName }: HeatCe
       </span>
     );
   }
+  // Sem meta diária no recorte (dado do banco): não há % — mostra a quantidade, em tom neutro
+  if (!dailyTarget) {
+    return (
+      <span
+        aria-label={`${machineName}, ${dateLabel}: ${formatNumber(value)}, sem meta no dia`}
+        className="mx-auto flex h-lozenge w-heat-cell items-center justify-center rounded-small bg-neutral font-body-small font-medium tabular-nums text-subtle"
+      >
+        {formatCompact(value)}
+      </span>
+    );
+  }
   const percent = Math.round((value / dailyTarget) * 100);
   const status = statusFor(percent);
   const text = mode === "quantity" ? formatCompact(value) : `${percent}%`;

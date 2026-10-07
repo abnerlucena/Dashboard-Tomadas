@@ -74,7 +74,7 @@ export function Panel({ open, onClose, title, subtitle, headerExtra, footer, chi
       >
         <div className="flex items-start gap-100">
           <div className="min-w-0 flex-1">
-            <h2 id={`${PANEL_ID}-title`} className="truncate font-heading-medium text-default">
+            <h2 id={`${PANEL_ID}-title`} className="line-clamp-2 font-heading-medium text-default" title={title}>
               {title}
             </h2>
             {subtitle && <div className="mt-050 text-subtle">{subtitle}</div>}
@@ -83,8 +83,11 @@ export function Panel({ open, onClose, title, subtitle, headerExtra, footer, chi
         </div>
         {headerExtra}
       </div>
+      {/* Focável: sem nada clicável dentro, é o único jeito de rolar pelo teclado */}
       <div
-        className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-300 pb-300"
+        tabIndex={0}
+        aria-label={`Conteúdo de ${title}`}
+        className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-300 pb-300 focus-visible:outline-offset-inset"
         onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 0)}
       >
         {children}

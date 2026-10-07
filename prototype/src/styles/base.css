@@ -63,6 +63,15 @@
 }
 
 @layer utilities {
+  /*
+   * Faixa de KPIs com 2 ou 4 itens: todos numa linha quando cabem; senão, 2 por
+   * linha. Nunca 3 + 1 com o último esticado sozinho. A base vira 0 (uma linha)
+   * ou 50% (duas colunas) conforme a largura real, sem media query.
+   */
+  .kpi-balanced {
+    flex-basis: clamp(0px, calc((var(--dash-kpi-count) * var(--dash-size-kpi-min) - 100%) * 999), calc(50% - 1px));
+  }
+
   /* Mostra shadow.overflow só de um lado (dica de conteúdo rolável) */
   .clip-shadow-bottom {
     clip-path: inset(0 0 var(--ds-space-negative-200) 0);

@@ -445,7 +445,7 @@ export function ReportsPage({ notify }: { notify: Notify }) {
                         ].map(([k, v]) => (
                           <div key={k} className="rounded-medium bg-neutral p-100">
                             <dt className="font-body-small text-subtle">{k}</dt>
-                            <dd className="font-metric-small text-default">{v}</dd>
+                            <dd className="font-heading-small text-default xs:font-metric-small">{v}</dd>
                           </div>
                         ))}
                       </dl>

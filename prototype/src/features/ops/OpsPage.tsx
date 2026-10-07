@@ -200,7 +200,7 @@ export function OpsPage({ notify }: { notify: Notify }) {
     },
     {
       id: "actions",
-      header: "Ações",
+      header: "",
       srHeader: "Ações",
       align: "end",
       cell: (op) => (
@@ -294,7 +294,7 @@ export function OpsPage({ notify }: { notify: Notify }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             elemAfter={<Search aria-hidden className="size-icon-small" />}
-            className="w-full s:w-column-name"
+            className="w-full s:w-field-search"
           />
           <p aria-live="polite" className="ml-auto font-body-small text-subtlest">
             {plural(rows.length, "OP", "OPs")}

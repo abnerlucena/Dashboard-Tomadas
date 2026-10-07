@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/Feedback";
 
@@ -26,15 +26,24 @@ export function KpiStrip({
   isLoading?: boolean;
   label?: string;
 }) {
+  // 2 ou 4 KPIs: uma linha ou 2 × 2 (nunca 3 + 1); outras contagens seguem o espaço
+  const balanced = items.length === 2 || items.length === 4;
   return (
     <section aria-label={label} className="overflow-hidden rounded-large bg-surface-raised shadow-raised">
       {/* gap de 1px sobre o fundo da borda = divisórias; flex-wrap segue o espaço real, não a viewport */}
-      <dl className="flex flex-wrap gap-px bg-border" aria-busy={isLoading || undefined}>
+      <dl
+        className="flex flex-wrap gap-px bg-border"
+        style={balanced ? ({ "--dash-kpi-count": items.length } as CSSProperties) : undefined}
+        aria-busy={isLoading || undefined}
+      >
         {items.map((item) => (
           // Mobile: 2 por linha, número menor e menos respiro; ≥ 768px: tamanho normal
           <div
             key={item.id}
-            className="flex min-w-0 flex-1 basis-kpi-min-compact flex-col gap-050 bg-surface-raised px-200 py-150 s:basis-kpi-min s:px-250 s:py-200"
+            className={cn(
+              "flex min-w-0 flex-1 flex-col gap-050 bg-surface-raised px-200 py-150 s:px-250 s:py-200",
+              balanced ? "kpi-balanced" : "basis-kpi-min-compact s:basis-kpi-min",
+            )}
           >
             <dt
               className={cn(

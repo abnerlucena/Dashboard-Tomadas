@@ -173,8 +173,9 @@ export function MachineRegistryPage({ notify }: { notify: Notify }) {
         )}
 
         {load.status === "ready" && shown.length > 0 && (
-          <div className="scrollbar-thin overflow-x-auto rounded-large border">
-            <table className="w-full min-w-[640px] border-collapse text-left">
+          // relative: o texto só para leitor de tela (cabeçalho Ações) fica preso à área que rola; sem isso a página inteira rolava de lado no celular
+          <div className="scrollbar-thin relative overflow-x-auto rounded-large border">
+            <table className="w-full min-w-table-min border-collapse text-left">
               <thead className="bg-surface-sunken font-body-small text-subtle">
                 <tr>
                   <th scope="col" className="px-150 py-100 font-semibold">

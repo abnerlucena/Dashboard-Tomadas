@@ -180,6 +180,8 @@
   --dash-size-tooltip-max: 15rem; /* 240px */
   --dash-size-column-name: 12.5rem; /* 200px */
   --dash-size-column-text: 10rem; /* 160px: texto secundário truncado em tabelas (material, observação) */
+  --dash-size-field-search: 17.5rem; /* 280px: busca dentro de uma tela (OPs) */
+  --dash-size-table-min: 40rem; /* 640px: largura mínima de tabela que rola de lado no celular */
   --dash-size-content-max: 125rem; /* 2000px */
   --dash-size-kbd: 1.25rem; /* 20px */
   --dash-size-modal: 30rem; /* 480px */

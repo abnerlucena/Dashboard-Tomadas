@@ -72,9 +72,9 @@ export function machineColumns({ onOpenOrders, onAction, totals }: ColumnOptions
       header: "Atingimento",
       sortable: true,
       cell: (m) => (
-        <span className="flex items-center gap-150">
+        <span className="flex items-center gap-100">
           <SegmentedBar percent={m.percent} status={m.status} label={`Atingimento de ${m.name}`} />
-          <span aria-hidden className="w-400 text-right font-medium tabular-nums text-default">
+          <span aria-hidden className="min-w-500 text-right font-medium tabular-nums text-default">
             {m.percent}%
           </span>
           <Lozenge appearance={STATUS_META[m.status].appearance}>{STATUS_META[m.status].label}</Lozenge>
@@ -82,7 +82,7 @@ export function machineColumns({ onOpenOrders, onAction, totals }: ColumnOptions
       ),
       footer: (
         <>
-          Média <span className="font-semibold tabular-nums text-default">{totals.percent}%</span>
+          Geral <span className="font-semibold tabular-nums text-default">{totals.percent}%</span>
         </>
       ),
       skeleton: (

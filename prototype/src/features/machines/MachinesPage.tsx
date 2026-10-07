@@ -38,6 +38,7 @@ import { ChartsView } from "./ChartsView";
 import { DetailedView } from "./DetailedView";
 import { machineColumns } from "./machineColumns";
 import { MachinePanel } from "./MachinePanel";
+import { ShiftsView } from "./ShiftsView";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useAccess } from "@/features/access/AccessContext";
 
@@ -50,7 +51,6 @@ const xlsxName = (...parts: string[]) =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")}.xlsx`;
-import { ShiftsView } from "./ShiftsView";
 
 export type DemoState = "live" | "loading" | "empty" | "error";
 

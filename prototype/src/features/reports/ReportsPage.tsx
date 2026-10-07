@@ -437,7 +437,8 @@ export function ReportsPage({ notify }: { notify: Notify }) {
                 {format === "PDF" ? (
                   <>
                     {sections.has("Indicadores") && (
-                      <dl className="grid grid-cols-3 gap-100">
+                      // celular: um indicador por linha (lado a lado, "4.335.241" saía da caixa)
+                      <dl className="grid grid-cols-1 gap-100 xs:grid-cols-3">
                         {[
                           ["Produção", formatNumber(produced)],
                           ["Atingimento", target ? `${Math.round((producedWithTarget / target) * 100)}%` : "—"],
@@ -445,7 +446,7 @@ export function ReportsPage({ notify }: { notify: Notify }) {
                         ].map(([k, v]) => (
                           <div key={k} className="rounded-medium bg-neutral p-100">
                             <dt className="font-body-small text-subtle">{k}</dt>
-                            <dd className="font-heading-small text-default xs:font-metric-small">{v}</dd>
+                            <dd className="font-metric-small text-default">{v}</dd>
                           </div>
                         ))}
                       </dl>

@@ -85,6 +85,7 @@ export function Panel({ open, onClose, title, subtitle, headerExtra, footer, chi
       </div>
       {/* Focável: sem nada clicável dentro, é o único jeito de rolar pelo teclado */}
       <div
+        role="region"
         tabIndex={0}
         aria-label={`Conteúdo de ${title}`}
         className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-300 pb-300 focus-visible:outline-offset-inset"

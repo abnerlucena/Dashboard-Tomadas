@@ -89,10 +89,17 @@ export function MachinePanel({ machine, open, scopeLabel, periodText, workingDay
                 {orders.map((o) => (
                   <li key={o.id} className="flex min-h-row items-center gap-150 border-t px-150 py-075 first:border-t-0">
                     <div className="min-w-0 flex-1">
-                      <p className="font-code text-default">{opLabel(o)}</p>
-                      {o.product && <p className="truncate font-body-small text-subtle">{o.product}</p>}
+                      {/* etiqueta de retrabalho junto da OP: o nome do produto fica com a largura toda */}
+                      <p className="flex items-center gap-100">
+                        <span className="font-code text-default">{opLabel(o)}</span>
+                        {o.rework && <Lozenge appearance="warning">Retrabalho</Lozenge>}
+                      </p>
+                      {o.product && (
+                        <p title={o.product} className="truncate font-body-small text-subtle">
+                          {o.product}
+                        </p>
+                      )}
                     </div>
-                    {o.rework && <Lozenge appearance="warning">Retrabalho</Lozenge>}
                     <Lozenge>Turno {o.shift}</Lozenge>
                     <span className="w-800 text-right font-medium tabular-nums text-default">
                       {formatNumber(o.quantity)}

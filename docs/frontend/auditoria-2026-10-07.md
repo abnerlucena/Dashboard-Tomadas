@@ -37,8 +37,8 @@ Capturas citadas abaixo: `auditoria-2026-10-07/antes/*.jpg` (e as de depois na
 (Rw2 conta como segura: digo o período agora; o filtro de período fica como
 decisão à parte. T19 apareceu durante as correções.)
 
-**Situação em 07/10/2026:** as 54 correções seguras estão feitas, em 9 commits
-temáticos neste branch; as 12 decisões de produto esperam aprovação (lista no
+**Situação em 07/10/2026:** as 54 correções seguras estão feitas, em 11 commits
+temáticos neste branch (`claude/practical-mccarthy-6t2ho8`); as 12 decisões de produto esperam aprovação (lista no
 fim). Nenhum item foi adiado ou recusado.
 
 Testes novos (falham na `main`, passam aqui): `insights.test.ts` (Gráficos e
@@ -46,6 +46,18 @@ TV), `ranking.test.ts`, `panelDays.test.ts` e `dayProgress.test.ts` — 13
 casos de Vitest — e o e2e "nenhuma tela rola de lado no celular" (na `main`,
 o Cadastro rola 181px). Depois de cada bloco: `typecheck`, `lint`, `npm test`
 (107 da camada de dados + 62 da interface) e `test:e2e` (8), todos verdes.
+
+**Verificação final** (mesmas 180 capturas, depois das correções):
+
+| Checagem | Antes | Depois |
+|---|---:|---:|
+| Violações axe-core (WCAG 2 A/AA) | 85 em 4 regras | 0 |
+| Telas com rolagem lateral da página | 1 (Cadastro, 390px) | 0 |
+| Textos saindo da caixa | 7 | 0 |
+| `NaN` / `undefined` / `Infinity` na tela | 0 | 0 |
+| Erros no console | 0 | 0 |
+
+Galeria: [antes e depois](auditoria-2026-10-07/galeria.md).
 
 O que mais pesa: **o mesmo número sai diferente em telas diferentes.** A taxa de
 retrabalho tem duas contas no app; a aba Gráficos, o painel da máquina e a
@@ -74,7 +86,7 @@ negócio). **Status:** *Corrigido*, *Aguardando decisão*, *Adiado* ou *Recusado
 | T8 | Histórico | **`aria-label` em `span` sem papel** (célula de turno): proibido pela especificação; leitores de tela ignoram. 58 ocorrências. | Médio | `HistoryPage.tsx:276` (axe `aria-prohibited-attr`) | Texto `sr-only` no lugar do `aria-label`. | Segura | Corrigido (`6baff33`) |
 | T9 | Dashboard, OPs, Relatórios, Cadastro | **Contraste da etiqueta Granel (teal) 4,02:1** no tema claro (mínimo 4,5:1). | Médio | `tokens.css:370` (axe `color-contrast`) | Texto teal um tom mais escuro (`hsl(185 70% 28%)`, 5,0:1), como já é feito no verde-limão, amarelo e laranja. | Segura | Corrigido (`e2c8a8c`) |
 | T10 | Histórico | **Dias de fim de semana e futuros com 2,77:1** (cor de desabilitado em botão que funciona). | Baixo | `MonthCalendar.tsx:122` (axe) | `text-subtlest` no lugar de `text-disabled`. | Segura | Corrigido (`6baff33`) |
-| T11 | Dashboard (painel) | **Painel sem acesso pelo teclado à rolagem** e `<dl>` com filho inválido. | Baixo | `Panel.tsx:86`, `MachinePanel.tsx:48-55` (axe `scrollable-region-focusable`, `definition-list`) | Área de rolagem focável; a linha de status sai do `<dl>`. | Segura | Corrigido (`54ba87f`) |
+| T11 | Dashboard (painel) | **Painel sem acesso pelo teclado à rolagem** e `<dl>` com filho inválido. | Baixo | `Panel.tsx:86`, `MachinePanel.tsx:48-55` (axe `scrollable-region-focusable`, `definition-list`) | Área de rolagem focável; a linha de status sai do `<dl>`. | Segura | Corrigido (`54ba87f` · `0b22c70`) |
 | T12 | Menu do usuário | **"Perfil" e "Preferências" não fazem nada.** | Alto | `App.tsx:645-646` | Tirar os dois itens (ou criar as telas). | Decisão | Aguardando decisão |
 | T13 | Barra superior | **Aviso de feedbacks com horário inventado** ("há 1 h"), também com o banco. | Médio | `App.tsx:536` | Tirar o horário falso desse aviso. | Segura | Corrigido (`7a99f1a`) |
 | T14 | Todas | **Notificação (flag) reinicia o tempo a cada renderização** da tela: com "Desfazer", o aviso pode ficar mais ou menos que os 5 s. | Baixo | `Feedback.tsx:82-85`, `App.tsx` (`onDismiss` novo a cada render) | Tempo preso ao aviso, não à renderização. | Segura | Corrigido (`7a99f1a`) |
@@ -88,7 +100,7 @@ negócio). **Status:** *Corrigido*, *Aguardando decisão*, *Adiado* ou *Recusado
 
 | # | Tela | Problema | Severidade | Evidência | Correção proposta | Tipo | Status |
 |---|---|---|---|---|---|---|---|
-| M1 | Painel da máquina | **Total do dia soma o retrabalho** e as linhas de retrabalho não têm marca. Composé nº 1 em 27/03: **10.480 un.** no painel, **5.918** na aba Detalhado. | Crítico | `MachinePanel.tsx:83` | Total do dia só com a produção boa (D11); linha de retrabalho com a etiqueta "Retrabalho". Teste. | Segura | Corrigido (`54ba87f`) |
+| M1 | Painel da máquina | **Total do dia soma o retrabalho** e as linhas de retrabalho não têm marca. Composé nº 1 em 27/03: **10.480 un.** no painel, **5.918** na aba Detalhado. | Crítico | `MachinePanel.tsx:83` | Total do dia só com a produção boa (D11); linha de retrabalho com a etiqueta "Retrabalho". Teste. | Segura | Corrigido (`54ba87f` · `0b22c70`) |
 | M2 | Aba Gráficos | **Retrabalho contado como produção.** KPI "Ritmo médio": "3.947.900 peças" com a Produção em 3.798.315; "Produção por turno" (181.414 em 27/03) não bate com "Produção diária" (176.852); peças/min geral com retrabalho e por máquina sem. | Crítico | `insights.ts:27,35,88`; `antes/dashboard-graficos-1440-light.jpg` | Produção, turnos e ritmo só com a produção boa; o retrabalho continua no gráfico de qualidade. Teste. | Segura | Corrigido (`1acb999`) |
 | M3 | Visão geral | **A tabela não cabe em 1440px** com a navegação aberta: 1.157px de conteúdo para 1.054px. "Último apontamento" aparece cortado e o menu de ações (⋯) fica fora da tela. | Alto | `machineColumns.tsx`; `antes/dashboard-1440-light.jpg` | Duas opções, juntas cabem: **(a)** tirar a coluna de seleção (ver M4); **(b)** deixar o nome da máquina quebrar em duas linhas, como já fazem Histórico e Metas. | Decisão | Aguardando decisão |
 | M4 | Visão geral | **Seleção de linhas sem uso.** Marcar máquinas só mostra "N de 12 selecionadas"; Exportar ignora a seleção. | Médio | `MachinesPage.tsx:140,495-501` | Tirar a seleção, ou fazer o Exportar levar só as marcadas. | Decisão | Aguardando decisão |
@@ -154,7 +166,7 @@ completo, com confirmação e mensagens claras.
 | R2 | Formato Excel | **Texto desatualizado:** "uma linha por OP, com separador ';' para abrir direto no Excel" é do CSV; hoje sai um .xlsx com resumo, gráficos e abas. | Médio | `ReportsPage.tsx:414` | Descrever a planilha atual. | Segura | Corrigido (`1acb999`) |
 | R3 | Resumo | **"666 OPs" conta apontamentos**, não OPs (a mesma OP aparece em vários turnos). | Médio | `ReportsPage.tsx:434,523` | "666 apontamentos", como no Histórico e nos Gráficos. | Segura | Corrigido (`1acb999`) |
 | R4 | Pré-visualização da planilha | Quantidade **sem separador de milhar**. | Baixo | `ReportsPage.tsx:506` | `formatNumber`. | Segura | Corrigido (`1acb999`) |
-| R5 | Pré-visualização (celular) | **"4.335.241" sai da caixa** do indicador. | Baixo | `ReportsPage.tsx:447` (+12px) | Número menor na pré-visualização estreita. | Segura | Corrigido (`07ea509`) |
+| R5 | Pré-visualização (celular) | **"4.335.241" sai da caixa** do indicador. | Baixo | `ReportsPage.tsx:447` (+12px) | Número menor na pré-visualização estreita. | Segura | Corrigido (`07ea509` · `0b22c70`) |
 
 ## Ranking de máquinas
 

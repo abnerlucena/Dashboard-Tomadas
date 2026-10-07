@@ -1,6 +1,6 @@
 import { MessageSquare, MoreHorizontal, Plus, RefreshCw, Search } from "lucide-react";
 import { useMemo, useState } from "react";
-import { LINE_ACCENT, LINES, machineById, type WorkOrder } from "@/data/machines";
+import { LINE_ACCENT, LINES, MONTH_RANGE, machineById, type WorkOrder } from "@/data/machines";
 import { mensagemDeErro } from "../../../../src/lib/erros";
 import { cn, formatNumber, plural, type Notify } from "@/lib/utils";
 import { DataTable, type Column } from "@/components/data/DataTable";
@@ -84,6 +84,7 @@ export function OpsPage({ notify }: { notify: Notify }) {
   const [saving, setSaving] = useState(false);
 
   const count = (fn: (op: WorkOrder) => boolean) => ops.filter(fn).length;
+  const endOfMonthExclusive = new Date(MONTH_RANGE.to.getFullYear(), MONTH_RANGE.to.getMonth(), MONTH_RANGE.to.getDate() + 1);
   const kpis: KpiItem[] = [
     ...(live || count((o) => o.stage === "pending_review") > 0
       ? [
@@ -110,7 +111,13 @@ export function OpsPage({ notify }: { notify: Notify }) {
       footer: "Atingiram a quantidade pedida",
     },
     { id: "paused", label: "Pausadas", value: count((o) => o.stage === "paused"), footer: "Paradas com motivo registrado" },
-    { id: "done", label: "Concluídas no mês", value: count((o) => o.stage === "done"), footer: "Conversa encerrada" },
+    {
+      id: "done",
+      label: "Concluídas no mês",
+      // só as concluídas no mês dos dados (contava todas, de qualquer mês)
+      value: count((o) => o.stage === "done" && !!o.closedAt && o.closedAt >= MONTH_RANGE.from && o.closedAt < endOfMonthExclusive),
+      footer: "Conversa encerrada",
+    },
   ];
 
   const rows = useMemo(() => {

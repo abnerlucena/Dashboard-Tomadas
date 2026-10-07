@@ -481,7 +481,8 @@ function Message({ msg, me }: { msg: OpMessage; me: string }) {
         </p>
         <p
           className={cn(
-            "rounded-large px-150 py-100 text-default",
+            // quebras de linha do Shift + Enter e palavras longas (links) dentro do balão
+            "whitespace-pre-line break-words rounded-large px-150 py-100 text-default",
             mine ? "rounded-tr-small bg-brand-subtlest" : "rounded-tl-small bg-neutral",
           )}
         >

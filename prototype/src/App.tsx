@@ -31,7 +31,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { DATA_ORIGIN, PERIOD_LABEL, SHIFTS, SHIFT_META, type Shift } from "@/data/machines";
+import { DATA_ORIGIN, PERIOD_LABEL, SHIFTS, SHIFT_META, TARGET_MACHINES, aggregate, type Shift } from "@/data/machines";
 import { SHIFT_FILL } from "@/components/data/shiftColors";
 import { Lozenge } from "@/components/ui/Lozenge";
 import { AppRoot, Banner, Main } from "@/components/layout/AppRoot";
@@ -515,13 +515,19 @@ function SearchField({ value, onChange }: { value: string; onChange: (v: string)
 
 /* ---------- Top nav: fim ---------- */
 const NOTIFICATIONS = [
-  { id: 1, dot: "bg-icon-danger", status: "Crítico", title: "Meta de março em risco", body: "Atingimento geral em 49% a 2 dias úteis do fim do mês.", time: "há 12 min" },
+  { id: 1, dot: "bg-icon-danger", status: "Crítico", title: "Meta de março em risco", body: "", time: "há 12 min" },
   { id: 3, dot: "bg-icon-warning", status: "Atenção", title: "Turno 3 sem apontamento", body: "Máquina de tomadas Composé não registrou produção no Turno 3 em 26/03.", time: "ontem" },
 ];
 
 function Notifications({ unreadFeedbacks }: { unreadFeedbacks: number }) {
   // Os avisos são de exemplo: com dados reais não aparecem (alertas de verdade são outra etapa)
-  const examples = DATA_ORIGIN === "demo" ? NOTIFICATIONS : [];
+  // O exemplo de meta em risco usa o atingimento de verdade (o texto fixo dizia 49% com o Dashboard em 76%)
+  const examples =
+    DATA_ORIGIN === "demo"
+      ? NOTIFICATIONS.map((n) =>
+          n.id === 1 ? { ...n, body: `Atingimento geral em ${aggregate(TARGET_MACHINES).percent}% a 2 dias úteis do fim do mês.` } : n,
+        )
+      : [];
   // O aviso de feedbacks acompanha o mesmo contador de não lidos do menu
   const items = [
     ...examples.slice(0, 1),
@@ -533,7 +539,7 @@ function Notifications({ unreadFeedbacks }: { unreadFeedbacks: number }) {
             status: "Novo",
             title: plural(unreadFeedbacks, "feedback novo", "feedbacks novos"),
             body: "Observações dos operadores aguardando leitura.",
-            time: "há 1 h",
+            // sem horário: o contador não sabe quando chegou a última
           },
         ]
       : []),
@@ -570,7 +576,7 @@ function Notifications({ unreadFeedbacks }: { unreadFeedbacks: number }) {
                     {n.title}
                   </p>
                   <p className="mt-025 text-subtle">{n.body}</p>
-                  <p className="mt-050 font-body-small text-subtlest">{n.time}</p>
+                  {"time" in n && n.time && <p className="mt-050 font-body-small text-subtlest">{n.time}</p>}
                 </div>
               </li>
             ))}

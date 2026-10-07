@@ -1,5 +1,5 @@
 import { CircleAlert, CircleCheck, X, type LucideIcon } from "lucide-react";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Button, IconButton } from "./Button";
 
@@ -79,10 +79,13 @@ export function FlagStack({ flags, onDismiss }: { flags: FlagData[]; onDismiss: 
 }
 
 function Flag({ flag, onDismiss }: { flag: FlagData; onDismiss: () => void }) {
+  // O tempo conta desde que o aviso aparece: re-renderizar a tela não reinicia os 5 s
+  const dismiss = useRef(onDismiss);
+  dismiss.current = onDismiss;
   useEffect(() => {
-    const t = window.setTimeout(onDismiss, 5000);
+    const t = window.setTimeout(() => dismiss.current(), 5000);
     return () => window.clearTimeout(t);
-  }, [onDismiss]);
+  }, []);
   const Icon = flag.appearance === "error" ? CircleAlert : CircleCheck;
   return (
     <div

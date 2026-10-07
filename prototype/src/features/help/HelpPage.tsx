@@ -17,17 +17,17 @@ const SHORTCUTS: Array<[string[], string]> = [
   [["Esc"], "Fechar painel, menu ou janela"],
   [["↑", "↓"], "Percorrer as linhas de uma tabela"],
   [["Enter"], "Abrir as ordens de produção da máquina"],
-  [["←", "→"], "Percorrer os dias num gráfico ou no Modo TV"],
+  [["←", "→"], "Percorrer os dias num gráfico ou os slides do Modo TV"],
 ];
 
 const FAQ: Array<{ q: string; a: string }> = [
   {
     q: "Como faço um apontamento?",
-    a: "Abra Apontamento, escolha a data e o turno e preencha, para cada máquina, o número da OP (7 dígitos) e a quantidade. Uma máquina pode ter várias OPs. Salve com o botão ou Ctrl+S.",
+    a: "Abra Apontamento, escolha a data e o turno e preencha, para cada máquina, o número da OP (só números) e a quantidade. Uma máquina pode ter várias OPs. Salve com o botão ou Ctrl+S.",
   },
   {
     q: "Posso corrigir um apontamento já salvo?",
-    a: "Sim. Em Histórico, escolha o dia no calendário e use o menu da linha para editar, mover para outra data ou excluir. Dá para agir em vários de uma vez selecionando as linhas. Toda ação pode ser desfeita logo depois pela notificação.",
+    a: "Sim. Em Histórico, escolha o dia no calendário e use o menu da linha para editar, mover para outra data ou excluir. Dá para agir em vários de uma vez selecionando as linhas. Antes de excluir, a tela pede confirmação.",
   },
   {
     q: "O que significa cada cor de status?",

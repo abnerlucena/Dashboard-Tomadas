@@ -674,7 +674,7 @@ function MachineEntryRow({
               </label>
               <IconButton
                 icon={Trash2}
-                label={`Remover OP da linha ${i + 1}`}
+                label={`Remover OP da linha ${i + 1}, ${m.name}`}
                 isDisabled={entry.rows.length === 1}
                 onClick={() =>
                   entry.rows.length > 1 && onChange((e) => ({ ...e, rows: e.rows.filter((x) => x.key !== r.key) }))

@@ -192,8 +192,8 @@ export function TvMode({ scope: scopeParam, onExit }: { scope?: string; onExit: 
         <h1 className="min-w-0 flex-1 truncate text-center font-tv-title">{current.title}</h1>
         <span className="flex flex-col items-end">
           <span className="font-tv-body tabular-nums">{clock.format(now)}</span>
-          {/* hora ao vivo; a data é a de referência dos dados do protótipo */}
-          <span className="font-body-small text-subtle first-letter:uppercase">{today.format(REFERENCE_DATE)}</span>
+          {/* hora ao vivo; a data é a do último dado (pode ser ontem, cedo): o rótulo diz isso */}
+          <span className="font-body-small text-subtle">Dados até {today.format(REFERENCE_DATE)}</span>
         </span>
       </header>
 

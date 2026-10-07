@@ -11,7 +11,8 @@ import {
   type Machine,
   type ProductionOrder,
 } from "@/data/machines";
-import { formatNumber } from "@/lib/utils";
+import { formatDecimal, formatNumber } from "@/lib/utils";
+import { reworkRate } from "@/features/machines/insights";
 
 /*
  * PDF dos relatórios, gerado no navegador com jsPDF + autotable.
@@ -60,6 +61,8 @@ function tokenColor(name: string): Rgb {
 
 const sum = <T,>(list: T[], f: (x: T) => number) => list.reduce((s, x) => s + f(x), 0);
 const pct = (v: number) => `${Math.round(v)}%`;
+/** Taxa de retrabalho: uma casa decimal, como nas telas */
+const reworkPct = (rework: number, good: number) => (rework + good ? `${formatDecimal(reworkRate(rework, good))}%` : "—");
 const dayMonth = (d: Date) => d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 
 /**
@@ -150,7 +153,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     const kpis: Array<[string, string]> = [
       ["Produção", formatNumber(produced)],
       ["Atingimento", target ? pct((producedWithTarget / target) * 100) : "—"],
-      ["Retrabalho", produced ? `${((reworkQty / produced) * 100).toFixed(1).replace(".", ",")}%` : "—"],
+      ["Retrabalho", reworkPct(reworkQty, produced)],
       ["Observações", formatNumber(orders.filter((o) => o.note).length)],
     ];
     const gap = 4;
@@ -245,7 +248,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
           const total = goodQuantity(list);
           const rw = list.filter((o) => o.rework);
           const reasons = REWORK_REASONS.map((r) => ({ r, n: rw.filter((o) => o.reworkReason === r).length })).sort((a, b) => b.n - a.n);
-          return [m.name, m.line, formatNumber(total), formatNumber(sum(rw, (o) => o.quantity)), total ? pct((sum(rw, (o) => o.quantity) / total) * 100) : "—", reasons[0]?.n ? reasons[0].r : "—"];
+          return [m.name, m.line, formatNumber(total), formatNumber(sum(rw, (o) => o.quantity)), reworkPct(sum(rw, (o) => o.quantity), total), reasons[0]?.n ? reasons[0].r : "—"];
         }),
         [2, 3, 4],
       );

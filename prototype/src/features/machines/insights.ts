@@ -1,4 +1,4 @@
-import { REWORK_REASONS, SHIFTS, dayKey, type DateRange, type Machine, type Shift, type WorkOrder } from "@/data/machines";
+import { REWORK_REASONS, SHIFTS, dayKey, type DateRange, type Machine, type ProductionOrder, type Shift, type WorkOrder } from "@/data/machines";
 
 /*
  * Indicadores da aba Gráficos, calculados sobre o recorte atual (máquinas
@@ -22,9 +22,19 @@ export const LEAD_BUCKETS = [
 /** Limite de retrabalho usado no app (mesmo da aba Retrabalho) */
 export const REWORK_LIMIT = 10;
 
+/**
+ * Taxa de retrabalho (%): peças apontadas como retrabalho sobre tudo o que foi
+ * apontado (produção boa + retrabalho). É a conta de todas as telas e planilhas.
+ */
+export const reworkRate = (rework: number, good: number) => (rework + good ? (rework / (rework + good)) * 100 : 0);
+
+/** Produção de apontamentos: só a boa, o retrabalho fica de fora (D11) */
+const goodOf = (orders: ProductionOrder[]) => orders.reduce((s, o) => s + (o.rework ? 0 : o.quantity), 0);
+
 export function insights(rows: Machine[], dates: Date[], range: DateRange, ops: WorkOrder[]) {
   const orders = rows.flatMap((m) => m.orders);
-  const produced = orders.reduce((s, o) => s + o.quantity, 0);
+  // Produção = só a boa (D11), como o KPI Produção e os demais gráficos
+  const produced = goodOf(orders);
   const minutes = orders.reduce((s, o) => s + o.minutes, 0);
   const reworkOrders = orders.filter((o) => o.rework);
   const reworkQty = reworkOrders.reduce((s, o) => s + o.quantity, 0);
@@ -32,7 +42,7 @@ export function insights(rows: Machine[], dates: Date[], range: DateRange, ops: 
   // Produção por dia, por turno
   const byDayShift = dates.map((date) => {
     const that = orders.filter((o) => dayKey(o.date) === dayKey(date));
-    return { date, byShift: SHIFTS.map((s) => that.filter((o) => o.shift === s).reduce((q, o) => q + o.quantity, 0)) as [number, number, number] };
+    return { date, byShift: SHIFTS.map((s) => goodOf(that.filter((o) => o.shift === s))) as [number, number, number] };
   });
 
   // Peças por minuto de cada máquina no recorte
@@ -66,9 +76,8 @@ export function insights(rows: Machine[], dates: Date[], range: DateRange, ops: 
   // Retrabalho por dia (peças e taxa) e motivos (Pareto)
   const reworkByDay = dates.map((date) => {
     const that = orders.filter((o) => dayKey(o.date) === dayKey(date));
-    const total = that.reduce((s, o) => s + o.quantity, 0);
     const rw = that.filter((o) => o.rework).reduce((s, o) => s + o.quantity, 0);
-    return { date, qty: rw, rate: total ? (rw / total) * 100 : null };
+    return { date, qty: rw, rate: that.length ? reworkRate(rw, goodOf(that)) : null };
   });
   const reasons = REWORK_REASONS.map((reason) => ({
     reason,
@@ -86,7 +95,7 @@ export function insights(rows: Machine[], dates: Date[], range: DateRange, ops: 
   return {
     produced,
     perMinuteTotal: minutes ? produced / minutes : 0,
-    reworkRate: produced ? (reworkQty / produced) * 100 : 0,
+    reworkRate: reworkRate(reworkQty, produced),
     notes: orders.filter((o) => o.note).length,
     entries: orders.length,
     byDayShift,

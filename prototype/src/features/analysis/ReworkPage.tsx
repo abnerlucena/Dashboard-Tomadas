@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import {
   ALL_ORDERS,
+  DATA_END,
+  DATA_START,
   MACHINES,
   REWORK_REASONS,
   SHIFTS,
@@ -9,7 +11,7 @@ import {
   opLabel,
   type ProductionOrder,
 } from "@/data/machines";
-import { cn, formatDecimal, formatNumber, formatShortDate } from "@/lib/utils";
+import { cn, formatDecimal, formatNumber, formatShortDate, plural } from "@/lib/utils";
 import { BarList } from "@/components/data/BarList";
 import { ChartCard, MiniTable } from "@/components/data/Chart";
 import { DataTable, type Column } from "@/components/data/DataTable";
@@ -21,12 +23,17 @@ import { EmptyState } from "@/components/ui/Feedback";
 import { FilterPill } from "@/components/ui/FilterPill";
 import { Lozenge } from "@/components/ui/Lozenge";
 import { FilterX, SearchX } from "lucide-react";
+import { REWORK_LIMIT } from "@/features/machines/insights";
 
-/** Limite aceitável de retrabalho (referência nos gráficos) */
-const LIMIT = 10;
+/** Limite aceitável de retrabalho (referência nos gráficos): o mesmo da aba Gráficos */
+const LIMIT = REWORK_LIMIT;
 const pct = (part: number, total: number) => (total ? (part / total) * 100 : 0);
 
+/** Período coberto: a janela de dados inteira ("01/03/2026 a 27/03/2026") */
+const periodOf = () => `de ${DATA_START.toLocaleDateString("pt-BR")} a ${DATA_END.toLocaleDateString("pt-BR")}`;
+
 export function ReworkPage() {
+  const periodText = periodOf();
   const [machine, setMachine] = useState("all");
   const [shift, setShift] = useState("all");
   const [reason, setReason] = useState("all");
@@ -69,7 +76,7 @@ export function ReworkPage() {
   };
 
   const kpis: KpiItem[] = [
-    { id: "qty", label: "Peças retrabalhadas", value: formatNumber(reworkQty), footer: `${reworked.length} OPs de retrabalho` },
+    { id: "qty", label: "Peças retrabalhadas", value: formatNumber(reworkQty), footer: plural(reworked.length, "OP de retrabalho", "OPs de retrabalho") },
     {
       id: "rate",
       label: "Taxa de retrabalho",
@@ -92,7 +99,7 @@ export function ReworkPage() {
       id: "reason",
       label: "Motivo mais frequente",
       value: topReason ? `${Math.round(pct(topReason.qty, reasonTotal))}%` : "—",
-      footer: topReason ? `${topReason.reason} · ${topReason.count} OPs` : "Nenhum retrabalho no recorte",
+      footer: topReason ? `${topReason.reason} · ${plural(topReason.count, "OP", "OPs")}` : "Nenhum retrabalho no recorte",
     },
   ];
 
@@ -130,7 +137,7 @@ export function ReworkPage() {
     <>
       <PageHeader
         title="Retrabalho"
-        description="OPs marcadas como retrabalho no apontamento. A taxa é a quantidade retrabalhada sobre a produção."
+        description={`OPs marcadas como retrabalho no apontamento, ${periodText}. A taxa é a quantidade retrabalhada sobre o total apontado.`}
       />
       <PageBody>
         <div role="toolbar" aria-label="Filtros" className="flex flex-wrap items-center gap-100">
@@ -210,7 +217,7 @@ export function ReworkPage() {
                   label: r.reason,
                   value: r.qty,
                   display: `${Math.round(pct(r.qty, reasonTotal))}%`,
-                  accessory: <span className="font-body-small text-subtlest">{r.count} OPs</span>,
+                  accessory: <span className="font-body-small text-subtlest">{plural(r.count, "OP", "OPs")}</span>,
                 }))}
               />
             ) : (
@@ -231,7 +238,7 @@ export function ReworkPage() {
             getRowLabel={(o) => `${o.opId}, ${machineById(o.machineId).name}, ${o.reworkReason}`}
             selectable={false}
             state={reworked.length ? "ready" : "empty"}
-            footerLead={`${reworked.length} OPs`}
+            footerLead={plural(reworked.length, "OP", "OPs")}
             emptyState={
               <EmptyState
                 icon={SearchX}

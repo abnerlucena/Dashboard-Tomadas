@@ -10,6 +10,7 @@ import {
   type Shift,
   type WorkOrder,
 } from "@/data/machines";
+import { reworkRate } from "@/features/machines/insights";
 
 /*
  * Métricas do Modo TV (chão de fábrica). Tudo por TURNO e por MÁQUINA —
@@ -83,7 +84,7 @@ export function shiftScores(machines: Machine[], ops: WorkOrder[]): ShiftScore[]
       percent: target ? Math.round((producedTarget / target) * 100) : 0,
       perMinute: perMinute(produced, minutes),
       opsDone: done.filter((op) => shiftAt(op.closedAt!) === shift).length,
-      reworkRate: produced ? (reworkQty / produced) * 100 : 0,
+      reworkRate: reworkRate(reworkQty, produced),
       wins: [] as ShiftScore["wins"],
       competing: !OUT_OF_CONTEST.includes(shift),
     };

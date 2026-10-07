@@ -19,7 +19,8 @@ import {
   type Line,
   type Shift,
 } from "@/data/machines";
-import { cn, formatNumber, saveFile, type Notify } from "@/lib/utils";
+import { cn, formatDecimal, formatNumber, plural, saveFile, type Notify } from "@/lib/utils";
+import { reworkRate } from "@/features/machines/insights";
 import { DataTable, type Column } from "@/components/data/DataTable";
 import { PageBody, PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -411,7 +412,7 @@ export function ReportsPage({ notify }: { notify: Notify }) {
                   </div>
                 </div>
               ) : (
-                <p className="font-body-small text-subtlest">A planilha traz uma linha por OP, com separador “;” para abrir direto no Excel.</p>
+                <p className="font-body-small text-subtlest">Planilha no padrão do Dash: resumo com gráficos, tabela por máquina, mapa diário e todos os apontamentos.</p>
               )}
             </Step>
           </form>
@@ -431,7 +432,7 @@ export function ReportsPage({ notify }: { notify: Notify }) {
                   <WegMark className="w-500 text-brand" />
                 </header>
                 <p className="font-body-small text-subtle">
-                  {machinesSummary} · {shiftsSummary} · {orders.length} OPs
+                  {machinesSummary} · {shiftsSummary} · {plural(orders.length, "apontamento", "apontamentos")}
                 </p>
                 {format === "PDF" ? (
                   <>
@@ -440,7 +441,7 @@ export function ReportsPage({ notify }: { notify: Notify }) {
                         {[
                           ["Produção", formatNumber(produced)],
                           ["Atingimento", target ? `${Math.round((producedWithTarget / target) * 100)}%` : "—"],
-                          ["Retrabalho", produced ? `${Math.round((reworkQty / produced) * 100)}%` : "—"],
+                          ["Retrabalho", produced + reworkQty ? `${formatDecimal(reworkRate(reworkQty, produced))}%` : "—"],
                         ].map(([k, v]) => (
                           <div key={k} className="rounded-medium bg-neutral p-100">
                             <dt className="font-body-small text-subtle">{k}</dt>
@@ -463,7 +464,7 @@ export function ReportsPage({ notify }: { notify: Notify }) {
                             <tr key={m.id} className="border-t">
                               <td className="py-050 text-default">{m.name}</td>
                               <td className="py-050 text-right tabular-nums text-subtle">
-                                {formatNumber(orders.filter((o) => o.machineId === m.id).reduce((s, o) => s + o.quantity, 0))}
+                                {formatNumber(goodQuantity(orders.filter((o) => o.machineId === m.id)))}
                               </td>
                             </tr>
                           ))}
@@ -503,7 +504,7 @@ export function ReportsPage({ notify }: { notify: Notify }) {
                             <td className="max-w-1000 truncate py-050 pr-150">{machineById(o.machineId).name}</td>
                             <td className="py-050 pr-150">{opLabel(o)}</td>
                             <td className="py-050 pr-150">{o.material || "–"}</td>
-                            <td className="py-050 text-right">{o.quantity}</td>
+                            <td className="py-050 text-right">{formatNumber(o.quantity)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -520,7 +521,7 @@ export function ReportsPage({ notify }: { notify: Notify }) {
                   <span className="text-danger">{machinesError ?? shiftsError}</span>
                 ) : (
                   <>
-                    <span className="font-semibold text-default">{orders.length} OPs</span> · {format === "PDF" ? `${sections.size} seções` : "resumo com gráficos, máquinas, diário e apontamentos"}
+                    <span className="font-semibold text-default">{plural(orders.length, "apontamento", "apontamentos")}</span> · {format === "PDF" ? `${sections.size} seções` : "resumo com gráficos, máquinas, diário e apontamentos"}
                   </>
                 )}
               </p>
@@ -542,7 +543,7 @@ export function ReportsPage({ notify }: { notify: Notify }) {
             getRowId={(g) => g.id}
             getRowLabel={(g) => g.name}
             selectable={false}
-            footerLead={`${generated.length} relatórios`}
+            footerLead={plural(generated.length, "relatório", "relatórios")}
           />
         </section>
       </PageBody>

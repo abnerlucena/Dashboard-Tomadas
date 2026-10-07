@@ -119,7 +119,8 @@ export function MonthCalendar({ year, month, selected, today, onSelect, getDay, 
                     info.status
                       ? TONE[info.status]
                       : info.muted
-                        ? "text-disabled hover:bg-neutral-subtle-hovered"
+                        ? // fim de semana e dia futuro: discreto, mas legível (contraste AA)
+                          "text-subtlest hover:bg-neutral-subtle-hovered"
                         : "bg-neutral text-subtle hover:bg-neutral-hovered",
                   )}
                 >

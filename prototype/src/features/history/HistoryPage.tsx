@@ -43,6 +43,7 @@ import { reloadBackendData } from "@/data/fromBackend";
 import type { UpdateEntryChanges } from "../../../../src/lib/repositories/types";
 import { mensagemDeErro } from "../../../../src/lib/erros";
 import { EditRecordDialog } from "./EditRecordDialog";
+import { dayProgress } from "./dayProgress";
 import { originalOf, type EditOriginal } from "./editPlan";
 
 const time = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -99,11 +100,13 @@ export function HistoryPage({ notify }: { notify: Notify }) {
   const allDayOrders = (byDay.get(toIsoDate(date)) ?? []).slice().sort((a, b) => a.shift - b.shift || a.machineId.localeCompare(b.machineId));
   const dayOrders = shiftFilter === "all" ? allDayOrders : allDayOrders.filter((o) => o.shift === shiftFilter);
   // Produção = só a boa (D11); o retrabalho continua listado, com a marca
-  const dayTotal = goodQuantity(allDayOrders);
+  // % da meta: só as máquinas com meta contra a meta delas; o total de unidades soma todas
+  const hasTarget = (id: string) => machineById(id).hasTarget;
+  const openTarget = dayTarget(date);
+  const { total: dayTotal, percent } = dayProgress(allDayOrders, openTarget, hasTarget);
+  const dayPct = percent ?? 0;
   const visibleTotal = goodQuantity(dayOrders);
   const byShift = Object.fromEntries(SHIFTS.map((sh) => [sh, goodQuantity(allDayOrders.filter((o) => o.shift === sh))])) as Record<Shift, number>;
-  const openTarget = dayTarget(date);
-  const dayPct = openTarget ? Math.round((dayTotal / openTarget) * 100) : 0;
   const isFuture = date > DATA_END;
 
   const selectDate = (d: Date) => {
@@ -273,9 +276,10 @@ export function HistoryPage({ notify }: { notify: Notify }) {
       header: "Turno",
       cell: (o) => (
         // o cabeçalho já diz "Turno": na célula, só a cor e o número
-        <span className="flex items-center gap-075" aria-label={SHIFT_META[o.shift].label}>
+        <span className="flex items-center gap-075">
           <span aria-hidden className={cn("size-dot rounded-full", SHIFT_FILL[o.shift])} />
           <span aria-hidden className="tabular-nums">{o.shift}</span>
+          <span className="sr-only">{SHIFT_META[o.shift].label}</span>
         </span>
       ),
     },
@@ -301,7 +305,12 @@ export function HistoryPage({ notify }: { notify: Notify }) {
       header: "Quantidade",
       align: "end",
       cell: (o) => <span className="font-medium tabular-nums text-default">{formatNumber(o.quantity)}</span>,
-      footer: <span className="font-semibold tabular-nums text-default">{formatNumber(visibleTotal)}</span>,
+      // Produção = só a boa; as linhas de retrabalho continuam listadas, com a etiqueta
+      footer: (
+        <>
+          Produção <span className="font-semibold tabular-nums text-default">{formatNumber(visibleTotal)}</span>
+        </>
+      ),
     },
     {
       // Retrabalho e observação juntos: a maioria dos apontamentos não tem nenhum dos dois
@@ -398,7 +407,7 @@ export function HistoryPage({ notify }: { notify: Notify }) {
         title="Histórico"
         description={
           readOnly
-            ? "Confira os apontamentos de cada dia. Escolha um dia no calendário ou navegue pelas setas. Correções, por enquanto, pelo sistema atual."
+            ? "Confira os apontamentos de cada dia. Escolha um dia no calendário ou navegue pelas setas."
             : "Confira e corrija os apontamentos de cada dia. Escolha um dia no calendário ou navegue pelas setas."
         }
       />
@@ -439,16 +448,15 @@ export function HistoryPage({ notify }: { notify: Notify }) {
               getDay={(d) => {
                 const day = new Date(year, month, d);
                 const list = byDay.get(toIsoDate(day)) ?? [];
-                const total = goodQuantity(list);
+                const target = dayTarget(day);
+                const { total, percent: pct } = dayProgress(list, target, hasTarget);
                 const weekend = isWeekend(day);
                 const future = day > DATA_END;
-                const target = dayTarget(day);
-                const pct = target ? Math.round((total / target) * 100) : 0;
-                const st = total && target ? statusFor(pct) : null;
+                const st = total && pct != null ? statusFor(pct) : null;
                 const when = formatLongDate(day);
                 return {
                   caption: total ? formatCompactShort(total) : undefined,
-                  percent: st ? pct : undefined,
+                  percent: st && pct != null ? pct : undefined,
                   status: st,
                   muted: weekend || future || day < DATA_START,
                   label: st

@@ -72,6 +72,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D63 | Cadastro completo de máquinas: meta 0 é por demanda, linha obrigatória, editar | Aprovada | 05/10/2026 |
 | D64 | O Google Apps Script e o Dash antigo saem do repositório | Aprovada | 05/10/2026 |
 | D65 | Produção começa no Supabase da nuvem e passa depois para um servidor da WEG | Aprovada | 05/10/2026 |
+| D66 | O motivo do retrabalho é um campo próprio da OP, em texto livre | Aprovada | 08/10/2026 |
 
 ---
 
@@ -1350,3 +1351,31 @@ máquina**.
     contagens (apontamentos, OPs, metas) e só depois marcar a data.
 - **Enquanto a produção estiver na nuvem, o backup continua pendente**
   (D55.1). A virada não deveria acontecer sem uma cópia fora do Supabase.
+
+### D66 — O motivo do retrabalho é um campo próprio da OP, em texto livre
+- **Status:** Aprovada (08/10/2026), pelo gestor.
+- **Contexto:** a tela de Apontamento passou a pedir o motivo quando a OP é
+  retrabalho. O banco não tinha onde guardá-lo, e a tela o gravava na
+  observação da OP (`notes`), que é texto livre de qualquer assunto: uma
+  anotação comum de operador apareceria no gráfico de motivos.
+- **Alternativas:**
+  - **texto livre, com sugestões na tela (escolhida)**: coluna
+    `production_orders.rework_reason`. É o que a tela já faz, e o gráfico
+    agrupa os textos iguais;
+  - **lista fechada que o gestor mantém** (tabela `rework_reasons`): relatório
+    mais limpo e motivo renomeável, mas pede tabela, tela de cadastro e uma
+    decisão sobre os motivos já escritos. **Pode vir depois sem perder nada**:
+    os textos gravados agora viram o cadastro inicial.
+- **Regras:**
+  - o motivo só existe em OP de retrabalho (`CHECK`) e nunca é vazio;
+  - OP que não é retrabalho **descarta** o motivo em vez de recusar o
+    apontamento: quem marcou e desmarcou o retrabalho não perde o que digitou;
+  - **não é obrigatório no banco.** As OPs da planilha não têm motivo (entram
+    sem ele, e a tela mostra "Não informado"). Exigir o motivo ao digitar é
+    regra da tela;
+  - as funções de apontamento não mudam de assinatura: o motivo vai dentro de
+    cada item de `p_orders` (`rework_reason`).
+- **Dados que já estavam em `notes`:** o motivo gravado como observação a
+  partir de 08/10 foi copiado para o campo novo. Conferido em 08/10: não havia
+  nenhuma OP de retrabalho nessa situação (as 2 que existem são do histórico
+  importado). A observação não é apagada.

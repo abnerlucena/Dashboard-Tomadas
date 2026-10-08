@@ -14,8 +14,8 @@ const baseRow: SummaryRow = {
   effective_target: 500, target_basis: "per_shift",
 };
 const orders: OrderRow[] = [
-  { production_record_id: "r1", order_number: "000001004521", quantity: 400, is_rework: false, notes: null },
-  { production_record_id: "r1", order_number: "000001004522", quantity: 100, is_rework: true, notes: "refeito" },
+  { production_record_id: "r1", order_number: "000001004521", quantity: 400, is_rework: false, notes: null, rework_reason: null },
+  { production_record_id: "r1", order_number: "000001004522", quantity: 100, is_rework: true, notes: "refeito", rework_reason: "Rebarba na peça" },
 ];
 const names = new Map([["u1", "Operador Um"]]);
 
@@ -28,7 +28,7 @@ describe("adaptadores Supabase → formato das telas", () => {
     expect(r.savedBy).toBe("Operador Um");
     expect(r.ordensProducao).toEqual([
       { ordemId: "000001004521", quantidade: 400 },
-      { ordemId: "000001004522", quantidade: 100, obs: "refeito", retrabalho: true },
+      { ordemId: "000001004522", quantidade: 100, obs: "refeito", retrabalho: true, motivoRetrabalho: "Rebarba na peça" },
     ]);
   });
 
@@ -85,7 +85,16 @@ describe("adaptadores Supabase → formato das telas", () => {
     expect(toOrdersJson([
       { ordemId: "000123", quantidade: 10, retrabalho: true },
       { ordemId: "", quantidade: 0 },
-    ])).toEqual([{ order_number: "000123", quantity: 10, is_rework: true, notes: null }]);
+    ])).toEqual([{ order_number: "000123", quantity: 10, is_rework: true, notes: null, rework_reason: null }]);
+  });
+
+  it("manda o motivo do retrabalho sem espaços nas pontas, e só quando é retrabalho (D66)", () => {
+    const json = toOrdersJson([
+      { ordemId: "1", quantidade: 5, retrabalho: true, motivoRetrabalho: "  Cor fora do padrão " },
+      { ordemId: "2", quantidade: 5, retrabalho: true, motivoRetrabalho: "   " },
+      { ordemId: "3", quantidade: 5, motivoRetrabalho: "Não devia ir" },
+    ]);
+    expect(json.map(o => o.rework_reason)).toEqual(["Cor fora do padrão", null, null]);
   });
 
   it("traduz status de máquina e tipo de evento para os valores do legado", () => {

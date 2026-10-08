@@ -21,8 +21,8 @@ describe("toUpdateEntryArgs", () => {
       ],
     });
     expect(a.p_orders).toEqual([
-      { order_number: "4600002", quantity: 7500, is_rework: false, notes: null },
-      { order_number: "4600003", quantity: 300, is_rework: true, notes: null },
+      { order_number: "4600002", quantity: 7500, is_rework: false, notes: null, rework_reason: null },
+      { order_number: "4600003", quantity: 300, is_rework: true, notes: null, rework_reason: null },
     ]);
   });
 

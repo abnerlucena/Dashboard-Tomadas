@@ -20,6 +20,7 @@ cada execução acontece dentro de uma transação que termina em `rollback`
 | `11_metas_historicas.sql` | Linha do tempo de metas anterior a 25/09 vinda da planilha (migrations 0031 a 0033): sem degrau de reserva, valores da planilha, todo importado bate com a meta do seu dia, repetível, nenhuma máquina sem degrau, e a trava de vigência volta a valer |
 | `12_ordens_de_producao.sql` | OPs (migration 0036): cadastro, situação e suas passagens, OP nascida "a conferir" no apontamento, produzido sem retrabalho, conversa com a observação do operador, quem lê e quem escreve, e a porta do SAP |
 | `13_cadastro_de_maquinas.sql` | Cadastro completo de máquinas e edição (migration 0037): meta 0 é por demanda, combinações contraditórias recusadas, linha obrigatória (migration 0038: sem linha é recusado, e a coluna não aceita vazio), base rateada sem lotação, editar e nome repetido |
+| `14_motivo_do_retrabalho.sql` | Motivo do retrabalho na OP (migration 0039): grava sem espaços nas pontas, retrabalho sem motivo é aceito, o motivo só vale para retrabalho (descartado nas outras OPs e travado na tabela), corrigir o apontamento troca e tira o motivo |
 
 ## Como rodar (SQL Editor do Supabase)
 

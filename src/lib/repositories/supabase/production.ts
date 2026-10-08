@@ -14,7 +14,7 @@ export const supabaseProduction: DataSource["production"] = {
         sb.from("production_summary").select("*").order("production_date", { ascending: false }).order("id").range(from, to)),
       fetchAll<OrderRow>((from, to) =>
         sb.from("production_orders")
-          .select("production_record_id, order_number, quantity, is_rework, notes")
+          .select("production_record_id, order_number, quantity, is_rework, notes, rework_reason")
           .order("created_at").order("id").range(from, to)),
       loadProfileNames(sb),
     ]);

@@ -1,6 +1,6 @@
 # Referência Técnica do Schema
 
-> Versão do schema: `v0.28.0` · Última atualização: 05/10/2026 · Status: **implementado no Supabase**, no projeto que virou o de produção (D55), com o histórico da planilha já carregado. A interface oficial é a de `prototype/` (D56). O sistema em uso na fábrica continua sendo o Google Sheets até a virada.
+> Versão do schema: `v0.29.0` · Última atualização: 08/10/2026 · Status: **implementado no Supabase**, no projeto que virou o de produção (D55), com o histórico da planilha já carregado. A interface oficial é a de `prototype/` (D56). O sistema em uso na fábrica continua sendo o Google Sheets até a virada.
 > SGBD: PostgreSQL (Supabase) · Schema: `public` (+ `auth`, gerenciado pelo Supabase)
 > Decisões citadas como `[Dxx]` estão em [03-decisoes.md](03-decisoes.md).
 
@@ -105,7 +105,8 @@ Exclusão física bloqueada por FK quando houver produção; desativar via `stat
 | `order_number` | `text` | NN | Texto: preserva zeros à esquerda (SAP). Desde a 0.22.0, o app só grava **de 1 a 15 dígitos** (D57); o histórico importado é `IMPORTADO` |
 | `quantity` | `integer` | NN, CHECK `> 0` | |
 | `is_rework` | `boolean` | NN, default `false` | |
-| `notes` | `text` | | |
+| `notes` | `text` | | Observação da OP (texto livre) |
+| `rework_reason` | `text` | CHECK: só com `is_rework` e nunca vazio | Motivo do retrabalho, texto livre. Desde a 0039 [D66]. OPs da planilha não têm |
 | `created_at` | `timestamptz` | NN, default `now()` | |
 
 Índices: `(production_record_id)`, `(order_number)`. [D09]
@@ -364,7 +365,7 @@ Ambas criadas com `security_invoker = true`: respeitam o RLS de quem consulta.
 | `machine_target_basis_on(p_machine_id, p_date)` | `text` | Base da meta vigente na data (`per_shift` \| `per_shift_prorated` \| `per_operator`), mesma regra da anterior. O número sem a base é ambíguo [D39, D46, D47] |
 | `list_profile_names()` | `table(id, full_name)` | Só id + nome, só para usuários ativos (exibir "quem apontou" sem expor crachá) |
 | `can_edit_production_record(created_by, created_at)` / `can_delete_production_record(...)` | `boolean` | Regra D24. Nunca devolve `NULL`: apontamento **sem autor** só é editável/apagável com `production.edit` / `production.delete` (correção 0.10.3) |
-| `insert_production_orders(record_id, orders jsonb, permite_importado boolean = false)` | `integer` | Interna. Recusa nº de OP fora do formato de 1 a 15 dígitos (D57); `IMPORTADO` só é aceito com `permite_importado`, que só a correção de um apontamento importado liga (D59) |
+| `insert_production_orders(record_id, orders jsonb, permite_importado boolean = false)` | `integer` | Interna. Recusa nº de OP fora do formato de 1 a 15 dígitos (D57); `IMPORTADO` só é aceito com `permite_importado`, que só a correção de um apontamento importado liga (D59). Lê `rework_reason` de cada item da lista; o motivo só vale com `is_rework`, nas outras OPs é descartado (D66) |
 | `refazer_meta_do_apontamento(id)` | `void` | Interna. Troca a meta e a base gravadas no apontamento pelas do seu dia atual; não toca nos importados (D59) |
 | `reconstruir_metas_historicas()` | `integer` | Refaz a linha do tempo de metas anterior a 25/09/2026 a partir das metas dos apontamentos importados; não deixa máquina sem degrau; repetível. Rodar depois de cada importação de histórico. Dono do banco ou `import.manage` (D60) |
 | `add_calendar_events(dates date[], description, event_type, scope = 'company', shift_ids smallint[] = null)` | `integer` | O mesmo evento em vários dias, tudo ou nada; dia repetido conta uma vez; até 366 dias; turnos vazios = dia inteiro. Exige `calendar.manage` (D61) |

@@ -17,7 +17,7 @@ import type { Holiday, HolidayScope, Machine, OrdemProducao, ProdRecord } from "
 import type { MachineChanges, NewMachineInput, UpdateEntryChanges, WorkOrderMessage, WorkOrderRecord, WorkOrderStage } from "../types";
 
 export type SummaryRow = Tables<"production_summary">;
-export type OrderRow = Pick<Tables<"production_orders">, "production_record_id" | "order_number" | "quantity" | "is_rework" | "notes">;
+export type OrderRow = Pick<Tables<"production_orders">, "production_record_id" | "order_number" | "quantity" | "is_rework" | "notes" | "rework_reason">;
 export type MachineRow = Pick<Tables<"machines">, "id" | "name" | "has_target" | "status"> &
   Partial<Pick<Tables<"machines">, "standard_operator_count" | "process">>;
 export type CalendarRow = Pick<Tables<"calendar_events">, "id" | "event_date" | "description" | "event_type" | "created_by" | "created_at"> &
@@ -52,6 +52,7 @@ export function toOrdens(orders: OrderRow[]): OrdemProducao[] {
     const ordem: OrdemProducao = { ordemId: o.order_number, quantidade: o.quantity };
     if (o.notes) ordem.obs = o.notes;
     if (o.is_rework) ordem.retrabalho = true;
+    if (o.rework_reason) ordem.motivoRetrabalho = o.rework_reason;
     return ordem;
   });
 }
@@ -229,6 +230,8 @@ export function toOrdersJson(ordens: OrdemProducao[] | undefined) {
       quantity: Math.round(Number(o.quantidade)),
       is_rework: o.retrabalho === true,
       notes: o.obs ? String(o.obs) : null,
+      // Só retrabalho tem motivo (D66); o banco descarta o resto de qualquer jeito.
+      rework_reason: o.retrabalho === true && o.motivoRetrabalho?.trim() ? o.motivoRetrabalho.trim() : null,
     }));
 }
 

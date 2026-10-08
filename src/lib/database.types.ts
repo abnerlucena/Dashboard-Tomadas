@@ -532,6 +532,7 @@ export type Database = {
           order_number: string
           production_record_id: string
           quantity: number
+          rework_reason: string | null
         }
         Insert: {
           created_at?: string
@@ -541,6 +542,7 @@ export type Database = {
           order_number: string
           production_record_id: string
           quantity: number
+          rework_reason?: string | null
         }
         Update: {
           created_at?: string
@@ -550,6 +552,7 @@ export type Database = {
           order_number?: string
           production_record_id?: string
           quantity?: number
+          rework_reason?: string | null
         }
         Relationships: [
           {

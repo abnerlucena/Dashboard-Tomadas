@@ -20,8 +20,9 @@ quantidade, retrabalho, observação). No topo: data, turno, regime e filtro. Um
 
 O que pesa para quem aponta no fim do turno:
 
-1. **Muita coisa na tela de uma vez.** O operador cuida de 2 ou 3 máquinas e
-   rola por 22.
+1. **Muita coisa na tela de uma vez.** Quem aponta é o distribuidor, que
+   responde pelas 22 máquinas: todas abertas ao mesmo tempo, num cartão alto
+   cada, tornam difícil saber o que já foi feito e o que falta.
 2. **Digitar o que o sistema já sabe.** A OP liberada aparece na esquerda, mas
    precisa ser escolhida de novo no campo da direita.
 3. **Um salvar só para tudo.** Se a conexão cai ou a pessoa sai da tela, perde o
@@ -46,9 +47,6 @@ flowchart LR
   tela não adivinha: sem os três, não passa para as máquinas.
 - Trocar o turno depois pede confirmação, porque a lista recomeça para o
   turno novo.
-- Ao abrir, a tela lembra as **máquinas da última vez** dessa pessoa e as mostra
-  primeiro ("Suas máquinas"). As outras continuam a um toque ("Todas as
-  máquinas").
 
 ### 2. Máquinas — uma lista curta, uma máquina por vez
 
@@ -99,7 +97,7 @@ sendo o lugar de corrigir apontamentos já gravados.
 |---|---|---|
 | A | Aviso de quantidade acima de 2× a meta, com pergunta ao salvar. **Feito** (`d0c548b`, `44c9608`). A OP liberada pré-escolhida ficou de fora por decisão do usuário: o nº da OP começa vazio | Não |
 | B | Lista curta com status + uma máquina por vez + "Concluir máquina" (grava por máquina) | Não: o `saveEntries` aceita uma lista com uma máquina só. Como ele acrescenta (D30), reabrir uma máquina concluída mostra o que já foi gravado, como hoje |
-| C | "Suas máquinas" (lembrar as máquinas de cada pessoa) | Não no começo (fica no navegador); depois, de preferência no perfil do usuário |
+| ~~C~~ | ~~"Suas máquinas"~~. **Retirada em 08/10/2026:** quem aponta é o distribuidor, responsável por todas as máquinas, então não há "máquinas de cada pessoa" | — |
 | D | "Não produziu" com motivo | **Sim**: precisa de um lugar para gravar máquina parada e o motivo. Proposta vai como recado ao banco quando a etapa for aprovada |
 
 Recomendo começar pela **A** (pequena, sem risco) e testar a **B** com um

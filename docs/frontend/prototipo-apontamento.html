@@ -254,7 +254,6 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
     byPeople: id === "e9" || id === "e5" || id === "e6",
     stdPeople: id === "e9" ? 6 : 3,
   }));
-  const MINE = ["m1", "m4", "e9"]; // "Suas máquinas": as que esta pessoa apontou da última vez (exemplo)
   const SHIFTS = [
     { v: "1", label: "Turno 1", hours: "04h55–14h18" },
     { v: "2", label: "Turno 2", hours: "14h18–23h24" },
@@ -285,7 +284,7 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
   const resolved = () => M.filter((m) => S.status[m.id]);
   const pending = () => M.filter((m) => !S.status[m.id]);
   const nextPending = (after) => {
-    const order = [...MINE.map(byId), ...M.filter((m) => !MINE.includes(m.id))];
+    const order = M;
     const i = after ? order.findIndex((m) => m.id === after) : -1;
     return [...order.slice(i + 1), ...order.slice(0, i + 1)].find((m) => !S.status[m.id]) || null;
   };
@@ -349,8 +348,7 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
     const q = S.filter.trim().toLowerCase();
     const match = (m) => !q || m.name.toLowerCase().includes(q);
     const next = nextPending(null);
-    const mine = MINE.map(byId).filter(match);
-    const groups = ["Montagem", "Embalagem", "Granel"].map((l) => [l, M.filter((m) => m.line === l && !MINE.includes(m.id) && match(m))]).filter(([, ms]) => ms.length);
+    const groups = ["Montagem", "Embalagem", "Granel"].map((l) => [l, M.filter((m) => m.line === l && match(m))]).filter(([, ms]) => ms.length);
     const list = `<section class="card list" aria-label="Máquinas do turno">
       <div class="progress">
         <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><strong class="num">${ok + off} de ${M.length} resolvidas</strong><span class="hint num">${M.length - ok - off} pendentes</span></div>
@@ -358,9 +356,8 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
         <div class="legend"><span><i class="sw b-ok"></i>${ok} ${ok === 1 ? "apontada" : "apontadas"}</span><span><i class="sw b-off"></i>${off} não ${off === 1 ? "produziu" : "produziram"}</span></div>
       </div>
       <div><label class="lbl" for="filter">Procurar máquina</label><input type="text" id="filter" placeholder="Nome da máquina" value="${esc(S.filter)}" autocomplete="off"></div>
-      ${mine.length ? `<div class="group"><h3>Suas máquinas <span style="text-transform:none;letter-spacing:0;font-weight:400">(da última vez)</span></h3><ul class="rows">${mine.map((m) => rowHtml(m, next)).join("")}</ul></div>` : ""}
       ${groups.map(([l, ms]) => `<div class="group"><h3>${l}</h3><ul class="rows">${ms.map((m) => rowHtml(m, next)).join("")}</ul></div>`).join("")}
-      ${!mine.length && !groups.length ? '<p class="hint">Nenhuma máquina com esse nome.</p>' : ""}
+      ${!groups.length ? '<p class="hint">Nenhuma máquina com esse nome.</p>' : ""}
       <button type="button" class="btn btn-default" data-go="3">Conferir e terminar o turno</button>
     </section>`;
     return `<div class="split">${list}<div class="detail-wrap" ${S.open ? "" : "hidden"} id="dw">${renderDetail()}</div>${S.open ? "" : `<div class="card detail-empty desk-only">${emptyDetail(next)}</div>`}</div>`;

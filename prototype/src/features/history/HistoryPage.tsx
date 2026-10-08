@@ -1,4 +1,4 @@
-import { CalendarPlus, ChevronLeft, ChevronRight, ClipboardList, MessageSquare, MoreHorizontal, Pencil, Repeat, Trash2, X } from "lucide-react";
+import { CalendarPlus, ChevronLeft, ChevronRight, ClipboardList, FilterX, MessageSquare, MoreHorizontal, Pencil, Repeat, Trash2, X } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import {
   ALL_ORDERS,
@@ -31,6 +31,7 @@ import { PageBody, PageHeader } from "@/components/layout/PageHeader";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { EmptyState } from "@/components/ui/Feedback";
+import { FilterPill } from "@/components/ui/FilterPill";
 import { Lozenge } from "@/components/ui/Lozenge";
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuRadioGroup, MenuRadioItem, MenuSeparator, MenuTrigger } from "@/components/ui/Menu";
 import { Modal } from "@/components/ui/Modal";
@@ -65,7 +66,17 @@ type Dialog =
   | { kind: "record"; order: ProductionOrder; original: EditOriginal }
   | null;
 
-export function HistoryPage({ notify }: { notify: Notify }) {
+/** Dia a abrir com uma máquina filtrada: o último em que ela apontou (ou o último dia com dados) */
+function lastDayOf(orders: ProductionOrder[], machineId: string) {
+  const days = orders.filter((o) => o.machineId === machineId && o.date <= DATA_END).map((o) => o.date.getTime());
+  return days.length ? new Date(Math.max(...days)) : DATA_END;
+}
+
+/**
+ * `machineParam` vem da rota "#/historico/<id da máquina>": é por ele que o
+ * "Histórico da máquina" do Dashboard abre esta tela já filtrada.
+ */
+export function HistoryPage({ notify, machineParam }: { notify: Notify; machineParam?: string }) {
   const [orders, setOrders] = useState<ProductionOrder[]>(ALL_ORDERS);
   // O que cada perfil pode corrigir (a tela esconde; quem barra de verdade é o banco, D24).
   // Com o banco, as correções gravam lá.
@@ -81,9 +92,12 @@ export function HistoryPage({ notify }: { notify: Notify }) {
   /** Limites de navegação: da janela de dados até o fim do mês do último dado (dias futuros aparecem, sem ação) */
   const LAST_DAY = endOfMonth(DATA_END);
   /** Meta do dia: com o banco, a soma das metas dos turnos apontados; na demonstração, a meta diária da fábrica */
-  const dayTarget = (d: Date) => targetOn(MACHINES, d);
+  // Filtro de máquina: vale para o calendário e para a tabela do dia
+  const [machineFilter, setMachineFilter] = useState<string>(() => (machineParam && MACHINES.some((m) => m.id === machineParam) ? machineParam : "all"));
+  const filtered = machineFilter === "all" ? null : machineById(machineFilter);
+  const dayTarget = (d: Date) => targetOn(filtered ? [filtered] : MACHINES, d);
   // Dia aberto (data completa: o calendário navega entre os meses da janela de dados)
-  const [date, setDate] = useState<Date>(DATA_END);
+  const [date, setDate] = useState<Date>(() => (machineFilter === "all" ? DATA_END : lastDayOf(ALL_ORDERS, machineFilter)));
   const year = date.getFullYear();
   const month = date.getMonth();
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -93,9 +107,17 @@ export function HistoryPage({ notify }: { notify: Notify }) {
 
   const byDay = useMemo(() => {
     const map = new Map<string, ProductionOrder[]>();
-    for (const o of orders) map.set(toIsoDate(o.date), [...(map.get(toIsoDate(o.date)) ?? []), o]);
+    for (const o of orders) if (machineFilter === "all" || o.machineId === machineFilter) map.set(toIsoDate(o.date), [...(map.get(toIsoDate(o.date)) ?? []), o]);
     return map;
-  }, [orders]);
+  }, [orders, machineFilter]);
+
+  const changeMachine = (id: string) => {
+    setMachineFilter(id);
+    setSelected(new Set());
+    // O endereço acompanha o filtro, para dar para guardar ou mandar o link
+    window.history.replaceState(null, "", id === "all" ? "#/historico" : `#/historico/${encodeURIComponent(id)}`);
+    if (id !== "all" && !orders.some((o) => o.machineId === id && sameDay(o.date, date))) setDate(lastDayOf(orders, id));
+  };
 
   const allDayOrders = (byDay.get(toIsoDate(date)) ?? []).slice().sort((a, b) => a.shift - b.shift || a.machineId.localeCompare(b.machineId));
   const dayOrders = shiftFilter === "all" ? allDayOrders : allDayOrders.filter((o) => o.shift === shiftFilter);
@@ -412,6 +434,20 @@ export function HistoryPage({ notify }: { notify: Notify }) {
         }
       />
       <PageBody>
+        <div role="group" aria-label="Filtros" className="flex flex-wrap items-center gap-100">
+          <FilterPill
+            label="Máquina"
+            value={machineFilter}
+            defaultValue="all"
+            onChange={changeMachine}
+            options={[{ value: "all", label: "Todas" }, ...MACHINES.map((m) => ({ value: m.id, label: m.name }))]}
+          />
+          {filtered && (
+            <Button appearance="subtle" iconBefore={FilterX} onClick={() => changeMachine("all")}>
+              Limpar filtro
+            </Button>
+          )}
+        </div>
         {/* Calendário em cima, na largura toda; o dia escolhido abre embaixo, com a tabela sem rolagem lateral */}
         <div className="flex flex-col gap-400">
           <section aria-label={`Calendário de ${monthTitle.format(date)}`} className="rounded-large bg-surface-raised p-250 shadow-raised">
@@ -567,7 +603,7 @@ export function HistoryPage({ notify }: { notify: Notify }) {
             )}
 
             <DataTable
-              caption={`Apontamentos de ${formatLongDate(date)}`}
+              caption={`Apontamentos de ${formatLongDate(date)}${filtered ? ` · ${filtered.name}` : ""}`}
               columns={columns}
               rows={dayOrders}
               getRowId={(o) => o.id}
@@ -588,14 +624,18 @@ export function HistoryPage({ notify }: { notify: Notify }) {
                         ? "Dia ainda não chegou"
                         : allDayOrders.length && shiftFilter !== "all"
                           ? `Nenhum apontamento no ${SHIFT_META[shiftFilter].label.toLowerCase()}`
-                          : "Nenhum apontamento neste dia"
+                          : filtered
+                            ? "Nenhum apontamento desta máquina neste dia"
+                            : "Nenhum apontamento neste dia"
                   }
                   hint={
                     isWeekend(date) || isFuture
                       ? `Escolha um dia útil até ${formatLongDate(DATA_END)} para ver os apontamentos.`
                       : allDayOrders.length && shiftFilter !== "all"
                         ? "Escolha outro turno ou Todos para ver os demais apontamentos do dia."
-                        : "Nenhuma máquina registrou produção neste dia."
+                        : filtered
+                          ? "Escolha outro dia no calendário: os dias com produção dela mostram a quantidade."
+                          : "Nenhuma máquina registrou produção neste dia."
                   }
                   action={
                     !isWeekend(date) && !isFuture

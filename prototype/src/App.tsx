@@ -365,7 +365,7 @@ function Shell() {
           ) : route === "calendario" ? (
             <CalendarPage notify={notify} />
           ) : route === "historico" ? (
-            <HistoryPage notify={notify} />
+            <HistoryPage key={param ?? ""} machineParam={param} notify={notify} />
           ) : route === "ranking" ? (
             <RankingPage />
           ) : route === "retrabalho" ? (

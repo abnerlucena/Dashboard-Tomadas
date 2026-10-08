@@ -271,7 +271,7 @@ export function MachinesPage({
         m.name,
       );
     else if (action === "entry") window.location.hash = "/apontamento";
-    else notify("Histórico da máquina", "Ainda não existe uma tela só da máquina. Os apontamentos dela estão no Histórico.");
+    else if (action === "history") window.location.hash = `/historico/${encodeURIComponent(m.id)}`;
   };
 
   const exportAll = () =>

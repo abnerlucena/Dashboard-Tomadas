@@ -135,3 +135,15 @@ test("descartar alterações pede confirmação", async ({ page }) => {
   await page.getByRole("dialog").getByRole("button", { name: "Descartar", exact: true }).click();
   await expect(campo).toHaveValue("");
 });
+
+test("histórico da máquina abre o Histórico já filtrado", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  const maquina = "Máquina de tomadas Composé (Aumaq)";
+  await page.getByRole("row", { name: new RegExp(maquina.replace(/[()]/g, "\\$&")) }).getByRole("button", { name: /ações/i }).click();
+  await page.getByRole("menuitem", { name: "Histórico da máquina" }).click();
+  await expect(page.getByRole("heading", { name: "Histórico", level: 1 })).toBeVisible();
+  await expect(page.getByRole("button", { name: `Máquina: ${maquina}` })).toBeVisible();
+  await expect(page.getByRole("table", { name: new RegExp(`· ${maquina.replace(/[()]/g, "\\$&")}$`) })).toBeVisible();
+  await page.getByRole("button", { name: "Limpar filtro" }).click();
+  await expect(page.getByRole("button", { name: "Máquina: Todas" })).toBeVisible();
+});

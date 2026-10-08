@@ -90,6 +90,9 @@ describe("buildBackendData", () => {
     // A observação do apontamento vai na primeira linha sem observação
     expect(m.orders[0].note?.text).toBe("Troca de molde");
     expect(m.orders[1].note?.text).toBe("Rebarba");
+    // a observação da OP de retrabalho é o motivo (gráfico "Motivos de retrabalho")
+    expect(m.orders[1].reworkReason).toBe("Rebarba");
+    expect(m.orders[0].reworkReason).toBeNull();
     expect(m.orders[0].recordedAt).toEqual(new Date(2026, 8, 15, 14, 5, 0));
   });
 

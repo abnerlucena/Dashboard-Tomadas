@@ -1,4 +1,4 @@
-import { ChevronDown, History, MessageSquarePlus, Plus, RefreshCw, RotateCcw, Save, Search, Trash2 } from "lucide-react";
+import { ChevronDown, CircleAlert, History, MessageSquarePlus, Plus, RefreshCw, RotateCcw, Save, Search, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ProdRecord } from "../../../../src/lib/api";
 import { mensagemDeErro } from "../../../../src/lib/erros";
@@ -10,6 +10,7 @@ import {
   LINE_ACCENT,
   MACHINE_GROUPS,
   MACHINES,
+  REWORK_REASONS,
   SHIFTS,
   SHIFT_META,
   STATUS_META,
@@ -48,6 +49,10 @@ interface OpRow {
   op: string;
   qty: string;
   rework: boolean;
+  /** motivo do retrabalho: um da lista ou o texto de "Outro motivo" */
+  reason: string;
+  /** "Outro motivo" escolhido: o motivo é digitado */
+  otherReason: boolean;
 }
 interface MachineEntry {
   /** ordens NOVAS deste lançamento: salvar acrescenta às já gravadas (D30) */
@@ -72,7 +77,7 @@ interface Existing extends ExistingRecord {
 }
 
 let rowSeq = 0;
-const newRow = (op = "", qty = "", rework = false): OpRow => ({ key: `r${rowSeq++}`, op, qty, rework });
+const newRow = (op = "", qty = "", rework = false): OpRow => ({ key: `r${rowSeq++}`, op, qty, rework, reason: "", otherReason: false });
 
 /**
  * Formulário vazio para a data/turno/regime, com o que já foi apontado ao lado.
@@ -121,10 +126,12 @@ const qtyOf = (r: OpRow) => (r.qty.trim() === "" ? 0 : Number(r.qty));
 
 function rowErrors(r: OpRow) {
   const qty = r.qty.trim();
-  const errors: { op?: string; qty?: string } = {};
+  const errors: { op?: string; qty?: string; reason?: string } = {};
   if (qty !== "" && (!Number.isInteger(Number(qty)) || Number(qty) < 0)) errors.qty = "Use um número inteiro";
   if (qtyOf(r) > 0 && !r.op.trim()) errors.op = "Informe o número da OP";
   else if (r.op.trim() && !OP_PATTERN.test(r.op.trim())) errors.op = "Use só números, até 15 dígitos";
+  // Retrabalho sem motivo deixa o gráfico "Motivos de retrabalho" sem informação
+  if (r.rework && qtyOf(r) > 0 && !r.reason.trim()) errors.reason = r.otherReason ? "Descreva o motivo" : "Escolha o motivo do retrabalho";
   return errors;
 }
 
@@ -153,6 +160,8 @@ export function EntryPage({ notify }: EntryPageProps) {
   const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [pending, setPending] = useState<{ date: string; shift: Shift; overtime: boolean } | null>(null);
+  // "Descartar alterações" apaga o que foi digitado: pede confirmação, como trocar a data ou o turno
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   type Context = { date: string; shift: Shift; overtime: boolean };
@@ -310,14 +319,14 @@ export function EntryPage({ notify }: EntryPageProps) {
       <PageHeader
         title="Apontamento"
         lozenge={status}
-        description="Registre a produção de cada máquina por turno. Uma máquina pode ter várias ordens de produção (OP)."
+        description="Registre a produção de cada máquina no turno. Uma máquina pode ter várias OPs, e o que você lança soma ao que já foi gravado."
         actions={
           <>
             <Button
               appearance="subtle"
               iconBefore={RotateCcw}
               isDisabled={!dirty}
-              onClick={() => applyContext({ date, shift, overtime })}
+              onClick={() => setConfirmDiscard(true)}
             >
               Descartar alterações
             </Button>
@@ -477,6 +486,24 @@ export function EntryPage({ notify }: EntryPageProps) {
       </PageBody>
 
       <Modal
+        open={confirmDiscard}
+        onOpenChange={setConfirmDiscard}
+        title="Descartar alterações?"
+        primary={{
+          label: "Descartar",
+          appearance: "danger",
+          onClick: () => {
+            setConfirmDiscard(false);
+            applyContext({ date, shift, overtime });
+          },
+        }}
+        cancelLabel="Continuar editando"
+      >
+        O que foi digitado para {SHIFT_META[shift].label.toLowerCase()} de {date.split("-").reverse().join("/")} e ainda não foi salvo será
+        apagado. O que já está gravado não muda.
+      </Modal>
+
+      <Modal
         open={pending != null}
         onOpenChange={(o) => !o && setPending(null)}
         title="Descartar alterações?"
@@ -560,7 +587,7 @@ function MachineEntryRow({
                 em {existing.ops.length === 1 ? "OP" : "OPs"} <span className="font-code">{existing.ops.join(", ")}</span>
               </>
             )}
-            . O que lançar abaixo <strong className="font-semibold">soma</strong> a isso.{" "}
+            .{" "}
             <a href="#/historico" className="inline-flex items-center gap-025 text-link hover:underline">
               <History aria-hidden className="size-icon-small" />
               Corrigir no Histórico
@@ -621,7 +648,8 @@ function MachineEntryRow({
           placeholder={turn.dependeDaLotacao && crew ? String(crew) : "–"}
           value={entry.people}
           onChange={(e) => onChange((x) => ({ ...x, people: e.target.value.replace(/\D/g, "").slice(0, 2) }))}
-          helper={peopleRequired ? `Obrigatório. ${peopleHelp}` : peopleHelp}
+          // Ajuda só quando o número muda a meta; nos outros postos o campo fala por si
+          helper={peopleRequired ? `Obrigatório. ${peopleHelp}` : turn.dependeDaLotacao && hasMeta ? peopleHelp : undefined}
           error={peopleRequired && showErrors && !entry.people.trim() && (total > 0 || !!existing) ? "Informe quantas pessoas trabalharam" : null}
           inputClassName="text-right tabular-nums"
           className="mt-050"
@@ -668,7 +696,7 @@ function MachineEntryRow({
                 <Checkbox
                   label={`Retrabalho, linha ${i + 1}, ${m.name}`}
                   checked={r.rework}
-                  onChange={(e) => setRow(r.key, { rework: e.target.checked })}
+                  onChange={(e) => setRow(r.key, { rework: e.target.checked, ...(e.target.checked ? {} : { reason: "", otherReason: false }) })}
                 />
                 <span aria-hidden>Retrabalho</span>
               </label>
@@ -681,6 +709,14 @@ function MachineEntryRow({
                 }
                 className={cn(i === 0 && "s:mt-250")}
               />
+              {r.rework && (
+                <ReworkReason
+                  row={r}
+                  context={`linha ${i + 1}, ${m.name}`}
+                  error={showErrors ? errors.reason : undefined}
+                  onChange={(patch) => setRow(r.key, patch)}
+                />
+              )}
             </div>
           );
         })}
@@ -715,5 +751,74 @@ function MachineEntryRow({
         )}
       </div>
     </li>
+  );
+}
+
+/* ---------- Motivo do retrabalho: aparece ao marcar Retrabalho ---------- */
+function ReworkReason({
+  row,
+  context,
+  error,
+  onChange,
+}: {
+  row: OpRow;
+  context: string;
+  error?: string;
+  onChange: (patch: Partial<OpRow>) => void;
+}) {
+  const chip = (selected: boolean) =>
+    cn(
+      "ds-pressable ds-hit-y relative inline-flex h-control-compact items-center rounded-full border px-150 font-body-small font-medium",
+      selected ? "border-selected bg-selected text-selected" : "bg-surface text-subtle hover:bg-neutral-subtle-hovered",
+    );
+  return (
+    <div className="flex basis-full flex-col gap-075 rounded-medium bg-warning p-150">
+      <span id={`motivo-${row.key}`} className="font-body-small font-semibold text-default">
+        Motivo do retrabalho <span className="font-normal text-subtle">· vai para o gráfico de motivos</span>
+      </span>
+      <div
+        role="radiogroup"
+        aria-label={`Motivo do retrabalho, ${context}`}
+        aria-invalid={error ? true : undefined}
+        tabIndex={error ? -1 : undefined}
+        className="flex flex-wrap gap-075 outline-none"
+      >
+        {REWORK_REASONS.map((r) => {
+          const selected = !row.otherReason && row.reason === r;
+          return (
+            <button key={r} type="button" role="radio" aria-checked={selected} onClick={() => onChange({ reason: r, otherReason: false })} className={chip(selected)}>
+              {r}
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          role="radio"
+          aria-checked={row.otherReason}
+          onClick={() => onChange({ otherReason: true, reason: "" })}
+          className={chip(row.otherReason)}
+        >
+          Outro motivo
+        </button>
+      </div>
+      {row.otherReason && (
+        <TextField
+          label={`Qual o motivo, ${context}`}
+          hideLabel
+          placeholder="Descreva em poucas palavras"
+          maxLength={80}
+          value={row.reason}
+          onChange={(e) => onChange({ reason: e.target.value })}
+          className="max-w-search-width"
+          autoFocus
+        />
+      )}
+      {error && (
+        <p className="flex items-center gap-050 font-body-small text-danger">
+          <CircleAlert aria-hidden className="size-icon-small shrink-0" />
+          {error}
+        </p>
+      )}
+    </div>
   );
 }

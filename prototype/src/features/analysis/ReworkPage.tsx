@@ -23,7 +23,7 @@ import { EmptyState } from "@/components/ui/Feedback";
 import { FilterPill } from "@/components/ui/FilterPill";
 import { Lozenge } from "@/components/ui/Lozenge";
 import { FilterX, SearchX } from "lucide-react";
-import { REWORK_LIMIT } from "@/features/machines/insights";
+import { REWORK_LIMIT, reasonOf, reworkReasonsOf } from "@/features/machines/insights";
 
 /** Limite aceitável de retrabalho (referência nos gráficos): o mesmo da aba Gráficos */
 const LIMIT = REWORK_LIMIT;
@@ -45,21 +45,22 @@ export function ReworkPage() {
       ),
     [machine, shift],
   );
-  const reworked = inScope.filter((o) => o.rework && (reason === "all" || o.reworkReason === reason));
+  const reworked = inScope.filter((o) => o.rework && (reason === "all" || reasonOf(o) === reason));
   const produced = inScope.reduce((s, o) => s + o.quantity, 0);
   const reworkQty = reworked.reduce((s, o) => s + o.quantity, 0);
 
   const byMachine = MACHINES.map((m) => {
     const orders = inScope.filter((o) => o.machineId === m.id);
     const total = orders.reduce((s, o) => s + o.quantity, 0);
-    const rw = orders.filter((o) => o.rework && (reason === "all" || o.reworkReason === reason)).reduce((s, o) => s + o.quantity, 0);
+    const rw = orders.filter((o) => o.rework && (reason === "all" || reasonOf(o) === reason)).reduce((s, o) => s + o.quantity, 0);
     return { m, total, rw, rate: pct(rw, total) };
   })
     .filter((x) => x.total > 0)
     .sort((a, b) => b.rate - a.rate);
 
-  const byReason = REWORK_REASONS.map((r) => {
-    const orders = inScope.filter((o) => o.rework && o.reworkReason === r);
+  const reasonList = reworkReasonsOf(inScope);
+  const byReason = reasonList.map((r) => {
+    const orders = inScope.filter((o) => o.rework && reasonOf(o) === r);
     return { reason: r, qty: orders.reduce((s, o) => s + o.quantity, 0), count: orders.length };
   })
     .filter((x) => x.count > 0)
@@ -129,7 +130,7 @@ export function ReworkPage() {
       cell: (o) => <span className="font-medium tabular-nums text-default">{formatNumber(o.quantity)}</span>,
       footer: <span className="font-semibold tabular-nums text-default">{formatNumber(reworkQty)}</span>,
     },
-    { id: "reason", header: "Motivo", cell: (o) => <Lozenge>{o.reworkReason}</Lozenge> },
+    { id: "reason", header: "Motivo", cell: (o) => <Lozenge>{reasonOf(o)}</Lozenge> },
     { id: "op-by", header: "Operador", className: "pr-200", cell: (o) => <span className="text-subtle">{o.operator}</span> },
   ];
 
@@ -160,7 +161,7 @@ export function ReworkPage() {
             value={reason}
             defaultValue="all"
             onChange={setReason}
-            options={[{ value: "all", label: "Todos" }, ...REWORK_REASONS.map((r) => ({ value: r, label: r }))]}
+            options={[{ value: "all", label: "Todos" }, ...[...new Set([...REWORK_REASONS, ...reasonList])].map((r) => ({ value: r, label: r }))]}
           />
           {filtersActive && (
             <Button appearance="subtle" iconBefore={FilterX} onClick={clear}>
@@ -235,7 +236,7 @@ export function ReworkPage() {
             columns={columns}
             rows={reworked}
             getRowId={(o) => o.id}
-            getRowLabel={(o) => `${o.opId}, ${machineById(o.machineId).name}, ${o.reworkReason}`}
+            getRowLabel={(o) => `${o.opId}, ${machineById(o.machineId).name}, ${reasonOf(o)}`}
             selectable={false}
             state={reworked.length ? "ready" : "empty"}
             footerLead={plural(reworked.length, "OP", "OPs")}

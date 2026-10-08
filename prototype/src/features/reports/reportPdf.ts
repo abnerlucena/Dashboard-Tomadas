@@ -1,6 +1,5 @@
 import {
   LINES,
-  REWORK_REASONS,
   WORKING_DAYS,
   goodQuantity,
   machineById,
@@ -12,7 +11,7 @@ import {
   type ProductionOrder,
 } from "@/data/machines";
 import { formatDecimal, formatNumber } from "@/lib/utils";
-import { reworkRate } from "@/features/machines/insights";
+import { reasonOf, reworkRate, reworkReasonsOf } from "@/features/machines/insights";
 
 /*
  * PDF dos relatórios, gerado no navegador com jsPDF + autotable.
@@ -247,7 +246,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
           const list = ofMachine(m);
           const total = goodQuantity(list);
           const rw = list.filter((o) => o.rework);
-          const reasons = REWORK_REASONS.map((r) => ({ r, n: rw.filter((o) => o.reworkReason === r).length })).sort((a, b) => b.n - a.n);
+          const reasons = reworkReasonsOf(rw).map((r) => ({ r, n: rw.filter((o) => reasonOf(o) === r).length })).sort((a, b) => b.n - a.n);
           return [m.name, m.line, formatNumber(total), formatNumber(sum(rw, (o) => o.quantity)), reworkPct(sum(rw, (o) => o.quantity), total), reasons[0]?.n ? reasons[0].r : "—"];
         }),
         [2, 3, 4],
@@ -256,7 +255,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       const rwOrders = orders.filter((o) => o.rework);
       table(
         ["Motivo", "Ocorrências", "% do total"],
-        REWORK_REASONS.map((r) => ({ r, n: rwOrders.filter((o) => o.reworkReason === r).length }))
+        reworkReasonsOf(rwOrders).map((r) => ({ r, n: rwOrders.filter((o) => reasonOf(o) === r).length }))
           .filter((x) => x.n)
           .sort((a, b) => b.n - a.n)
           .map((x) => [x.r, x.n, pct((x.n / rwOrders.length) * 100)]),

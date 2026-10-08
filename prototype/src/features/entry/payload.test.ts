@@ -40,6 +40,19 @@ describe("planSaves", () => {
     });
   });
 
+  it("o motivo do retrabalho vai na observação da OP de retrabalho", () => {
+    const plan = planSaves(
+      { "11": entry({ rows: [{ op: "4510002", qty: "300", rework: true, reason: " Rebarba na peça " }, { op: "4510001", qty: "50", rework: false, reason: "ignorado" }] }) },
+      {},
+      machines,
+      ctx,
+    );
+    expect(plan[0].payload.ordensProducao).toEqual([
+      { ordemId: "4510002", quantidade: 300, retrabalho: true, obs: "Rebarba na peça" },
+      { ordemId: "4510001", quantidade: 50 },
+    ]);
+  });
+
   it("apontamento novo só com observação vale (máquina parada); só com pessoas, não", () => {
     const plan = planSaves({ "11": entry({ note: "Máquina parada: falta de material" }), "12": entry({ people: "3" }) }, {}, machines, ctx);
     expect(plan.map((p) => p.machineId)).toEqual(["11"]);

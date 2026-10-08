@@ -28,6 +28,20 @@ export const REWORK_LIMIT = 10;
  */
 export const reworkRate = (rework: number, good: number) => (rework + good ? (rework / (rework + good)) * 100 : 0);
 
+/** Retrabalho apontado sem motivo: aparece com este nome, para a falta ficar visível */
+export const NO_REASON = "Não informado";
+/** Motivo de um apontamento de retrabalho ("Não informado" quando vazio) */
+export const reasonOf = (o: Pick<ProductionOrder, "reworkReason">) => o.reworkReason?.trim() || NO_REASON;
+/**
+ * Motivos presentes nos apontamentos: os da lista padrão primeiro, depois os
+ * que vierem do banco com outro texto, e "Não informado" por último.
+ */
+export function reworkReasonsOf(orders: ProductionOrder[]): string[] {
+  const seen = new Set(orders.filter((o) => o.rework).map(reasonOf));
+  const extra = [...seen].filter((r) => r !== NO_REASON && !REWORK_REASONS.includes(r)).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  return [...REWORK_REASONS.filter((r) => seen.has(r)), ...extra, ...(seen.has(NO_REASON) ? [NO_REASON] : [])];
+}
+
 /** Produção de apontamentos: só a boa, o retrabalho fica de fora (D11) */
 const goodOf = (orders: ProductionOrder[]) => orders.reduce((s, o) => s + (o.rework ? 0 : o.quantity), 0);
 
@@ -79,9 +93,9 @@ export function insights(rows: Machine[], dates: Date[], range: DateRange, ops: 
     const rw = that.filter((o) => o.rework).reduce((s, o) => s + o.quantity, 0);
     return { date, qty: rw, rate: that.length ? reworkRate(rw, goodOf(that)) : null };
   });
-  const reasons = REWORK_REASONS.map((reason) => ({
+  const reasons = reworkReasonsOf(reworkOrders).map((reason) => ({
     reason,
-    count: reworkOrders.filter((o) => o.reworkReason === reason).length,
+    count: reworkOrders.filter((o) => reasonOf(o) === reason).length,
   }))
     .filter((r) => r.count > 0)
     .sort((a, b) => b.count - a.count);

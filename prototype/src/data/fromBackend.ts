@@ -207,7 +207,8 @@ export function buildBackendData(input: BackendInput): BackendData {
         quantity,
         minutes: 0,
         rework,
-        reworkReason: null,
+        // Sem campo próprio no contrato (lacuna 2), o motivo vem na observação da OP de retrabalho
+        reworkReason: rework && note?.trim() ? note.trim() : null,
         operator,
         recordedAt,
         note: note ? { id: `n-${base}-${orders.length}`, text: note, author: operator } : null,

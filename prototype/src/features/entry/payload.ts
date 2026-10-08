@@ -29,6 +29,8 @@ export interface FormRow {
   op: string;
   qty: string;
   rework: boolean;
+  /** motivo do retrabalho (obrigatório quando rework) */
+  reason?: string;
 }
 
 export interface FormEntry {
@@ -83,7 +85,12 @@ export function planSaves(
     const ex = existing[m.id];
     const orders = entry.rows
       .filter((r) => qtyOf(r) > 0)
-      .map((r) => ({ ordemId: r.op.trim(), quantidade: qtyOf(r), ...(r.rework ? { retrabalho: true } : {}) }));
+      // Motivo do retrabalho vai na observação da OP (o contrato ainda não tem campo próprio; ver a nota de 08/10/2026)
+      .map((r) => ({
+        ordemId: r.op.trim(),
+        quantidade: qtyOf(r),
+        ...(r.rework ? { retrabalho: true, ...(r.reason?.trim() ? { obs: r.reason.trim() } : {}) } : {}),
+      }));
     const note = entry.note.trim();
     const people = operatorCountFor(entry.people);
     const noteChanged = ex ? note !== ex.notes : note !== "";

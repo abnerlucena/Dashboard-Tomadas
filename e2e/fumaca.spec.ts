@@ -108,3 +108,30 @@ test("nenhuma tela rola de lado no celular", async ({ page }) => {
     expect(sobra, `#/${rota} rola de lado`).toBeLessThanOrEqual(0);
   }
 });
+
+test("retrabalho pede o motivo antes de salvar", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await page.goto("/#/apontamento");
+  const maquina = "Máquina de tomadas Composé (Aumaq)";
+  await page.getByLabel(`Nº da OP, linha 1, ${maquina}`).fill("4511111");
+  await page.getByLabel(`Quantidade, linha 1, ${maquina}`).fill("300");
+  await page.getByLabel(`Retrabalho, linha 1, ${maquina}`).check();
+  await page.getByRole("button", { name: "Salvar apontamento" }).click();
+  await expect(page.getByText("Escolha o motivo do retrabalho")).toBeVisible();
+  await page.getByRole("radiogroup", { name: `Motivo do retrabalho, linha 1, ${maquina}` }).getByRole("radio", { name: "Rebarba na peça" }).click();
+  await page.getByRole("button", { name: "Salvar apontamento" }).click();
+  await expect(page.getByText("Apontamento salvo")).toBeVisible();
+});
+
+test("descartar alterações pede confirmação", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await page.goto("/#/apontamento");
+  const campo = page.getByLabel("Quantidade, linha 1, Máquina de tomadas Composé (Aumaq)");
+  await campo.fill("123");
+  await page.getByRole("button", { name: "Descartar alterações" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Continuar editando" }).click();
+  await expect(campo).toHaveValue("123");
+  await page.getByRole("button", { name: "Descartar alterações" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Descartar", exact: true }).click();
+  await expect(campo).toHaveValue("");
+});

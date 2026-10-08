@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DATA_END, MONTH_RANGE, TARGET_MACHINES, plantSeries, workingDatesIn } from "@/data/machines";
 import { shiftScores } from "@/features/tv/tvMetrics";
-import { insights, reworkRate } from "./insights";
+import { NO_REASON, insights, reworkRate, reworkReasonsOf } from "./insights";
 
 const dates = workingDatesIn(MONTH_RANGE).filter((d) => d <= DATA_END);
 const data = insights(TARGET_MACHINES, dates, MONTH_RANGE, []);
@@ -44,5 +44,12 @@ describe("Modo TV", () => {
     for (const s of shiftScores(TARGET_MACHINES, [])) {
       expect(s.reworkRate).toBeCloseTo(reworkRate(reworkOf((o) => o.shift === s.shift), s.produced), 10);
     }
+  });
+});
+
+describe("motivos de retrabalho", () => {
+  it("lista padrão primeiro, motivos novos do banco depois e 'Não informado' por último", () => {
+    const o = (reworkReason: string | null, rework = true) => ({ ...TARGET_MACHINES[0].orders[0], rework, reworkReason });
+    expect(reworkReasonsOf([o(null), o("Peça riscada"), o("Rebarba na peça"), o("ignorado", false)])).toEqual(["Rebarba na peça", "Peça riscada", NO_REASON]);
   });
 });

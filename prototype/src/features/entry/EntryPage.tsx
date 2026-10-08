@@ -53,6 +53,8 @@ interface OpRow {
   reason: string;
   /** "Outro motivo" escolhido: o motivo é digitado */
   otherReason: boolean;
+  /** quem aponta já mexeu no nº da OP: a OP liberada não volta a ser sugerida */
+  opTouched?: boolean;
 }
 interface MachineEntry {
   /** ordens NOVAS deste lançamento: salvar acrescenta às já gravadas (D30) */
@@ -120,6 +122,22 @@ function currentShift(now = new Date()): { date: string; shift: Shift } {
   return { date: toIsoDate(day), shift };
 }
 
+/**
+ * Meta do turno da máquina na data apontada, pela base e pelas pessoas
+ * informadas (a conta é a de src/lib/metas.ts, teto D49). Hora extra não tem
+ * meta (D27); sem meta cadastrada na data, também não.
+ */
+function shiftGoal(m: Machine, target: DayTarget | undefined, people: string, overtime: boolean) {
+  const base = target?.base ?? "per_shift";
+  const crew = target?.lotacao ?? null;
+  const turn = metaDoTurno({ cadastrada: m.hasTarget ? (target?.cadastrada ?? 0) : 0, base, pessoas: people, lotacaoPadrao: crew });
+  const hasMeta = m.hasTarget && !overtime && turn.valor > 0;
+  return { base, crew, turn, hasMeta, meta: hasMeta ? turn.valor : 0 };
+}
+
+/** Acima disto, a quantidade pede conferência (um zero a mais é o erro mais comum) */
+const TOO_HIGH = 2;
+
 // Nº da OP: só números, até 15 dígitos (D57). O banco recusa o resto, e uma OP ruim barra o apontamento inteiro
 const OP_PATTERN = /^\d{1,15}$/;
 const qtyOf = (r: OpRow) => (r.qty.trim() === "" ? 0 : Number(r.qty));
@@ -162,6 +180,8 @@ export function EntryPage({ notify }: EntryPageProps) {
   const [pending, setPending] = useState<{ date: string; shift: Shift; overtime: boolean } | null>(null);
   // "Descartar alterações" apaga o que foi digitado: pede confirmação, como trocar a data ou o turno
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  // Quantidade acima de 2× a meta: pergunta uma vez antes de salvar, sem impedir
+  const [confirmHigh, setConfirmHigh] = useState<string[] | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   type Context = { date: string; shift: Shift; overtime: boolean };
@@ -180,6 +200,13 @@ export function EntryPage({ notify }: EntryPageProps) {
     setShowErrors(false);
     setPending(null);
   };
+
+  // Sugestão da OP liberada: preenche sem contar como alteração do usuário
+  const prefill = (machineId: string, rowKey: string, op: string) =>
+    setForm((f) => ({
+      ...f,
+      [machineId]: { ...f[machineId], rows: f[machineId].rows.map((r) => (r.key === rowKey && !r.op && !r.opTouched ? { ...r, op } : r)) },
+    }));
 
   const update = (machineId: string, fn: (e: MachineEntry) => MachineEntry) => {
     setForm((f) => ({ ...f, [machineId]: { ...fn(f[machineId]), error: undefined } }));
@@ -200,7 +227,7 @@ export function EntryPage({ notify }: EntryPageProps) {
     .flatMap((e) => e.rows)
     .reduce((n, r) => n + Object.keys(rowErrors(r)).length, 0);
 
-  const save = useCallback(async () => {
+  const save = useCallback(async (checked = false) => {
     if (saving) return;
     if (live && targets.status === "loading") return;
     if (errorCount > 0) {
@@ -231,6 +258,17 @@ export function EntryPage({ notify }: EntryPageProps) {
       notify("Nada para salvar", "Lance a quantidade de pelo menos uma OP, ou mude a observação ou o nº de operadores.", "error");
       return;
     }
+    if (!checked) {
+      const high = plan
+        .map((p) => machineById(p.machineId))
+        .filter((m) => {
+          const g = shiftGoal(m, targets.status === "ready" ? targets.byMachine[m.id] : undefined, form[m.id].people, overtime);
+          return g.hasMeta && totals[m.id] > g.meta * TOO_HIGH;
+        })
+        .map((m) => m.name);
+      if (high.length) return setConfirmHigh(high);
+    }
+    setConfirmHigh(null);
     setSaving(true);
 
     // Demonstração: simula e mantém o que foi digitado
@@ -277,14 +315,14 @@ export function EntryPage({ notify }: EntryPageProps) {
     else if (ok) notify(`${ok} salvas, ${failedCount} com erro`, "As máquinas com erro continuam no formulário, com o motivo ao lado.", "error");
     else notify("Nada foi salvo", failed[plan[0].machineId], "error");
     if (!refreshed) notify("Salvo, mas a tela não atualizou", "Recarregue a página para ver os números novos.", "error");
-  }, [saving, live, targets, errorCount, notify, date, shift, overtime, form, existing, session, client]);
+  }, [saving, live, targets, errorCount, notify, date, shift, overtime, form, existing, session, client, totals]);
 
   // Ctrl+S salva
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
-        save();
+        void save();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -330,7 +368,7 @@ export function EntryPage({ notify }: EntryPageProps) {
             >
               Descartar alterações
             </Button>
-            <Button appearance="primary" iconBefore={Save} isLoading={saving} onClick={save} title="Ctrl+S">
+            <Button appearance="primary" iconBefore={Save} isLoading={saving} onClick={() => void save()} title="Ctrl+S">
               Salvar apontamento
             </Button>
           </>
@@ -475,6 +513,7 @@ export function EntryPage({ notify }: EntryPageProps) {
                         total={totals[m.id]}
                         showErrors={showErrors}
                         onChange={(fn) => update(m.id, fn)}
+                        onPrefill={(key, op) => prefill(m.id, key, op)}
                       />
                     ))}
                   </ul>
@@ -504,6 +543,17 @@ export function EntryPage({ notify }: EntryPageProps) {
       </Modal>
 
       <Modal
+        open={confirmHigh != null}
+        onOpenChange={(o) => !o && setConfirmHigh(null)}
+        title="Conferir as quantidades?"
+        primary={{ label: "Salvar assim", isLoading: saving, onClick: () => void save(true) }}
+        cancelLabel="Corrigir"
+      >
+        {confirmHigh?.length === 1 ? "Esta máquina passou" : "Estas máquinas passaram"} de {TOO_HIGH}× a meta do turno: {confirmHigh?.join(", ")}.
+        Se foi um zero a mais, corrija antes de salvar.
+      </Modal>
+
+      <Modal
         open={pending != null}
         onOpenChange={(o) => !o && setPending(null)}
         title="Descartar alterações?"
@@ -527,6 +577,7 @@ function MachineEntryRow({
   total,
   showErrors,
   onChange,
+  onPrefill,
 }: {
   machineId: string;
   entry: MachineEntry;
@@ -537,6 +588,8 @@ function MachineEntryRow({
   total: number;
   showErrors: boolean;
   onChange: (fn: (e: MachineEntry) => MachineEntry) => void;
+  /** sugere a OP liberada na primeira linha, sem marcar o formulário como alterado */
+  onPrefill: (rowKey: string, op: string) => void;
 }) {
   const m = machineById(machineId);
   const { ops, status: opsStatus } = useOps();
@@ -544,13 +597,15 @@ function MachineEntryRow({
   const openOps = releasedFor(ops, m.id);
   const hintFor = (op: string) => (opsStatus === "ready" && op.length >= 4 ? opHint(op, m.id, ops, (id) => machineById(id)?.name ?? "outra máquina") : null);
   const listId = `ops-${m.id}`;
-  // Meta do turno NA DATA apontada, pela base e pelas pessoas informadas — a conta é a de src/lib/metas.ts (teto D49)
-  const base = target?.base ?? "per_shift";
-  const crew = target?.lotacao ?? null;
-  const turn = metaDoTurno({ cadastrada: m.hasTarget ? (target?.cadastrada ?? 0) : 0, base, pessoas: entry.people, lotacaoPadrao: crew });
-  // Hora extra não tem meta (D27); sem meta cadastrada na data, também não
-  const hasMeta = m.hasTarget && !overtime && turn.valor > 0;
-  const meta = hasMeta ? turn.valor : 0;
+  const releasedNumbers = openOps.map((op) => op.id.replace("OP ", ""));
+  // Uma OP liberada só: ela já vem escolhida na primeira linha (quem aponta pode trocar)
+  const onlyOp = releasedNumbers.length === 1 ? releasedNumbers[0] : null;
+  const first = entry.rows[0];
+  useEffect(() => {
+    if (onlyOp && first && !first.op && !first.opTouched) onPrefill(first.key, onlyOp);
+  }, [onlyOp, first, onPrefill]);
+  // Meta do turno NA DATA apontada
+  const { base, crew, turn, hasMeta, meta } = shiftGoal(m, target, entry.people, overtime);
   const peopleHelp = !m.hasTarget
     ? "Só registra a presença: centro por demanda, sem meta."
     : overtime
@@ -562,7 +617,7 @@ function MachineEntryRow({
         : `A meta acompanha o nº de pessoas${crew ? `, até a lotação padrão de ${crew}` : ""}. Gente a mais não aumenta a meta.`;
   const percent = meta ? Math.round((total / meta) * 100) : 0;
   const status = statusFor(percent);
-  const tooHigh = hasMeta && total > meta * 2;
+  const tooHigh = hasMeta && total > meta * TOO_HIGH;
   const peopleRequired = exigeOperadores(target?.base);
 
   const setRow = (key: string, patch: Partial<OpRow>) =>
@@ -654,9 +709,6 @@ function MachineEntryRow({
           inputClassName="text-right tabular-nums"
           className="mt-050"
         />
-        {tooHigh && (
-          <p className="font-body-small text-warning">Acima de 2× a meta do turno. Confira as quantidades.</p>
-        )}
       </div>
 
       {/* OPs */}
@@ -673,9 +725,10 @@ function MachineEntryRow({
                 placeholder="Ex.: 4501234"
                 list={listId}
                 value={r.op}
-                onChange={(e) => setRow(r.key, { op: e.target.value.replace(/\D/g, "").slice(0, 15) })}
+                onChange={(e) => setRow(r.key, { op: e.target.value.replace(/\D/g, "").slice(0, 15), opTouched: true })}
                 error={showErrors || (r.qty && !r.op) ? errors.op : null}
                 warning={errors.op ? null : hintFor(r.op)}
+                helper={releasedNumbers.includes(r.op) ? "OP liberada desta máquina" : undefined}
                 inputClassName="font-code"
                 className="w-field-op flex-1 basis-field-op s:flex-none"
               />
@@ -720,6 +773,15 @@ function MachineEntryRow({
             </div>
           );
         })}
+        {tooHigh && (
+          <p role="status" className="flex items-start gap-050 rounded-medium bg-warning px-150 py-100 font-body-small text-warning">
+            <CircleAlert aria-hidden className="mt-025 size-icon-small shrink-0" />
+            <span>
+              <span className="font-semibold">Confere {formatNumber(total)} peças?</span> A meta do turno é {formatNumber(meta)}. Se for um zero a
+              mais, corrija a quantidade.
+            </span>
+          </p>
+        )}
         <div className="flex flex-wrap gap-100">
           <Button
             appearance="subtle"

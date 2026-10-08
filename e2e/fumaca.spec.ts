@@ -31,6 +31,10 @@ test("apontamento valida a OP e salva (demonstração)", async ({ page }) => {
   await entrar(page, "gestor@demo.weg");
   await page.goto("/#/apontamento");
   const maquina = "Máquina de tomadas Composé (Aumaq)";
+  // A OP liberada da máquina já vem escolhida; apagada, a quantidade pede a OP
+  const op = page.getByLabel(`Nº da OP, linha 1, ${maquina}`);
+  await expect(op).not.toHaveValue("");
+  await op.fill("");
   await page.getByLabel(`Quantidade, linha 1, ${maquina}`).fill("5000");
   await page.getByRole("button", { name: "Salvar apontamento" }).click();
   await expect(page.getByText("Corrija os campos destacados")).toBeVisible();
@@ -146,4 +150,18 @@ test("histórico da máquina abre o Histórico já filtrado", async ({ page }) =
   await expect(page.getByRole("table", { name: new RegExp(`· ${maquina.replace(/[()]/g, "\\$&")}$`) })).toBeVisible();
   await page.getByRole("button", { name: "Limpar filtro" }).click();
   await expect(page.getByRole("button", { name: "Máquina: Todas" })).toBeVisible();
+});
+
+test("quantidade acima de 2× a meta pede conferência, sem impedir", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await page.goto("/#/apontamento");
+  const maquina = "Máquina de interruptores Composé nº 1";
+  await page.getByLabel(`Nº da OP, linha 1, ${maquina}`).fill("4511111");
+  await page.getByLabel(`Quantidade, linha 1, ${maquina}`).fill("40000");
+  await expect(page.getByText("Confere 40.000 peças?")).toBeVisible();
+  await page.getByRole("button", { name: "Salvar apontamento" }).click();
+  const dialogo = page.getByRole("dialog", { name: "Conferir as quantidades?" });
+  await expect(dialogo).toContainText(maquina);
+  await dialogo.getByRole("button", { name: "Salvar assim" }).click();
+  await expect(page.getByText("Apontamento salvo")).toBeVisible();
 });

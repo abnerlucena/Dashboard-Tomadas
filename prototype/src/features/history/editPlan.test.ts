@@ -4,7 +4,7 @@ import { changesOf, draftOf, newDraftRow, validateDraft, type EditOriginal } fro
 const original = (o: Partial<EditOriginal> = {}): EditOriginal => ({
   orders: [
     { op: "4511111", quantity: 5000, rework: false, note: "troca de bobina" },
-    { op: "4511112", quantity: 300, rework: true, note: "" },
+    { op: "4511112", quantity: 300, rework: true, note: "", reason: "Rebarba na peça" },
   ],
   date: "2026-10-02",
   shift: 2,
@@ -29,9 +29,22 @@ describe("changesOf", () => {
       turno: "TURNO 3",
       ordensProducao: [
         { ordemId: "4511111", quantidade: 5200, retrabalho: false, obs: "troca de bobina" },
-        { ordemId: "4511112", quantidade: 300, retrabalho: true },
+        { ordemId: "4511112", quantidade: 300, retrabalho: true, motivoRetrabalho: "Rebarba na peça" },
       ],
     });
+  });
+
+  it("corrigir outra coisa não apaga o motivo do retrabalho; desmarcar o retrabalho não o manda", () => {
+    const d = draftOf(original());
+    d.rows[1].qty = "320";
+    expect(changesOf(d, original())?.ordensProducao?.[1]).toEqual({
+      ordemId: "4511112",
+      quantidade: 320,
+      retrabalho: true,
+      motivoRetrabalho: "Rebarba na peça",
+    });
+    d.rows[1].rework = false;
+    expect(changesOf(d, original())?.ordensProducao?.[1]).toEqual({ ordemId: "4511112", quantidade: 320, retrabalho: false });
   });
 
   it("observação vazia apaga; nº de pessoas vazio vira 0 (apaga)", () => {

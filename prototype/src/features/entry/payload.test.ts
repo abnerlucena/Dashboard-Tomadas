@@ -40,7 +40,7 @@ describe("planSaves", () => {
     });
   });
 
-  it("o motivo do retrabalho vai na observação da OP de retrabalho", () => {
+  it("o motivo do retrabalho vai no campo próprio da OP de retrabalho (D66)", () => {
     const plan = planSaves(
       { "11": entry({ rows: [{ op: "4510002", qty: "300", rework: true, reason: " Rebarba na peça " }, { op: "4510001", qty: "50", rework: false, reason: "ignorado" }] }) },
       {},
@@ -48,7 +48,7 @@ describe("planSaves", () => {
       ctx,
     );
     expect(plan[0].payload.ordensProducao).toEqual([
-      { ordemId: "4510002", quantidade: 300, retrabalho: true, obs: "Rebarba na peça" },
+      { ordemId: "4510002", quantidade: 300, retrabalho: true, motivoRetrabalho: "Rebarba na peça" },
       { ordemId: "4510001", quantidade: 50 },
     ]);
   });

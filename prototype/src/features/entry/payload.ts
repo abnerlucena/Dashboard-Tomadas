@@ -85,11 +85,11 @@ export function planSaves(
     const ex = existing[m.id];
     const orders = entry.rows
       .filter((r) => qtyOf(r) > 0)
-      // Motivo do retrabalho vai na observação da OP (o contrato ainda não tem campo próprio; ver a nota de 08/10/2026)
+      // Motivo do retrabalho no campo próprio da OP (D66)
       .map((r) => ({
         ordemId: r.op.trim(),
         quantidade: qtyOf(r),
-        ...(r.rework ? { retrabalho: true, ...(r.reason?.trim() ? { obs: r.reason.trim() } : {}) } : {}),
+        ...(r.rework ? { retrabalho: true, ...(r.reason?.trim() ? { motivoRetrabalho: r.reason.trim() } : {}) } : {}),
       }));
     const note = entry.note.trim();
     const people = operatorCountFor(entry.people);

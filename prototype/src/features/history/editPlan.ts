@@ -24,6 +24,8 @@ export interface DraftRow {
   rework: boolean;
   /** observação da OP: não é editada aqui, mas volta igual para o banco */
   note: string;
+  /** motivo do retrabalho (D66): também não é editado aqui e volta igual; sem retrabalho, o banco descarta */
+  reason: string;
 }
 
 export interface EditDraft {
@@ -46,7 +48,7 @@ export interface EditOriginal {
 }
 
 let seq = 0;
-export const newDraftRow = (r: Partial<DraftRow> = {}): DraftRow => ({ key: `r${++seq}`, op: "", qty: "", rework: false, note: "", ...r });
+export const newDraftRow = (r: Partial<DraftRow> = {}): DraftRow => ({ key: `r${++seq}`, op: "", qty: "", rework: false, note: "", reason: "", ...r });
 
 /** O apontamento de uma linha da tabela (só com dados do banco: precisa de `record`) */
 export function originalOf(order: ProductionOrder): EditOriginal | null {
@@ -65,7 +67,7 @@ export function originalOf(order: ProductionOrder): EditOriginal | null {
 export function draftOf(o: EditOriginal): EditDraft {
   return {
     rows: o.orders.length
-      ? o.orders.map((x) => newDraftRow({ op: x.op, qty: String(x.quantity), rework: x.rework, note: x.note }))
+      ? o.orders.map((x) => newDraftRow({ op: x.op, qty: String(x.quantity), rework: x.rework, note: x.note, reason: x.reason ?? "" }))
       : [newDraftRow()],
     date: o.date,
     shift: o.shift,
@@ -110,20 +112,21 @@ export function validateDraft(d: EditDraft, original: EditOriginal, today: strin
 
 const sameOrders = (a: RecordOrder[], b: RecordOrder[]) =>
   a.length === b.length &&
-  a.every((x, i) => x.op === b[i].op && x.quantity === b[i].quantity && x.rework === b[i].rework && x.note === b[i].note);
+  a.every((x, i) => x.op === b[i].op && x.quantity === b[i].quantity && x.rework === b[i].rework && x.note === b[i].note && (x.reason ?? "") === (b[i].reason ?? ""));
 
 /** Só o que mudou; null = nada a salvar */
 export function changesOf(d: EditDraft, o: EditOriginal): UpdateEntryChanges | null {
   const c: UpdateEntryChanges = {};
   const orders: RecordOrder[] = d.rows
     .filter((r) => !isBlank(r))
-    .map((r) => ({ op: r.op.trim(), quantity: Number(r.qty), rework: r.rework, note: r.note }));
+    .map((r) => ({ op: r.op.trim(), quantity: Number(r.qty), rework: r.rework, note: r.note, reason: r.reason }));
   if (!sameOrders(orders, o.orders))
     c.ordensProducao = orders.map((x) => ({
       ordemId: x.op,
       quantidade: x.quantity,
       retrabalho: x.rework,
       ...(x.note ? { obs: x.note } : {}),
+      ...(x.rework && x.reason ? { motivoRetrabalho: x.reason } : {}),
     }));
   if (d.date !== o.date) c.date = d.date;
   if (d.shift !== o.shift) c.turno = `TURNO ${d.shift}`;

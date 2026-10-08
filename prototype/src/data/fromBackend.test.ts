@@ -90,10 +90,33 @@ describe("buildBackendData", () => {
     // A observação do apontamento vai na primeira linha sem observação
     expect(m.orders[0].note?.text).toBe("Troca de molde");
     expect(m.orders[1].note?.text).toBe("Rebarba");
-    // a observação da OP de retrabalho é o motivo (gráfico "Motivos de retrabalho")
+    // sem o campo próprio (OP gravada antes da D66), a observação da OP de retrabalho serve de motivo
     expect(m.orders[1].reworkReason).toBe("Rebarba");
     expect(m.orders[0].reworkReason).toBeNull();
     expect(m.orders[0].recordedAt).toEqual(new Date(2026, 8, 15, 14, 5, 0));
+  });
+
+  it("o motivo do retrabalho vem do campo próprio (D66), não da observação", () => {
+    const d = buildBackendData(
+      input([
+        rec({
+          id: "r2",
+          producao: 6000,
+          goodQuantity: 6000,
+          reworkQuantity: 300,
+          ordensProducao: [
+            { ordemId: "4510001", quantidade: 6000 },
+            { ordemId: "4510002", quantidade: 300, retrabalho: true, obs: "lote 12", motivoRetrabalho: "Cor fora do padrão" },
+          ],
+        }),
+      ]),
+    );
+    const m = d.machines.find((x) => x.id === "1")!;
+    const rework = m.orders.find((o) => o.rework)!;
+    expect(rework.reworkReason).toBe("Cor fora do padrão");
+    expect(rework.note?.text).toBe("lote 12");
+    // e volta igual quando o apontamento é corrigido no Histórico
+    expect(rework.record?.orders?.[1].reason).toBe("Cor fora do padrão");
   });
 
   it("guarda a meta só dos turnos que contam para meta", () => {

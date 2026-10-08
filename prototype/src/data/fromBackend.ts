@@ -29,7 +29,8 @@ import {
  *   `metaDoTurno` (src/lib/metas.ts) com a lotação padrão.
  *
  * O que ainda não existe no banco fica vazio e as telas mostram "–": material
- * da OP, motivo de retrabalho, minutos por OP (lacunas 1, 2 e 4).
+ * da OP e minutos por OP (lacunas 1 e 4). O motivo do retrabalho tem campo
+ * próprio desde a D66 (lacuna 2 fechada).
  */
 
 export type ReadSource = Pick<DataSource, "production" | "machines" | "targets" | "calendar" | "workOrders">;
@@ -192,10 +193,11 @@ export function buildBackendData(input: BackendInput): BackendData {
             quantity: Math.round(Number(o.quantidade) || 0),
             rework: o.retrabalho === true,
             note: String(o.obs ?? "").trim(),
+            reason: String(o.motivoRetrabalho ?? "").trim(),
           })),
         }
       : undefined;
-    const push = (opId: string, quantity: number, rework: boolean, note: string | undefined) =>
+    const push = (opId: string, quantity: number, rework: boolean, note: string | undefined, reason?: string) =>
       orders.push({
         id: `${base}-${orders.length}`,
         opId,
@@ -207,8 +209,8 @@ export function buildBackendData(input: BackendInput): BackendData {
         quantity,
         minutes: 0,
         rework,
-        // Sem campo próprio no contrato (lacuna 2), o motivo vem na observação da OP de retrabalho
-        reworkReason: rework && note?.trim() ? note.trim() : null,
+        // Motivo no campo próprio (D66). Reserva: OPs gravadas antes dele levavam o motivo na observação
+        reworkReason: rework ? reason?.trim() || note?.trim() || null : null,
         operator,
         recordedAt,
         note: note ? { id: `n-${base}-${orders.length}`, text: note, author: operator } : null,
@@ -217,7 +219,7 @@ export function buildBackendData(input: BackendInput): BackendData {
 
     for (const o of rec.ordensProducao ?? []) {
       const qty = Math.round(Number(o.quantidade) || 0);
-      if (qty > 0) push(String(o.ordemId ?? "").trim(), qty, o.retrabalho === true, o.obs);
+      if (qty > 0) push(String(o.ordemId ?? "").trim(), qty, o.retrabalho === true, o.obs, o.motivoRetrabalho);
     }
     // O total do apontamento manda: o que as ordens não explicam entra sem OP
     const good = Math.round(rec.goodQuantity ?? rec.producao ?? 0);

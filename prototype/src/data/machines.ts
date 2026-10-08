@@ -143,6 +143,8 @@ export interface RecordOrder {
   quantity: number;
   rework: boolean;
   note: string;
+  /** motivo do retrabalho (D66); vazio quando não há. Volta igual ao corrigir no Histórico */
+  reason?: string;
 }
 
 export interface DayPoint {

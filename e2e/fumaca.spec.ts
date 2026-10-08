@@ -1,5 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
 
+/** Máquina já apontada no turno aparece recolhida: "Lançar mais" reabre os campos */
+const abrir = async (page: Page, maquina: string) => {
+  const mais = page.getByRole("button", { name: `Lançar mais em ${maquina}` });
+  const campo = page.getByLabel(`Nº da OP, linha 1, ${maquina}`);
+  await expect(mais.or(campo)).toBeVisible();
+  if (await mais.isVisible()) await mais.click();
+};
+
 const entrar = async (page: Page, email: string) => {
   await page.goto("/");
   await page.getByLabel(/e-mail/i).first().fill(email);
@@ -31,6 +39,7 @@ test("apontamento valida a OP e salva (demonstração)", async ({ page }) => {
   await entrar(page, "gestor@demo.weg");
   await page.goto("/#/apontamento");
   const maquina = "Máquina de tomadas Composé (Aumaq)";
+  await abrir(page, maquina);
   // O nº da OP começa vazio: quem aponta digita
   await expect(page.getByLabel(`Nº da OP, linha 1, ${maquina}`)).toHaveValue("");
   await page.getByLabel(`Quantidade, linha 1, ${maquina}`).fill("5000");
@@ -45,6 +54,7 @@ test("meta por pessoa exige o nº de operadores; OP aceita até 15 dígitos", as
   await entrar(page, "gestor@demo.weg");
   await page.goto("/#/apontamento");
   const granel = "Bancada de embalagem a granel";
+  await abrir(page, granel);
   await page.getByLabel(`Nº da OP, linha 1, ${granel}`).fill("1234567890123");
   await page.getByLabel(`Quantidade, linha 1, ${granel}`).fill("20000");
   await page.getByRole("button", { name: "Salvar apontamento" }).click();
@@ -115,6 +125,7 @@ test("retrabalho pede o motivo antes de salvar", async ({ page }) => {
   await entrar(page, "gestor@demo.weg");
   await page.goto("/#/apontamento");
   const maquina = "Máquina de tomadas Composé (Aumaq)";
+  await abrir(page, maquina);
   await page.getByLabel(`Nº da OP, linha 1, ${maquina}`).fill("4511111");
   await page.getByLabel(`Quantidade, linha 1, ${maquina}`).fill("300");
   await page.getByLabel(`Retrabalho, linha 1, ${maquina}`).check();
@@ -128,7 +139,8 @@ test("retrabalho pede o motivo antes de salvar", async ({ page }) => {
 test("descartar alterações pede confirmação", async ({ page }) => {
   await entrar(page, "gestor@demo.weg");
   await page.goto("/#/apontamento");
-  const campo = page.getByLabel("Quantidade, linha 1, Máquina de tomadas Composé (Aumaq)");
+  // máquina sem apontamento no turno: depois de descartar, o campo continua aberto e vazio
+  const campo = page.getByLabel("Quantidade, linha 1, Máquina de plugue Slin (Aumaq)");
   await campo.fill("123");
   await page.getByRole("button", { name: "Descartar alterações" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Continuar editando" }).click();
@@ -154,6 +166,7 @@ test("quantidade acima de 2× a meta pede conferência, sem impedir", async ({ p
   await entrar(page, "gestor@demo.weg");
   await page.goto("/#/apontamento");
   const maquina = "Máquina de interruptores Composé nº 1";
+  await abrir(page, maquina);
   await page.getByLabel(`Nº da OP, linha 1, ${maquina}`).fill("4511111");
   await page.getByLabel(`Quantidade, linha 1, ${maquina}`).fill("40000");
   await expect(page.getByText("Confere 40.000 peças?")).toBeVisible();
@@ -173,4 +186,19 @@ test("a busca do topo filtra as máquinas do apontamento", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 3, name: "Máquina de interruptores Composé nº 1" })).toHaveCount(0);
   await page.getByRole("button", { name: "Limpar busca" }).click();
   await expect(page.getByRole("heading", { level: 3, name: "Máquina de interruptores Composé nº 1" })).toBeVisible();
+});
+
+test("concluir grava só a máquina, recolhe e leva à próxima pendente", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await page.goto("/#/apontamento");
+  const maquina = "Máquina de plugue Slin (Aumaq)";
+  await page.getByLabel(`Nº da OP, linha 1, ${maquina}`).fill("4511111");
+  await page.getByLabel(`Quantidade, linha 1, ${maquina}`).fill("5000");
+  await page.getByRole("button", { name: `Concluir ${maquina}` }).click();
+  await expect(page.getByText(`${maquina}: gravada`)).toBeVisible();
+  // recolhida numa linha, com "Lançar mais"
+  await expect(page.getByRole("button", { name: `Lançar mais em ${maquina}` })).toBeVisible();
+  await expect(page.getByLabel(`Nº da OP, linha 1, ${maquina}`)).toHaveCount(0);
+  // o cursor vai para o Nº da OP da próxima máquina sem apontamento
+  await expect(page.locator(":focus")).toHaveAttribute("aria-label", /^Nº da OP, linha 1, /);
 });

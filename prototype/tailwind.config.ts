@@ -116,6 +116,7 @@ const sizeKeys = [
   "tooltip-max",
   "column-name",
   "column-name-compact",
+  "entry-status",
   "column-text",
   "field-search",
   "table-min",

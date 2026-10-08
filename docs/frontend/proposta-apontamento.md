@@ -97,7 +97,7 @@ sendo o lugar de corrigir apontamentos já gravados.
 | Etapa | O que entra | Depende do banco? |
 |---|---|---|
 | A | Aviso de quantidade acima de 2× a meta, com pergunta ao salvar. **Feito** (`d0c548b`, `44c9608`). A OP liberada pré-escolhida ficou de fora por decisão do usuário: o nº da OP começa vazio | Não |
-| B | Lista de status fixa ao lado + "Concluir" em cada máquina (grava por máquina, recolhe o cartão e leva à próxima pendente); todas as máquinas continuam na página | Não: o `saveEntries` aceita uma lista com uma máquina só. Como ele acrescenta (D30), reabrir uma máquina concluída mostra o que já foi gravado, como hoje |
+| B | Lista de status fixa ao lado + "Concluir" em cada máquina (grava por máquina, recolhe o cartão e leva à próxima pendente); todas as máquinas continuam na página. **Feito** em 08/10/2026: abaixo de 1440px a lista vira uma barra fixa com o progresso e a próxima pendente; máquina já apontada aparece recolhida, com "Lançar mais" e "Corrigir no Histórico"; "Salvar apontamento" (Ctrl+S) continua gravando todas de uma vez | Não: o `saveEntries` aceita uma lista com uma máquina só. Como ele acrescenta (D30), reabrir uma máquina concluída mostra o que já foi gravado, como hoje |
 | ~~C~~ | ~~"Suas máquinas"~~. **Retirada em 08/10/2026:** quem aponta é o distribuidor, responsável por todas as máquinas, então não há "máquinas de cada pessoa" | — |
 | D | "Não produziu" com motivo | **Sim**: precisa de um lugar para gravar máquina parada e o motivo. Proposta vai como recado ao banco quando a etapa for aprovada |
 

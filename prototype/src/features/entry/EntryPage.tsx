@@ -1,4 +1,4 @@
-import { ChevronDown, CircleAlert, History, MessageSquarePlus, Plus, RefreshCw, RotateCcw, Save, Search, Trash2 } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, CircleAlert, CircleCheck, History, MessageSquarePlus, Plus, RefreshCw, RotateCcw, Save, Search, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ProdRecord } from "../../../../src/lib/api";
 import { mensagemDeErro } from "../../../../src/lib/erros";
@@ -137,6 +137,11 @@ const TOO_HIGH = 2;
 // Nº da OP: só números, até 15 dígitos (D57). O banco recusa o resto, e uma OP ruim barra o apontamento inteiro
 const OP_PATTERN = /^\d{1,15}$/;
 const qtyOf = (r: OpRow) => (r.qty.trim() === "" ? 0 : Number(r.qty));
+/** Há algo digitado e ainda não gravado nesta máquina (OP, quantidade, observação ou nº de pessoas diferentes do gravado) */
+const hasInput = (e: MachineEntry, ex: Existing | undefined) =>
+  e.rows.some((r) => r.op.trim() || r.qty.trim()) ||
+  e.note.trim() !== (ex?.notes ?? "").trim() ||
+  e.people.trim() !== (ex?.operatorCount ? String(ex.operatorCount) : "");
 
 function rowErrors(r: OpRow) {
   const qty = r.qty.trim();
@@ -170,7 +175,6 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
   const setForm = (fn: (f: Form) => Form) => setLoaded((l) => ({ ...l, form: fn(l.form) }));
   const [targetsAttempt, setTargetsAttempt] = useState(0);
   const targets = useDayTargets(date, targetsAttempt);
-  const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [showErrors, setShowErrors] = useState(false);
@@ -179,7 +183,9 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
   // "Descartar alterações" apaga o que foi digitado: pede confirmação, como trocar a data ou o turno
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   // Quantidade acima de 2× a meta: pergunta uma vez antes de salvar, sem impedir
-  const [confirmHigh, setConfirmHigh] = useState<string[] | null>(null);
+  const [confirmHigh, setConfirmHigh] = useState<{ names: string[]; only?: string } | null>(null);
+  // Máquinas já apontadas neste turno ficam recolhidas numa linha; "Lançar mais" reabre
+  const [reopened, setReopened] = useState<Set<string>>(new Set());
   const bodyRef = useRef<HTMLDivElement>(null);
 
   type Context = { date: string; shift: Shift; overtime: boolean };
@@ -193,7 +199,7 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
     setShift(next.shift);
     setOvertime(next.overtime);
     setLoaded(loadForm(next.date, next.shift, next.overtime));
-    setDirty(false);
+    setReopened(new Set());
     setSavedAt(null);
     setShowErrors(false);
     setPending(null);
@@ -201,7 +207,6 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
 
   const update = (machineId: string, fn: (e: MachineEntry) => MachineEntry) => {
     setForm((f) => ({ ...f, [machineId]: { ...fn(f[machineId]), error: undefined } }));
-    setDirty(true);
     setSavedAt(null);
   };
 
@@ -213,14 +218,42 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
       ),
     [form, existing],
   );
-  const filled = Object.values(totals).filter((t) => t > 0).length;
-  const errorCount = Object.values(form)
-    .flatMap((e) => e.rows)
-    .reduce((n, r) => n + Object.keys(rowErrors(r)).length, 0);
+  // Alterações não gravadas: derivado do que está digitado, então concluir uma máquina não "limpa" as outras
+  const dirty = Object.entries(form).some(([id, e]) => hasInput(e, existing[id]));
 
-  const save = useCallback(async (checked = false) => {
+  // Ordem das máquinas na tela (por linha), para achar a próxima pendente
+  const listedIds = MACHINE_GROUPS.flatMap((g) => g.machineIds).filter((id) => {
+    const m = machineById(id);
+    return m && (!m.inactive || !!existing[id]);
+  });
+  const nextPendingAfter = (id: string | null, justSaved: string[] = []) => {
+    const i = id ? listedIds.indexOf(id) : -1;
+    return [...listedIds.slice(i + 1), ...listedIds.slice(0, i + 1)].find((x) => !existing[x] && !justSaved.includes(x)) ?? null;
+  };
+  /** Rola até a máquina e põe o cursor no primeiro campo dela (abre a linha recolhida, se for o caso) */
+  const focusMachine = (id: string | null) => {
+    if (!id) return;
+    const group = MACHINE_GROUPS.find((g) => g.machineIds.includes(id));
+    if (group) setCollapsed((c) => (c.has(group.id) ? new Set([...c].filter((x) => x !== group.id)) : c));
+    window.setTimeout(() => {
+      const el = document.getElementById(`maq-${id}`);
+      el?.scrollIntoView({ block: "start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      // cursor no Nº da OP (é o que se digita primeiro); na linha recolhida, no "Lançar mais"
+      el?.querySelector<HTMLElement>('input[aria-label^="Nº da OP"], button')?.focus({ preventScroll: true });
+    }, 0);
+  };
+
+  /**
+   * Grava o turno inteiro (botão do topo, Ctrl+S) ou só uma máquina ("Concluir",
+   * Enter na quantidade). Cada máquina é um apontamento (D10): gravar uma não
+   * mexe no que está digitado nas outras.
+   */
+  const save = useCallback(async (opts: { checked?: boolean; only?: string } = {}) => {
     if (saving) return;
     if (live && targets.status === "loading") return;
+    const scopeIds = opts.only ? [opts.only] : Object.keys(form);
+    const scope: Form = Object.fromEntries(scopeIds.map((id) => [id, form[id]]));
+    const errorCount = scopeIds.flatMap((id) => form[id].rows).reduce((n, r) => n + Object.keys(rowErrors(r)).length, 0);
     if (errorCount > 0) {
       setShowErrors(true);
       notify(
@@ -234,7 +267,7 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
     }
     const [y, mo, d] = date.split("-");
     const when = `${SHIFT_META[shift].label}${overtime ? " · hora extra" : ""} · ${d}/${mo}/${y}`;
-    const plan = planSaves(form, existing, MACHINES, { date, shift, overtime, savedBy: session?.nome ?? "" });
+    const plan = planSaves(scope, existing, MACHINES, { date, shift, overtime, savedBy: session?.nome ?? "" });
     // Meta por pessoa sem o nº de operadores: o banco recusaria no fim (D54); avisa antes, com o nome da máquina
     const missingPeople = plan
       .filter((p) => targets.status === "ready" && exigeOperadores(targets.byMachine[p.machineId]?.base) && !form[p.machineId].people.trim())
@@ -246,10 +279,16 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
       return;
     }
     if (!plan.length) {
-      notify("Nada para salvar", "Lance a quantidade de pelo menos uma OP, ou mude a observação ou o nº de operadores.", "error");
+      notify(
+        opts.only ? "Nada para concluir" : "Nada para salvar",
+        opts.only
+          ? "Lance a quantidade de pelo menos uma OP nesta máquina."
+          : "Lance a quantidade de pelo menos uma OP, ou mude a observação ou o nº de operadores.",
+        "error",
+      );
       return;
     }
-    if (!checked) {
+    if (!opts.checked) {
       const high = plan
         .map((p) => machineById(p.machineId))
         .filter((m) => {
@@ -257,19 +296,47 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
           return g.hasMeta && totals[m.id] > g.meta * TOO_HIGH;
         })
         .map((m) => m.name);
-      if (high.length) return setConfirmHigh(high);
+      if (high.length) return setConfirmHigh({ names: high, only: opts.only });
     }
     setConfirmHigh(null);
     setSaving(true);
+    const savedIds = plan.map((p) => p.machineId);
+    const done = (ok: string[]) => {
+      setReopened((r) => new Set([...r].filter((id) => !ok.includes(id))));
+      // Concluiu uma máquina: leva à próxima que ainda não foi apontada
+      if (opts.only && ok.includes(opts.only)) window.setTimeout(() => focusMachine(nextPendingAfter(opts.only!, ok)), 0);
+    };
 
-    // Demonstração: simula e mantém o que foi digitado
+    // Demonstração: simula o banco (o que foi gravado passa a "já apontado" e os campos da máquina esvaziam)
     if (!live || !client.reads) {
       window.setTimeout(() => {
+        setLoaded((l) => {
+          const nextForm = { ...l.form };
+          const nextExisting = { ...l.existing };
+          for (const id of savedIds) {
+            const e = l.form[id];
+            const rows = e.rows.filter((r) => qtyOf(r) > 0);
+            const prev = l.existing[id];
+            nextExisting[id] = {
+              id: prev?.id ?? "",
+              operatorCount: e.people.trim() ? Number(e.people) : (prev?.operatorCount ?? null),
+              notes: e.note.trim(),
+              good: (prev?.good ?? 0) + rows.reduce((s, r) => s + (r.rework ? 0 : qtyOf(r)), 0),
+              rework: (prev?.rework ?? 0) + rows.reduce((s, r) => s + (r.rework ? qtyOf(r) : 0), 0),
+              ops: [...new Set([...(prev?.ops ?? []), ...rows.map((r) => r.op.trim())])],
+            };
+            nextForm[id] = { ...e, rows: [newRow()], error: undefined };
+          }
+          return { form: nextForm, existing: nextExisting };
+        });
         setSaving(false);
-        setDirty(false);
         setShowErrors(false);
         setSavedAt(new Date());
-        notify("Apontamento salvo", `${plan.length} ${plan.length === 1 ? "máquina" : "máquinas"} · ${when}`);
+        notify(
+          opts.only ? `${machineById(opts.only).name}: gravada` : "Apontamento salvo",
+          opts.only ? when : `${plan.length} ${plan.length === 1 ? "máquina" : "máquinas"} · ${when}`,
+        );
+        done(savedIds);
       }, readToken("--ds-motion-duration-skeleton") / 2);
       return;
     }
@@ -293,6 +360,8 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
       refreshed = false;
     }
     const fresh = loadForm(date, shift, overtime);
+    // O que está digitado nas outras máquinas continua lá
+    for (const id of Object.keys(form)) if (!scopeIds.includes(id)) fresh.form[id] = form[id];
     for (const [id, message] of Object.entries(failed)) fresh.form[id] = { ...form[id], error: message };
     setLoaded(fresh);
     setSaving(false);
@@ -300,13 +369,18 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
     const ok = plan.length - Object.keys(failed).length;
     const failedCount = Object.keys(failed).length;
     setShowErrors(false);
-    setDirty(failedCount > 0);
     setSavedAt(ok > 0 && !failedCount ? new Date() : null);
-    if (!failedCount) notify("Apontamento salvo", `${ok} ${ok === 1 ? "máquina" : "máquinas"} · ${when}`);
+    done(savedIds.filter((id) => !failed[id]));
+    if (!failedCount)
+      notify(
+        opts.only ? `${machineById(opts.only).name}: gravada` : "Apontamento salvo",
+        opts.only ? when : `${ok} ${ok === 1 ? "máquina" : "máquinas"} · ${when}`,
+      );
     else if (ok) notify(`${ok} salvas, ${failedCount} com erro`, "As máquinas com erro continuam no formulário, com o motivo ao lado.", "error");
     else notify("Nada foi salvo", failed[plan[0].machineId], "error");
     if (!refreshed) notify("Salvo, mas a tela não atualizou", "Recarregue a página para ver os números novos.", "error");
-  }, [saving, live, targets, errorCount, notify, date, shift, overtime, form, existing, session, client, totals]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- focusMachine/nextPendingAfter só leem a ordem das máquinas e o DOM
+  }, [saving, live, targets, notify, date, shift, overtime, form, existing, session, client, totals]);
 
   // Ctrl+S salva
   useEffect(() => {
@@ -329,11 +403,13 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
   const q = search.trim().toLowerCase();
   // Máquina desativada no cadastro só aparece se já tem apontamento neste dia e turno (para mostrar o gravado)
   const listed = (m: Machine) => !m.inactive || !!existing[m.id];
-  const listedCount = MACHINES.filter(listed).length;
   const groups = MACHINE_GROUPS.map((g) => ({
     ...g,
     machines: g.machineIds.map(machineById).filter((m) => listed(m) && (!q || m.name.toLowerCase().includes(q))),
   })).filter((g) => g.machines.length > 0);
+
+  const apontadas = listedIds.filter((id) => existing[id]).length;
+  const nextId = nextPendingAfter(null);
 
   const status = savedAt ? (
     <Lozenge appearance="success">
@@ -379,8 +455,8 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
             referência.
           </ErrorMessage>
         )}
-        {/* ---------- Contexto: de qual turno é o apontamento, e quanto já foi preenchido ----------
-            A busca de máquinas é a do topo do Dash (uma busca só no app). */}
+        {/* ---------- Contexto: de qual turno é o apontamento ----------
+            A busca de máquinas é a do topo do Dash (uma busca só no app); o progresso fica na lista de situação. */}
         <div className="flex flex-wrap items-end gap-x-300 gap-y-200 rounded-large bg-surface-sunken p-200">
           <DateField
             label="Data"
@@ -420,29 +496,19 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
               ]}
             />
           </div>
-          {/* Progresso do turno, à direita e separado dos campos */}
-          <div className="flex min-w-column-name flex-1 flex-col gap-075 m:ml-auto m:border-l m:pl-300" aria-live="polite">
-            <span className="flex items-baseline justify-between gap-100 font-body-small text-subtle">
-              <span className="font-semibold">Máquinas com produção</span>
-              <span>
-                <span className="font-semibold tabular-nums text-default">{filled}</span> de {listedCount}
-              </span>
-            </span>
-            <span
-              role="progressbar"
-              aria-label="Máquinas com produção"
-              aria-valuenow={filled}
-              aria-valuemin={0}
-              aria-valuemax={listedCount}
-              className="flex h-075 overflow-hidden rounded-full bg-neutral"
-            >
-              <span className="h-full rounded-full bg-brand-bold" style={{ width: `${(filled / Math.max(listedCount, 1)) * 100}%` }} />
-            </span>
-          </div>
         </div>
 
-        {/* ---------- Máquinas por linha ---------- */}
-        <div ref={bodyRef} className="flex flex-col gap-300">
+        {/* ---------- Máquinas por linha, com a situação de cada uma ao lado ---------- */}
+        <div className="flex items-start gap-300">
+        <div ref={bodyRef} className="flex min-w-0 flex-1 flex-col gap-300">
+          {/* Abaixo de 1440px a lista de situação vira uma barra fixa com o progresso e a próxima pendente */}
+          <EntryProgressBar
+            done={apontadas}
+            total={listedIds.length}
+            next={nextId ? machineById(nextId).name : null}
+            onNext={() => focusMachine(nextId)}
+            className="l:hidden"
+          />
           {q && groups.length > 0 && (
             <p className="flex flex-wrap items-center gap-100 font-body-small text-subtle" aria-live="polite">
               <Search aria-hidden className="size-icon-small text-icon-subtle" />
@@ -464,7 +530,7 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
           )}
           {groups.map((g) => {
             const isCollapsed = collapsed.has(g.id);
-            const groupFilled = g.machines.filter((m) => totals[m.id] > 0).length;
+            const groupDone = g.machines.filter((m) => existing[m.id]).length;
             return (
               <section key={g.id} aria-labelledby={`grp-${g.id}`}>
                 <h2>
@@ -489,7 +555,7 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
                     />
                     <span className="font-heading-small text-default">{g.label}</span>
                     <span className="font-body-small tabular-nums text-subtlest">
-                      {groupFilled} de {g.machines.length} preenchidas
+                      {groupDone} de {g.machines.length} apontadas
                     </span>
                   </button>
                 </h2>
@@ -506,6 +572,15 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
                         total={totals[m.id]}
                         showErrors={showErrors}
                         onChange={(fn) => update(m.id, fn)}
+                        collapsed={!!existing[m.id] && !reopened.has(m.id) && !hasInput(form[m.id], existing[m.id])}
+                        isNext={nextId === m.id}
+                        saving={saving}
+                        onReopen={() => {
+                          setReopened((r) => new Set(r).add(m.id));
+                          focusMachine(m.id);
+                        }}
+                        onClose={() => setReopened((r) => new Set([...r].filter((x) => x !== m.id)))}
+                        onConclude={() => void save({ only: m.id })}
                       />
                     ))}
                   </ul>
@@ -513,6 +588,15 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
               </section>
             );
           })}
+        </div>
+        <EntryStatusList
+          groups={MACHINE_GROUPS.map((g) => ({ id: g.id, label: g.label, ids: g.machineIds.filter((id) => listedIds.includes(id)) }))}
+          state={(id) => (existing[id] ? "done" : hasInput(form[id], existing[id]) ? "typing" : "pending")}
+          nextId={nextId}
+          done={apontadas}
+          total={listedIds.length}
+          onGo={focusMachine}
+        />
         </div>
       </PageBody>
 
@@ -538,10 +622,10 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
         open={confirmHigh != null}
         onOpenChange={(o) => !o && setConfirmHigh(null)}
         title="Conferir as quantidades?"
-        primary={{ label: "Salvar assim", isLoading: saving, onClick: () => void save(true) }}
+        primary={{ label: "Salvar assim", isLoading: saving, onClick: () => void save({ checked: true, only: confirmHigh?.only }) }}
         cancelLabel="Corrigir"
       >
-        {confirmHigh?.length === 1 ? "Esta máquina passou" : "Estas máquinas passaram"} de {TOO_HIGH}× a meta do turno: {confirmHigh?.join(", ")}.
+        {confirmHigh?.names.length === 1 ? "Esta máquina passou" : "Estas máquinas passaram"} de {TOO_HIGH}× a meta do turno: {confirmHigh?.names.join(", ")}.
         Se foi um zero a mais, corrija antes de salvar.
       </Modal>
 
@@ -569,6 +653,12 @@ function MachineEntryRow({
   total,
   showErrors,
   onChange,
+  collapsed,
+  isNext,
+  saving,
+  onReopen,
+  onClose,
+  onConclude,
 }: {
   machineId: string;
   entry: MachineEntry;
@@ -579,6 +669,16 @@ function MachineEntryRow({
   total: number;
   showErrors: boolean;
   onChange: (fn: (e: MachineEntry) => MachineEntry) => void;
+  /** já apontada neste turno e sem nada novo digitado: aparece numa linha só */
+  collapsed: boolean;
+  /** a próxima máquina sem apontamento, na ordem da tela */
+  isNext: boolean;
+  saving: boolean;
+  /** "Lançar mais": reabre a máquina apontada para acrescentar OPs */
+  onReopen: () => void;
+  onClose: () => void;
+  /** grava só esta máquina ("Concluir" ou Enter na quantidade) */
+  onConclude: () => void;
 }) {
   const m = machineById(machineId);
   const { ops, status: opsStatus } = useOps();
@@ -606,8 +706,40 @@ function MachineEntryRow({
   const setRow = (key: string, patch: Partial<OpRow>) =>
     onChange((e) => ({ ...e, rows: e.rows.map((r) => (r.key === key ? { ...r, ...patch } : r)) }));
 
+  // Máquina apontada: uma linha com o resumo, "Lançar mais" e "Corrigir no Histórico"
+  if (collapsed && existing)
+    return (
+      <li id={`maq-${m.id}`} className="flex scroll-mt-[10rem] m:scroll-mt-1000 flex-wrap items-center gap-x-200 gap-y-100 border-t px-200 py-150 first:border-t-0">
+        <CircleCheck aria-hidden className="size-icon-small shrink-0 text-icon-success" />
+        <h3 className="font-heading-xsmall text-default">{m.name}</h3>
+        <span className="min-w-0 flex-1 basis-column-name font-body-small text-subtle">
+          <span className="font-semibold tabular-nums text-default">{formatNumber(existing.good)}</span> peças
+          {existing.rework > 0 && <> + {formatNumber(existing.rework)} retrabalho</>}
+          {existing.ops.length > 0 && (
+            <>
+              {" "}
+              · <span className="font-code">{existing.ops.join(", ")}</span>
+            </>
+          )}
+          {hasMeta && <> · {percent}% da meta do turno</>}
+        </span>
+        <span className="ml-auto flex flex-wrap items-center gap-100">
+          <Button appearance="subtle" spacing="compact" iconBefore={Plus} onClick={onReopen} aria-label={`Lançar mais em ${m.name}`}>
+            Lançar mais
+          </Button>
+          <a
+            href={`#/historico/${encodeURIComponent(m.id)}`}
+            className="inline-flex items-center gap-025 font-body-small text-link hover:underline"
+          >
+            <History aria-hidden className="size-icon-small" />
+            Corrigir no Histórico
+          </a>
+        </span>
+      </li>
+    );
+
   return (
-    <li className="flex flex-col gap-200 border-t p-200 first:border-t-0 l:flex-row l:items-start">
+    <li id={`maq-${m.id}`} className="flex scroll-mt-[10rem] m:scroll-mt-1000 flex-col gap-200 border-t p-200 first:border-t-0 l:flex-row l:items-start">
       {/* Identificação e resultado */}
       <div className="flex min-w-0 flex-col gap-100 l:w-column-name l:shrink-0">
         <h3 className="font-heading-xsmall text-default">{m.name}</h3>
@@ -615,6 +747,7 @@ function MachineEntryRow({
         <div className="flex flex-wrap items-center gap-075">
           <TagGroup items={m.lines} accentFor={(l) => LINE_ACCENT[l] ?? "gray"} />
           {existing && <Lozenge appearance="information">Já apontado</Lozenge>}
+          {isNext && <Lozenge appearance="discovery">Próxima</Lozenge>}
         </div>
         {entry.error && <p className="font-body-small text-danger" role="alert">Não salvou: {entry.error}</p>}
         {/* Resultado do turno: barra e conta primeiro, como no Dashboard */}
@@ -738,6 +871,12 @@ function MachineEntryRow({
                 placeholder="0"
                 value={r.qty}
                 onChange={(e) => setRow(r.key, { qty: e.target.value.replace(/[^\d]/g, "") })}
+                // Enter na quantidade conclui a máquina e leva à próxima
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  onConclude();
+                }}
                 error={errors.qty}
                 elemAfter="un."
                 inputClassName="text-right tabular-nums"
@@ -809,6 +948,17 @@ function MachineEntryRow({
             onChange={(e) => onChange((x) => ({ ...x, note: e.target.value }))}
           />
         )}
+        {/* Concluir grava só esta máquina; as outras continuam como estão */}
+        <div className="flex flex-wrap items-center justify-end gap-100 border-t pt-150">
+          {existing && (
+            <Button appearance="subtle" iconBefore={ChevronUp} onClick={onClose} isDisabled={hasInput(entry, existing)}>
+              Recolher
+            </Button>
+          )}
+          <Button appearance="primary" iconBefore={Check} isLoading={saving} onClick={onConclude} aria-label={`Concluir ${m.name}`}>
+            Concluir
+          </Button>
+        </div>
       </div>
     </li>
   );
@@ -848,5 +998,121 @@ function ReworkReason({
         autoFocus
       />
     </div>
+  );
+}
+
+/* ---------- Situação do turno: progresso e a próxima pendente ---------- */
+function ProgressTrack({ done, total }: { done: number; total: number }) {
+  return (
+    <span
+      role="progressbar"
+      aria-label="Máquinas apontadas"
+      aria-valuenow={done}
+      aria-valuemin={0}
+      aria-valuemax={total}
+      className="flex h-075 overflow-hidden rounded-full bg-neutral"
+    >
+      <span className="h-full rounded-full bg-success-bold" style={{ width: `${(done / Math.max(total, 1)) * 100}%` }} />
+    </span>
+  );
+}
+
+/** Abaixo de 1440px: barra fixa no topo da lista */
+function EntryProgressBar({
+  done,
+  total,
+  next,
+  onNext,
+  className,
+}: {
+  done: number;
+  total: number;
+  next: string | null;
+  onNext: () => void;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "sticky top-topnav z-sticky flex flex-wrap items-center gap-x-200 gap-y-100 rounded-large border bg-surface-raised px-200 py-100 shadow-raised m:top-0",
+        className,
+      )}
+      aria-live="polite"
+    >
+      <span className="flex min-w-column-name flex-1 flex-col gap-050">
+        <span className="font-body-small text-subtle">
+          <span className="font-semibold tabular-nums text-default">{done}</span> de {total} apontadas
+        </span>
+        <ProgressTrack done={done} total={total} />
+      </span>
+      {next && (
+        <Button appearance="subtle" spacing="compact" onClick={onNext} className="max-w-full">
+          <span className="truncate">Próxima: {next}</span>
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/** A partir de 1440px: lista de situação fixa ao lado das máquinas */
+function EntryStatusList({
+  groups,
+  state,
+  nextId,
+  done,
+  total,
+  onGo,
+}: {
+  groups: Array<{ id: string; label: string; ids: string[] }>;
+  state: (id: string) => "done" | "typing" | "pending";
+  nextId: string | null;
+  done: number;
+  total: number;
+  onGo: (id: string) => void;
+}) {
+  const DOT = { done: "bg-icon-success border-transparent", typing: "bg-icon-warning border-transparent", pending: "border-input" } as const;
+  const LABEL = { done: "apontada", typing: "digitando, não gravada", pending: "pendente" } as const;
+  return (
+    <aside
+      aria-label="Situação das máquinas no turno"
+      className="hidden w-entry-status shrink-0 flex-col gap-200 rounded-large bg-surface-raised p-200 shadow-raised l:sticky l:top-300 l:flex"
+    >
+      <div className="flex flex-col gap-075" aria-live="polite">
+        <span className="font-body-small text-subtle">
+          <span className="font-semibold tabular-nums text-default">{done}</span> de {total} apontadas
+        </span>
+        <ProgressTrack done={done} total={total} />
+      </div>
+      {groups
+        .filter((g) => g.ids.length)
+        .map((g) => (
+          <div key={g.id} className="flex flex-col gap-050">
+            <span className="font-body-small font-semibold text-subtlest">{g.label}</span>
+            <ul className="flex flex-col">
+              {g.ids.map((id) => {
+                const st = state(id);
+                const name = machineById(id).name;
+                return (
+                  <li key={id}>
+                    <button
+                      type="button"
+                      onClick={() => onGo(id)}
+                      title={name}
+                      aria-label={`${name}: ${LABEL[st]}`}
+                      className={cn(
+                        "ds-pressable flex w-full items-center gap-100 rounded-medium px-075 py-050 text-left font-body-small",
+                        id === nextId ? "bg-selected font-semibold text-selected" : st === "done" ? "text-subtle hover:bg-neutral-subtle-hovered" : "text-default hover:bg-neutral-subtle-hovered",
+                      )}
+                    >
+                      <span aria-hidden className={cn("size-dot shrink-0 rounded-full border-thick", DOT[st])} />
+                      <span className="min-w-0 truncate">{name}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+    </aside>
   );
 }

@@ -180,6 +180,7 @@
   --dash-size-tooltip-max: 15rem; /* 240px */
   --dash-size-column-name: 12.5rem; /* 200px */
   --dash-size-column-name-compact: 11.5rem; /* 184px: nome que quebra em duas linhas na tabela principal do Dashboard */
+  --dash-size-entry-status: 16rem; /* 256px: lista de situação das máquinas no Apontamento */
   --dash-size-column-text: 10rem; /* 160px: texto secundário truncado em tabelas (material, observação) */
   --dash-size-field-search: 17.5rem; /* 280px: busca dentro de uma tela (OPs) */
   --dash-size-table-min: 40rem; /* 640px: largura mínima de tabela que rola de lado no celular */

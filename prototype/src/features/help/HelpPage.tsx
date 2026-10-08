@@ -21,7 +21,7 @@ const SHORTCUTS: Array<[string[], string]> = [
 const FAQ: Array<{ q: string; a: string }> = [
   {
     q: "Como faço um apontamento?",
-    a: "Abra Apontamento, escolha a data e o turno e preencha, para cada máquina, o número da OP (só números) e a quantidade. Uma máquina pode ter várias OPs. Salve com o botão ou Ctrl+S.",
+    a: "Abra Apontamento, escolha a data e o turno e preencha, para cada máquina, o número da OP (só números) e a quantidade. Uma máquina pode ter várias OPs. Clique em Concluir (ou tecle Enter na quantidade) para gravar a máquina e ir para a próxima; a lista ao lado mostra o que falta. Salvar apontamento (Ctrl+S) grava todas de uma vez.",
   },
   {
     q: "Posso corrigir um apontamento já salvo?",

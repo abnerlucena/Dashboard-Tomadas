@@ -41,6 +41,12 @@ decisão à parte. T19 apareceu durante as correções.)
 temáticos neste branch (`claude/practical-mccarthy-6t2ho8`); as 12 decisões de produto esperam aprovação (lista no
 fim). Nenhum item foi adiado ou recusado.
 
+**Atualização em 08/10/2026:** o usuário decidiu 10 das 12. Nove foram feitas em
+três commits (`42b5598`, `09f765e`, `52d661c`); T12 fica como está (as telas de
+Perfil e Preferências virão). Continuam abertas **M6** e **Aj3**. A decisão do
+Rw2 trouxe um pedido novo: o Apontamento pergunta o **motivo do retrabalho**, e
+ele alimenta o gráfico "Motivos de retrabalho" (veja o fim do relatório).
+
 Testes novos (falham na `main`, passam aqui): `insights.test.ts` (Gráficos e
 TV), `ranking.test.ts`, `panelDays.test.ts` e `dayProgress.test.ts` — 13
 casos de Vitest — e o e2e "nenhuma tela rola de lado no celular" (na `main`,
@@ -87,7 +93,7 @@ negócio). **Status:** *Corrigido*, *Aguardando decisão*, *Adiado* ou *Recusado
 | T9 | Dashboard, OPs, Relatórios, Cadastro | **Contraste da etiqueta Granel (teal) 4,02:1** no tema claro (mínimo 4,5:1). | Médio | `tokens.css:370` (axe `color-contrast`) | Texto teal um tom mais escuro (`hsl(185 70% 28%)`, 5,0:1), como já é feito no verde-limão, amarelo e laranja. | Segura | Corrigido (`e2c8a8c`) |
 | T10 | Histórico | **Dias de fim de semana e futuros com 2,77:1** (cor de desabilitado em botão que funciona). | Baixo | `MonthCalendar.tsx:122` (axe) | `text-subtlest` no lugar de `text-disabled`. | Segura | Corrigido (`6baff33`) |
 | T11 | Dashboard (painel) | **Painel sem acesso pelo teclado à rolagem** e `<dl>` com filho inválido. | Baixo | `Panel.tsx:86`, `MachinePanel.tsx:48-55` (axe `scrollable-region-focusable`, `definition-list`) | Área de rolagem focável; a linha de status sai do `<dl>`. | Segura | Corrigido (`54ba87f` · `0b22c70`) |
-| T12 | Menu do usuário | **"Perfil" e "Preferências" não fazem nada.** | Alto | `App.tsx:645-646` | Tirar os dois itens (ou criar as telas). | Decisão | Aguardando decisão |
+| T12 | Menu do usuário | **"Perfil" e "Preferências" não fazem nada.** | Alto | `App.tsx:645-646` | Tirar os dois itens (ou criar as telas). | Decisão | Adiado: os dois itens ficam, as telas virão depois |
 | T13 | Barra superior | **Aviso de feedbacks com horário inventado** ("há 1 h"), também com o banco. | Médio | `App.tsx:536` | Tirar o horário falso desse aviso. | Segura | Corrigido (`7a99f1a`) |
 | T14 | Todas | **Notificação (flag) reinicia o tempo a cada renderização** da tela: com "Desfazer", o aviso pode ficar mais ou menos que os 5 s. | Baixo | `Feedback.tsx:82-85`, `App.tsx` (`onDismiss` novo a cada render) | Tempo preso ao aviso, não à renderização. | Segura | Corrigido (`7a99f1a`) |
 | T15 | Várias | **Plural errado:** "1 OPs", "1 dias sem apontamento", "12 máquinas" fixo. | Baixo | `ReworkPage.tsx:234`, `Sparkline.tsx:32`, `MetasPage.tsx:490`, `ReportsPage.tsx:545` | `plural()` em todos. | Segura | Corrigido (`1acb999 · 07ea509 · 5c98644`) |
@@ -102,11 +108,11 @@ negócio). **Status:** *Corrigido*, *Aguardando decisão*, *Adiado* ou *Recusado
 |---|---|---|---|---|---|---|---|
 | M1 | Painel da máquina | **Total do dia soma o retrabalho** e as linhas de retrabalho não têm marca. Composé nº 1 em 27/03: **10.480 un.** no painel, **5.918** na aba Detalhado. | Crítico | `MachinePanel.tsx:83` | Total do dia só com a produção boa (D11); linha de retrabalho com a etiqueta "Retrabalho". Teste. | Segura | Corrigido (`54ba87f` · `0b22c70`) |
 | M2 | Aba Gráficos | **Retrabalho contado como produção.** KPI "Ritmo médio": "3.947.900 peças" com a Produção em 3.798.315; "Produção por turno" (181.414 em 27/03) não bate com "Produção diária" (176.852); peças/min geral com retrabalho e por máquina sem. | Crítico | `insights.ts:27,35,88`; `antes/dashboard-graficos-1440-light.jpg` | Produção, turnos e ritmo só com a produção boa; o retrabalho continua no gráfico de qualidade. Teste. | Segura | Corrigido (`1acb999`) |
-| M3 | Visão geral | **A tabela não cabe em 1440px** com a navegação aberta: 1.157px de conteúdo para 1.054px. "Último apontamento" aparece cortado e o menu de ações (⋯) fica fora da tela. | Alto | `machineColumns.tsx`; `antes/dashboard-1440-light.jpg` | Duas opções, juntas cabem: **(a)** tirar a coluna de seleção (ver M4); **(b)** deixar o nome da máquina quebrar em duas linhas, como já fazem Histórico e Metas. | Decisão | Aguardando decisão |
-| M4 | Visão geral | **Seleção de linhas sem uso.** Marcar máquinas só mostra "N de 12 selecionadas"; Exportar ignora a seleção. | Médio | `MachinesPage.tsx:140,495-501` | Tirar a seleção, ou fazer o Exportar levar só as marcadas. | Decisão | Aguardando decisão |
-| M5 | Cabeçalho | **"Em produção" verde fixo** ao lado do título, até nos estados de erro e vazio. Não informa nada. | Médio | `MachinesPage.tsx:406-410`; `antes/dashboard-erro-1440-light.jpg` | Tirar a etiqueta (Linhas e Turnos continuam com o horário do turno). | Decisão | Aguardando decisão |
+| M3 | Visão geral | **A tabela não cabe em 1440px** com a navegação aberta: 1.157px de conteúdo para 1.054px. "Último apontamento" aparece cortado e o menu de ações (⋯) fica fora da tela. | Alto | `machineColumns.tsx`; `antes/dashboard-1440-light.jpg` | Duas opções, juntas cabem: **(a)** tirar a coluna de seleção (ver M4); **(b)** deixar o nome da máquina quebrar em duas linhas, como já fazem Histórico e Metas. | Decisão | Corrigido (`42b5598`) |
+| M4 | Visão geral | **Seleção de linhas sem uso.** Marcar máquinas só mostra "N de 12 selecionadas"; Exportar ignora a seleção. | Médio | `MachinesPage.tsx:140,495-501` | Tirar a seleção, ou fazer o Exportar levar só as marcadas. | Decisão | Corrigido (`42b5598`) |
+| M5 | Cabeçalho | **"Em produção" verde fixo** ao lado do título, até nos estados de erro e vazio. Não informa nada. | Médio | `MachinesPage.tsx:406-410`; `antes/dashboard-erro-1440-light.jpg` | Tirar a etiqueta (Linhas e Turnos continuam com o horário do turno). | Decisão | Corrigido (`42b5598`) |
 | M6 | Menu da linha e painel | **"Histórico da máquina" e "Histórico completo" não levam a lugar nenhum:** mostram "Ainda não existe uma tela só da máquina". | Alto | `MachinesPage.tsx:275`, `machineColumns.tsx:144`, `MachinePanel.tsx:56` | Levar ao Histórico (que hoje não filtra por máquina) ou tirar os dois botões até existir o filtro. | Decisão | Aguardando decisão |
-| M7 | Estado de erro | **"Ver status do sistema"** mostra um aviso inventado ("instável"). Só aparece na demonstração. | Baixo | `MachinesPage.tsx:330` | Tirar o botão. | Decisão | Aguardando decisão |
+| M7 | Estado de erro | **"Ver status do sistema"** mostra um aviso inventado ("instável"). Só aparece na demonstração. | Baixo | `MachinesPage.tsx:330` | Tirar o botão. | Decisão | Corrigido (`42b5598`) |
 | M8 | Rodapé da tabela | **"Média 76%"** é o atingimento geral (produção total ÷ meta total), não a média das máquinas (que daria outro número). | Médio | `machineColumns.tsx:85` | "Geral 76%". | Segura | Corrigido (`07ea509`) |
 | M9 | Coluna Atingimento | **"102%" sai da caixa** de 32px e desalinha a coluna quando passa de 99%. | Baixo | `machineColumns.tsx:77` (+9px), também `MetasPage.tsx:286` | Caixa do número com a largura de quatro algarismos. | Segura | Corrigido (`07ea509`) |
 | M10 | Gráficos (celular) | **Motivos de retrabalho:** rótulos partidos no meio da palavra ("Reba / rba / na / peça") e cortados. | Médio | `Charts.tsx:735-745`; `antes/dashboard-graficos-390-pareto.jpg` | Sem espaço para a palavra inteira, o rótulo termina em "…" (o nome completo fica no tooltip). | Segura | Corrigido (`5c98644`) |
@@ -118,9 +124,9 @@ negócio). **Status:** *Corrigido*, *Aguardando decisão*, *Adiado* ou *Recusado
 
 | # | Tela | Problema | Severidade | Evidência | Correção proposta | Tipo | Status |
 |---|---|---|---|---|---|---|---|
-| A1 | Lista de máquinas | **Ajuda do "Nº de operadores" repetida nas 22 máquinas** ("Só registra a presença: …"), mais "O que lançar abaixo soma a isso." em cada uma. Os cartões ficam altos e a tela, cansativa. | Médio | `EntryPage.tsx:527-535,563,624`; `antes/apontamento-1440-light.jpg` | Mostrar a ajuda só quando ela muda algo (meta por pessoa ou pela lotação) e explicar o resto uma vez no topo. | Decisão | Aguardando decisão |
+| A1 | Lista de máquinas | **Ajuda do "Nº de operadores" repetida nas 22 máquinas** ("Só registra a presença: …"), mais "O que lançar abaixo soma a isso." em cada uma. Os cartões ficam altos e a tela, cansativa. | Médio | `EntryPage.tsx:527-535,563,624`; `antes/apontamento-1440-light.jpg` | Mostrar a ajuda só quando ela muda algo (meta por pessoa ou pela lotação) e explicar o resto uma vez no topo. | Decisão | Corrigido (`09f765e`) |
 | A2 | Linha de OP | **"Remover OP da linha 1"** igual em todas as máquinas: o leitor de tela não diz de qual. | Baixo | `EntryPage.tsx:677` | Incluir o nome da máquina. | Segura | Corrigido (`7a99f1a`) |
-| A3 | Cabeçalho | **"Descartar alterações" apaga tudo sem confirmar.** | Médio | `EntryPage.tsx:316-323` | Pedir confirmação, como já acontece ao trocar data ou turno. | Decisão | Aguardando decisão |
+| A3 | Cabeçalho | **"Descartar alterações" apaga tudo sem confirmar.** | Médio | `EntryPage.tsx:316-323` | Pedir confirmação, como já acontece ao trocar data ou turno. | Decisão | Corrigido (`09f765e`) |
 
 ## OPs
 
@@ -142,7 +148,7 @@ negócio). **Status:** *Corrigido*, *Aguardando decisão*, *Adiado* ou *Recusado
 
 | # | Tela | Problema | Severidade | Evidência | Correção proposta | Tipo | Status |
 |---|---|---|---|---|---|---|---|
-| Me1 | Topo da aba | **Fórmula sempre visível** ("Meta por dia = meta do turno (pela base…) × …") ocupa o topo da tela para quem só consulta. | Baixo | `MetasPage.tsx:382-386` | Levar a fórmula para a Ajuda ou para o modo de edição. | Decisão | Aguardando decisão |
+| Me1 | Topo da aba | **Fórmula sempre visível** ("Meta por dia = meta do turno (pela base…) × …") ocupa o topo da tela para quem só consulta. | Baixo | `MetasPage.tsx:382-386` | Levar a fórmula para a Ajuda ou para o modo de edição. | Decisão | Corrigido (`42b5598`): fórmula retirada |
 
 (Os itens "(D31)", "102%" e o plural "12 máquinas" de Metas estão em T16, M9 e T15.)
 
@@ -156,7 +162,7 @@ completo, com confirmação e mensagens claras.
 | # | Tela | Problema | Severidade | Evidência | Correção proposta | Tipo | Status |
 |---|---|---|---|---|---|---|---|
 | F1 | Conversa | **Quebra de linha perdida:** a tela diz "Shift + Enter quebra a linha", mas o balão junta tudo numa linha; palavra longa (link) pode estourar o balão. | Médio | `FeedbacksPage.tsx:482-489` | Respeitar as quebras e partir palavras longas. | Segura | Corrigido (`7a99f1a`) |
-| F2 | Cabeçalho | **Descrição de três linhas + linha de permissão** antes da caixa de entrada. | Baixo | `FeedbacksPage.tsx:90-96`; `antes/feedbacks-conversa-1440-light.jpg` | Encurtar para uma linha ("Conversa de cada OP. Encerra quando a OP é concluída.") e tirar a linha de permissão. | Decisão | Aguardando decisão |
+| F2 | Cabeçalho | **Descrição de três linhas + linha de permissão** antes da caixa de entrada. | Baixo | `FeedbacksPage.tsx:90-96`; `antes/feedbacks-conversa-1440-light.jpg` | Encurtar para uma linha ("Conversa de cada OP. Encerra quando a OP é concluída.") e tirar a linha de permissão. | Decisão | Corrigido (`42b5598`) |
 
 ## Relatórios
 
@@ -185,7 +191,7 @@ completo, com confirmação e mensagens claras.
 | # | Tela | Problema | Severidade | Evidência | Correção proposta | Tipo | Status |
 |---|---|---|---|---|---|---|---|
 | Rw1 | Gráfico por máquina (celular) | **Sem barras:** em 390px a coluna do nome (200px) e a do valor (136px) ocupam tudo, e o trilho da barra fica com 0px. | Alto | `tailwind.config.ts:304`; `antes/retrabalho-390-light.jpg` | Coluna do nome limitada a 40% da largura. | Segura | Corrigido (`07ea509`) |
-| Rw2 | Período | **A tela não diz de que período são os números** e soma toda a janela de dados (com o banco, todos os meses). | Alto | `ReworkPage.tsx:34-40` | Agora: dizer o período na descrição. Depois (decisão): filtro de período como no Dashboard. | Segura + Decisão | Corrigido o período (`1acb999`); filtro aguarda decisão |
+| Rw2 | Período | **A tela não diz de que período são os números** e soma toda a janela de dados (com o banco, todos os meses). | Alto | `ReworkPage.tsx:34-40` | Agora: dizer o período na descrição. Depois (decisão): filtro de período como no Dashboard. | Segura + Decisão | Corrigido o período (`1acb999`) e o filtro (`52d661c`) |
 | Rw3 | Descrição | Diz "sobre a produção", mas a conta é sobre o total apontado (produção + retrabalho). | Médio | `ReworkPage.tsx:133` | Ajustar o texto à conta. | Segura | Corrigido (`1acb999`) |
 | Rw4 | Código | Limite de 10% em duas constantes. | Baixo | `ReworkPage.tsx:26`, `insights.ts:23` | Uma constante. | Segura | Corrigido (`1acb999`) |
 | Rw5 | Gráficos de barras | Nome truncado sem dica. | Baixo | `BarList.tsx:298` | `title` com o nome. | Segura | Corrigido (`5c98644`) |
@@ -207,7 +213,7 @@ cabem sem rolagem, contraste e tamanhos de TV bons.)
 | Aj2 | FAQ | **"Toda ação pode ser desfeita logo depois pela notificação"** — com o banco, excluir e mover não têm desfazer (o próprio diálogo diz "Não dá para desfazer"). | Médio | `HelpPage.tsx:30` | "Antes de excluir, a tela pede confirmação." | Segura | Corrigido (`7a99f1a`) |
 | Aj3 | FAQ e legenda | **"Dias sem apontamento contam como zero"** e "Meta do mês = meta por dia × 22 dias úteis" valem para a demonstração; com o banco, a meta é a soma das metas gravadas nos turnos apontados (D08). | Médio | `HelpPage.tsx:38` e o rodapé da legenda | Reescrever as duas respostas pela regra do banco. | Decisão | Aguardando decisão |
 | Aj4 | Atalhos | "← →: percorrer os dias num gráfico **ou no Modo TV**" — na TV as setas trocam o slide. | Baixo | `HelpPage.tsx:20` | "…num gráfico ou os slides do Modo TV". | Segura | Corrigido (`7a99f1a`) |
-| Aj5 | Suporte | **"Falar com o suporte" diz "Chamado aberto"** sem abrir nada (também com o banco). | Alto | `HelpPage.tsx:206` | Trocar por um contato real (e-mail ou ramal de TI) ou tirar o botão. | Decisão | Aguardando decisão |
+| Aj5 | Suporte | **"Falar com o suporte" diz "Chamado aberto"** sem abrir nada (também com o banco). | Alto | `HelpPage.tsx:206` | Trocar por um contato real (e-mail ou ramal de TI) ou tirar o botão. | Decisão | Corrigido (`42b5598`): botão retirado |
 
 ## Cadastro de máquinas, Usuários e tela de entrar
 
@@ -220,25 +226,39 @@ dois temas e no celular).
 
 ---
 
-## Decisões de produto pendentes
+## Decisões de produto
 
-1. **M3 + M4 — Tabela da Visão geral em 1440px.** Recomendo tirar a seleção de
-   linhas (não há ação em lote) e deixar o nome da máquina quebrar em duas
-   linhas. Assim a tabela cabe inteira com a navegação aberta.
-2. **M5 — Etiqueta "Em produção"** ao lado do título: recomendo tirar.
-3. **M6 — "Histórico da máquina" / "Histórico completo":** levar ao Histórico
-   (sem filtro por máquina, por enquanto) ou tirar até existir o filtro.
-   Recomendo tirar.
-4. **T12 — "Perfil" e "Preferências"** no menu do usuário: recomendo tirar.
-5. **Aj5 — "Falar com o suporte":** qual é o canal real? Sem ele, recomendo tirar
-   o botão e deixar o texto com o contato.
-6. **M7 — "Ver status do sistema"** no erro de demonstração: recomendo tirar.
-7. **A1 — Ajuda repetida no Apontamento:** recomendo mostrar só quando muda a
-   meta.
-8. **A3 — Confirmar "Descartar alterações":** recomendo confirmar.
-9. **Rw2 — Filtro de período na tela Retrabalho** (hoje só digo o período).
-10. **Aj3 — Texto da regra de meta na Ajuda** com o banco: confirmar a frase.
-11. **F2 e Me1 — Encurtar descrições** de Feedbacks e Metas.
+Decididas em 08/10/2026:
+
+| Item | Decisão | Status |
+|---|---|---|
+| M3 + M4 — tabela da Visão geral em 1440px | Tirar a seleção de linhas e deixar o nome quebrar em duas linhas | Feito (`42b5598`): a tabela cabe com a navegação aberta |
+| M5 — etiqueta "Em produção" | Tirar | Feito (`42b5598`) |
+| T12 — "Perfil" e "Preferências" | Manter: as telas virão | Adiado |
+| Aj5 — "Falar com o suporte" | Tirar o botão | Feito (`42b5598`) |
+| M7 — "Ver status do sistema" | Tirar | Feito (`42b5598`) |
+| A1 — ajuda repetida no Apontamento | Só onde o nº de pessoas muda a meta | Feito (`09f765e`) |
+| A3 — confirmar "Descartar alterações" | Confirmar | Feito (`09f765e`) |
+| Rw2 — filtro de período no Retrabalho | Colocar o seletor do Dashboard | Feito (`52d661c`) |
+| F2 e Me1 — descrições de Feedbacks e Metas | Encurtar; tirar a fórmula de Metas | Feito (`42b5598`) |
+| Novo — motivo do retrabalho | Perguntar o motivo ao marcar retrabalho e levar ao gráfico | Feito (`09f765e`), com recado ao banco |
+
+Ainda abertas:
+
+1. **M6 — "Histórico da máquina" / "Histórico completo":** ficam no menu ⋯ de
+   cada linha do Dashboard e no rodapé do painel que abre ao clicar numa
+   máquina. Recomendo tirar até o Histórico filtrar por máquina.
+2. **Aj3 — Texto da regra de meta na Ajuda** com o banco: confirmar a frase.
+
+### Motivo do retrabalho
+
+Ao marcar uma OP como retrabalho, o Apontamento mostra os motivos comuns
+(os mesmos do gráfico) e "Outro motivo", com campo livre. Sem motivo, a OP não
+salva. O contrato (`OrdemProducao`) não tem campo de motivo, então, até o banco
+criar um, o motivo vai no campo `obs` da própria OP de retrabalho e volta como
+motivo na leitura. OPs antigas sem motivo aparecem no gráfico como
+"Não informado". Recado ao banco:
+`docs/database/notas/2026-10-08-motivo-do-retrabalho.md`.
 
 ## O que não mexi, de propósito
 

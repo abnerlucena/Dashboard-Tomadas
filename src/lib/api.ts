@@ -66,6 +66,8 @@ export interface OrdemProducao {
   quantidade: number;
   obs?: string;
   retrabalho?: boolean;
+  /** Motivo do retrabalho, em texto livre (D66). Só vale com `retrabalho: true`. */
+  motivoRetrabalho?: string;
 }
 
 export interface ProdRecord {

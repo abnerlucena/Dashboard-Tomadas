@@ -74,6 +74,9 @@ as mesmas 4.000, ela entregou 4.000, e não 8.000.
 | **Atingimento da meta** | produção boa ÷ meta | **80%** |
 | Taxa de retrabalho | retrabalho ÷ carga | 50% |
 
+Quando uma ordem é de retrabalho, o apontamento guarda também o **motivo**, escrito em texto livre
+(por exemplo, "Rebarba na peça"). É esse motivo que alimenta o gráfico de retrabalho por causa.
+
 ## 5. Operadores: produção com contexto
 
 Cada máquina tem uma **lotação padrão** (ex: 2 operadores). No apontamento, o campo "Operadores"

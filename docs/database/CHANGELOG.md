@@ -17,6 +17,33 @@ Formato de cada entrada:
 
 ---
 
+## [0.29.0] — 08/10/2026 — Motivo do retrabalho: campo próprio na OP
+- Status: **Implementado** — aplicada no Supabase em 08/10/2026
+- Migration: `20261008100000_motivo_do_retrabalho.sql` (0039)
+- Decisões: D66 (nova), D11
+
+### Adicionado
+- **`production_orders.rework_reason`** (`text`, nulo): motivo do retrabalho, em
+  texto livre. `CHECK`: só com `is_rework` e nunca vazio.
+- `insert_production_orders` lê `rework_reason` de cada item de `p_orders`. O
+  motivo vale só para retrabalho; nas outras OPs é descartado, sem recusar o
+  apontamento. As funções de apontamento (`save_production_record`,
+  `update_production_record`) não mudam de assinatura.
+- Cópia de `notes` para o campo novo nas OPs de retrabalho criadas desde 08/10
+  (nenhuma existia).
+- Suíte `14_motivo_do_retrabalho.sql` (8 casos). Total: **216 casos**, todos passando.
+
+### Contrato
+- `OrdemProducao.motivoRetrabalho?: string` (`src/lib/api.ts`).
+- A camada de dados lê e grava o campo; `production_orders` já sai do select com ele.
+
+### Impacto no frontend
+- A interface troca `obs` por `motivoRetrabalho` em `payload.ts` e `fromBackend.ts`
+  (duas linhas), e lê os dois durante a transição. Nota:
+  `2026-10-08-resposta-do-banco-motivo-do-retrabalho.md`.
+
+---
+
 ## [0.28.0] — 05/10/2026 — A linha da máquina é obrigatória no banco; contrato sem resquícios
 - Status: **Implementado** — aplicada no Supabase em 05/10/2026
 - Migration: `20261005110000_linha_da_maquina_obrigatoria.sql` (0038)

@@ -9,11 +9,12 @@ O Apontamento passou a pedir o motivo quando a OP é marcada como retrabalho.
 Como o contrato não tem campo para isso, o motivo vai, por enquanto, na
 observação da própria OP (`OrdemProducao.obs` → `production_orders.notes`).
 
-## O que a interface faz (PR #41, commit `09f765e`)
+## O que a interface faz (PR #41, commits `09f765e` e `44c9608`)
 
-- Ao marcar "Retrabalho" numa OP, aparecem os motivos comuns ("Rebarba na peça",
-  "Cor fora do padrão", "Montagem invertida", "Falha no teste elétrico",
-  "Encaixe com folga") e "Outro motivo", com texto livre. Sem motivo, não salva.
+- Ao marcar "Retrabalho" numa OP, aparece um campo de texto para o motivo, com
+  os motivos comuns como sugestão ao digitar ("Rebarba na peça", "Cor fora do
+  padrão", "Montagem invertida", "Falha no teste elétrico", "Encaixe com
+  folga"). Sem motivo, não salva.
 - Ao salvar: `{ ordemId, quantidade, retrabalho: true, obs: "<motivo>" }`
   (`prototype/src/features/entry/payload.ts`). Nada muda no formato enviado.
 - Na leitura (`prototype/src/data/fromBackend.ts`), a observação de uma OP de
@@ -35,9 +36,9 @@ observação da própria OP (`OrdemProducao.obs` → `production_orders.notes`).
    preenchido só quando `is_rework = true` (check), e no contrato
    `OrdemProducao.motivoRetrabalho?: string`.
 2. **Lista fechada ou texto livre?** Uma tabela `rework_reasons` (cadastro que o
-   gestor mantém) dá relatório limpo; texto livre é mais simples. A interface
-   já aceita os dois: mostra a lista padrão e qualquer motivo novo que vier do
-   banco.
+   gestor mantém) dá relatório limpo; texto livre é mais simples. Hoje a
+   interface grava texto livre (com sugestões), por decisão do usuário; o
+   gráfico agrupa textos iguais e mostra qualquer motivo novo que vier do banco.
 3. **Migração dos dados que já estão em `notes`:** copiar `notes` para o campo
    novo nas OPs com `is_rework = true` gravadas a partir de 08/10/2026.
 

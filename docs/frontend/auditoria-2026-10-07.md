@@ -252,8 +252,9 @@ está em [proposta-apontamento.md](proposta-apontamento.md), com um
 
 ### Motivo do retrabalho
 
-Ao marcar uma OP como retrabalho, o Apontamento mostra os motivos comuns
-(os mesmos do gráfico) e "Outro motivo", com campo livre. Sem motivo, a OP não
+Ao marcar uma OP como retrabalho, o Apontamento mostra um campo de texto para
+o motivo, com os motivos comuns como sugestão ao digitar (`44c9608`, decisão do
+usuário: só o campo, sem botões de motivo). Sem motivo, a OP não
 salva. O contrato (`OrdemProducao`) não tem campo de motivo, então, até o banco
 criar um, o motivo vai no campo `obs` da própria OP de retrabalho e volta como
 motivo na leitura. OPs antigas sem motivo aparecem no gráfico como

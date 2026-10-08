@@ -63,7 +63,7 @@ Cada máquina vira **uma linha** com o status, em vez de um cartão aberto:
 Ao tocar, abre só aquela máquina (no celular, em tela cheia; no computador, ao
 lado da lista), com:
 
-- **OP liberada já escolhida.** Se houver mais de uma, as liberadas vêm no topo
+- **OP liberada já escolhida** (no protótipo; no app, por decisão de 08/10, o nº da OP começa vazio). Se houver mais de uma, as liberadas vêm no topo
   da lista. "Outra OP" continua possível.
 - **Quantidade** em campo grande, com a meta do turno embaixo ("meta 4.000").
 - **Retrabalho** como já está agora: ao marcar, a caixa pergunta o motivo
@@ -97,7 +97,7 @@ sendo o lugar de corrigir apontamentos já gravados.
 
 | Etapa | O que entra | Depende do banco? |
 |---|---|---|
-| A | OP liberada pré-escolhida, aviso de quantidade acima de 2× a meta | Não |
+| A | Aviso de quantidade acima de 2× a meta, com pergunta ao salvar. **Feito** (`d0c548b`, `44c9608`). A OP liberada pré-escolhida ficou de fora por decisão do usuário: o nº da OP começa vazio | Não |
 | B | Lista curta com status + uma máquina por vez + "Concluir máquina" (grava por máquina) | Não: o `saveEntries` aceita uma lista com uma máquina só. Como ele acrescenta (D30), reabrir uma máquina concluída mostra o que já foi gravado, como hoje |
 | C | "Suas máquinas" (lembrar as máquinas de cada pessoa) | Não no começo (fica no navegador); depois, de preferência no perfil do usuário |
 | D | "Não produziu" com motivo | **Sim**: precisa de um lugar para gravar máquina parada e o motivo. Proposta vai como recado ao banco quando a etapa for aprovada |

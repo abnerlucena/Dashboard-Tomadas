@@ -4,6 +4,10 @@ import {
   DATA_END,
   DATA_START,
   MACHINES,
+  MONTH_RANGE,
+  PERIOD_LABEL,
+  isMonthRange,
+  type DateRange,
   REWORK_REASONS,
   SHIFTS,
   SHIFT_META,
@@ -23,17 +27,21 @@ import { EmptyState } from "@/components/ui/Feedback";
 import { FilterPill } from "@/components/ui/FilterPill";
 import { Lozenge } from "@/components/ui/Lozenge";
 import { FilterX, SearchX } from "lucide-react";
+import { DateRangePicker } from "@/components/ui/DateRangePicker";
+import { rangeLabel } from "@/components/ui/dateRange";
 import { REWORK_LIMIT, reasonOf, reworkReasonsOf } from "@/features/machines/insights";
 
 /** Limite aceitável de retrabalho (referência nos gráficos): o mesmo da aba Gráficos */
 const LIMIT = REWORK_LIMIT;
 const pct = (part: number, total: number) => (total ? (part / total) * 100 : 0);
 
-/** Período coberto: a janela de dados inteira ("01/03/2026 a 27/03/2026") */
-const periodOf = () => `de ${DATA_START.toLocaleDateString("pt-BR")} a ${DATA_END.toLocaleDateString("pt-BR")}`;
+const endOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
 
 export function ReworkPage() {
-  const periodText = periodOf();
+  // Período como no Dashboard: padrão é o mês do último dado (antes somava a janela inteira, todos os meses)
+  const [range, setRange] = useState<DateRange>(MONTH_RANGE);
+  const period = isMonthRange(range) ? PERIOD_LABEL : rangeLabel(range);
+  const periodText = period.charAt(0).toUpperCase() + period.slice(1);
   const [machine, setMachine] = useState("all");
   const [shift, setShift] = useState("all");
   const [reason, setReason] = useState("all");
@@ -41,9 +49,13 @@ export function ReworkPage() {
   const inScope = useMemo(
     () =>
       ALL_ORDERS.filter(
-        (o) => (machine === "all" || o.machineId === machine) && (shift === "all" || String(o.shift) === shift),
+        (o) =>
+          o.date >= range.from &&
+          o.date < endOfDay(range.to) &&
+          (machine === "all" || o.machineId === machine) &&
+          (shift === "all" || String(o.shift) === shift),
       ),
-    [machine, shift],
+    [machine, shift, range],
   );
   const reworked = inScope.filter((o) => o.rework && (reason === "all" || reasonOf(o) === reason));
   const produced = inScope.reduce((s, o) => s + o.quantity, 0);
@@ -69,11 +81,12 @@ export function ReworkPage() {
 
   const worst = byMachine[0];
   const topReason = byReason[0];
-  const filtersActive = machine !== "all" || shift !== "all" || reason !== "all";
+  const filtersActive = machine !== "all" || shift !== "all" || reason !== "all" || !isMonthRange(range);
   const clear = () => {
     setMachine("all");
     setShift("all");
     setReason("all");
+    setRange(MONTH_RANGE);
   };
 
   const kpis: KpiItem[] = [
@@ -138,10 +151,19 @@ export function ReworkPage() {
     <>
       <PageHeader
         title="Retrabalho"
-        description={`OPs marcadas como retrabalho no apontamento, ${periodText}. A taxa é a quantidade retrabalhada sobre o total apontado.`}
+        description="OPs marcadas como retrabalho no apontamento. A taxa é a quantidade retrabalhada sobre o total apontado."
       />
       <PageBody>
         <div role="toolbar" aria-label="Filtros" className="flex flex-wrap items-center gap-100">
+          <DateRangePicker
+            label="Período"
+            value={range}
+            defaultValue={MONTH_RANGE}
+            onChange={setRange}
+            min={DATA_START}
+            max={MONTH_RANGE.to}
+            dataEnd={DATA_END}
+          />
           <FilterPill
             label="Máquina"
             value={machine}
@@ -176,7 +198,7 @@ export function ReworkPage() {
           <ChartCard
             className="flex-1 basis-chart-card-min"
             title="Taxa de retrabalho por máquina"
-            subtitle={`Linha tracejada: limite de ${LIMIT}%`}
+            subtitle={`${periodText} · linha tracejada: limite de ${LIMIT}%`}
             table={
               <MiniTable
                 caption="Taxa de retrabalho por máquina"
@@ -201,7 +223,7 @@ export function ReworkPage() {
           <ChartCard
             className="flex-1 basis-chart-card-min"
             title="Motivos de retrabalho"
-            subtitle="Quantidade retrabalhada por motivo, do maior para o menor"
+            subtitle={`${periodText} · quantidade retrabalhada, do maior para o menor`}
             table={
               <MiniTable
                 caption="Motivos de retrabalho"

@@ -704,8 +704,8 @@ function MachineEntryRow({
           // Ajuda só quando o número muda a meta; nos outros postos o campo fala por si
           helper={peopleRequired ? `Obrigatório. ${peopleHelp}` : turn.dependeDaLotacao && hasMeta ? peopleHelp : undefined}
           error={peopleRequired && showErrors && !entry.people.trim() && (total > 0 || !!existing) ? "Informe quantas pessoas trabalharam" : null}
-          // Metade da largura: o número tem 1 ou 2 dígitos; a ajuda embaixo continua na largura toda
-          inputClassName="max-w-[50%] text-right tabular-nums"
+          // Um quarto da largura: o número tem 1 ou 2 dígitos; a ajuda embaixo continua na largura toda
+          inputClassName="max-w-[25%] text-right tabular-nums"
           className="mt-050"
         />
       </div>

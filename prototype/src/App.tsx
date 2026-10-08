@@ -381,7 +381,7 @@ function Shell() {
           ) : route === "usuarios" ? (
             <UsersPage notify={notify} />
           ) : route === "ajuda" ? (
-            <HelpPage notify={notify} />
+            <HelpPage />
           ) : (
             <div className="px-200 pt-300 m:px-400">
               <h1 className="font-heading-large text-default">{current?.label ?? "Página não encontrada"}</h1>

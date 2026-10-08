@@ -137,7 +137,6 @@ export function MachinesPage({
   /** dias úteis do período que já aconteceram (base da taxa de apontamento) */
   const elapsedDays = useMemo(() => workingDatesIn(range).filter((d) => d <= DATA_END), [range]);
   const [sort, setSort] = useState<SortState | null>({ columnId: "produced", direction: "descending" });
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [activeId, setActiveId] = useState<string | null>(null);
   const [lastPanelMachine, setLastPanelMachine] = useState<Machine | null>(null);
   const [periodLoading, setPeriodLoading] = useState(false);
@@ -327,9 +326,6 @@ export function MachinesPage({
           <Button iconBefore={RefreshCw} onClick={() => onDemoStateChange("loading")}>
             Tentar novamente
           </Button>
-          <Button appearance="subtle" onClick={() => notify("Status do sistema", "Serviço de apontamentos: instável.")}>
-            Ver status do sistema
-          </Button>
         </>
       }
     >
@@ -402,13 +398,7 @@ export function MachinesPage({
         <PageHeader
           title={title}
           breadcrumbs={breadcrumbs}
-          lozenge={
-            titleAccessory ?? (
-              <Lozenge appearance="success" withDot>
-                Em produção
-              </Lozenge>
-            )
-          }
+          lozenge={titleAccessory}
           actions={
             <>
               <Button appearance="subtle" iconBefore={Download} isLoading={exporting} onClick={exportAll}>
@@ -485,21 +475,13 @@ export function MachinesPage({
             getRowId={(m) => m.id}
             getRowLabel={(m) => `${m.name}, ${m.percent}% da meta, ${STATUS_META[m.status].label}`}
             state={tableState}
-            selectedIds={selected}
-            onSelectionChange={setSelected}
+            // Sem ação em lote: sem coluna de seleção (a tabela cabe em 1440px com a navegação aberta)
+            selectable={false}
             activeRowId={activeId}
             onRowActivate={openPanel}
             sort={sort}
             onSortChange={setSort}
-            footerLead={
-              selected.size > 0 ? (
-                <span className="font-medium text-selected">
-                  {selected.size} de {rows.length} selecionadas
-                </span>
-              ) : (
-                plural(rows.length, "máquina", "máquinas")
-              )
-            }
+            footerLead={plural(rows.length, "máquina", "máquinas")}
             emptyState={emptyState}
             errorState={errorState}
           />

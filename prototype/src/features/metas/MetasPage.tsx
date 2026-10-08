@@ -379,11 +379,6 @@ function CurrentMetas({ notify, history, setHistory, proposal, onDismissProposal
           ) : (
             <Lozenge>Vigente desde {dateOnly.format(META_EFFECTIVE_FROM)}</Lozenge>
           )}
-          <span className="text-subtle">
-            Meta por dia = meta do turno (pela base, com a lotação padrão) × turnos da máquina. Meta do mês
-            {live ? " prevista" : ""} = meta por dia × dias úteis.
-            {live && " O atingimento soma a meta gravada em cada apontamento."}
-          </span>
         </span>
         <PageActions>
           {editing ? (

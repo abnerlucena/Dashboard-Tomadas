@@ -2,9 +2,7 @@ import * as Accordion from "@radix-ui/react-accordion";
 import { ChevronDown, ClipboardList, FileText, History, LifeBuoy, Search, SearchX, Target, type LucideIcon } from "lucide-react";
 import { useState } from "react";
 import { DATA_ORIGIN, PERIOD_LABEL, STATUS_META, WORKING_DAYS, type Status } from "@/data/machines";
-import { type Notify } from "@/lib/utils";
 import { PageBody, PageHeader } from "@/components/layout/PageHeader";
-import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/Feedback";
 import { Kbd } from "@/components/ui/Kbd";
 import { Lozenge } from "@/components/ui/Lozenge";
@@ -76,7 +74,7 @@ const LINKS: Array<{ href: string; title: string; text: string; icon: LucideIcon
 
 const normalize = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-export function HelpPage({ notify }: { notify: Notify }) {
+export function HelpPage() {
   const [query, setQuery] = useState("");
   const q = normalize(query.trim());
   const faq = FAQ.filter((f) => !q || normalize(f.q + " " + f.a).includes(q));
@@ -203,9 +201,6 @@ export function HelpPage({ notify }: { notify: Notify }) {
             </h2>
             <p className="mt-025 text-subtle">Fale com o suporte de TI da fábrica. Versão 0.5 · {DATA_ORIGIN === "backend" ? "dados do banco" : `dados de demonstração de ${PERIOD_LABEL}`}.</p>
           </div>
-          <Button onClick={() => notify("Chamado aberto", "O suporte vai responder pelo seu e-mail corporativo (simulado).")}>
-            Falar com o suporte
-          </Button>
         </section>
       </PageBody>
     </>

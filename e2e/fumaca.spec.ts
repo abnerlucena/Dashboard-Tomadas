@@ -31,10 +31,8 @@ test("apontamento valida a OP e salva (demonstração)", async ({ page }) => {
   await entrar(page, "gestor@demo.weg");
   await page.goto("/#/apontamento");
   const maquina = "Máquina de tomadas Composé (Aumaq)";
-  // A OP liberada da máquina já vem escolhida; apagada, a quantidade pede a OP
-  const op = page.getByLabel(`Nº da OP, linha 1, ${maquina}`);
-  await expect(op).not.toHaveValue("");
-  await op.fill("");
+  // O nº da OP começa vazio: quem aponta digita
+  await expect(page.getByLabel(`Nº da OP, linha 1, ${maquina}`)).toHaveValue("");
   await page.getByLabel(`Quantidade, linha 1, ${maquina}`).fill("5000");
   await page.getByRole("button", { name: "Salvar apontamento" }).click();
   await expect(page.getByText("Corrija os campos destacados")).toBeVisible();
@@ -121,8 +119,8 @@ test("retrabalho pede o motivo antes de salvar", async ({ page }) => {
   await page.getByLabel(`Quantidade, linha 1, ${maquina}`).fill("300");
   await page.getByLabel(`Retrabalho, linha 1, ${maquina}`).check();
   await page.getByRole("button", { name: "Salvar apontamento" }).click();
-  await expect(page.getByText("Escolha o motivo do retrabalho")).toBeVisible();
-  await page.getByRole("radiogroup", { name: `Motivo do retrabalho, linha 1, ${maquina}` }).getByRole("radio", { name: "Rebarba na peça" }).click();
+  await expect(page.getByText("Escreva o motivo do retrabalho")).toBeVisible();
+  await page.getByLabel(`Motivo do retrabalho, linha 1, ${maquina}`).fill("Rebarba na peça");
   await page.getByRole("button", { name: "Salvar apontamento" }).click();
   await expect(page.getByText("Apontamento salvo")).toBeVisible();
 });

@@ -49,12 +49,8 @@ interface OpRow {
   op: string;
   qty: string;
   rework: boolean;
-  /** motivo do retrabalho: um da lista ou o texto de "Outro motivo" */
+  /** motivo do retrabalho, escrito por quem aponta */
   reason: string;
-  /** "Outro motivo" escolhido: o motivo é digitado */
-  otherReason: boolean;
-  /** quem aponta já mexeu no nº da OP: a OP liberada não volta a ser sugerida */
-  opTouched?: boolean;
 }
 interface MachineEntry {
   /** ordens NOVAS deste lançamento: salvar acrescenta às já gravadas (D30) */
@@ -79,7 +75,7 @@ interface Existing extends ExistingRecord {
 }
 
 let rowSeq = 0;
-const newRow = (op = "", qty = "", rework = false): OpRow => ({ key: `r${rowSeq++}`, op, qty, rework, reason: "", otherReason: false });
+const newRow = (op = "", qty = "", rework = false): OpRow => ({ key: `r${rowSeq++}`, op, qty, rework, reason: "" });
 
 /**
  * Formulário vazio para a data/turno/regime, com o que já foi apontado ao lado.
@@ -149,7 +145,7 @@ function rowErrors(r: OpRow) {
   if (qtyOf(r) > 0 && !r.op.trim()) errors.op = "Informe o número da OP";
   else if (r.op.trim() && !OP_PATTERN.test(r.op.trim())) errors.op = "Use só números, até 15 dígitos";
   // Retrabalho sem motivo deixa o gráfico "Motivos de retrabalho" sem informação
-  if (r.rework && qtyOf(r) > 0 && !r.reason.trim()) errors.reason = r.otherReason ? "Descreva o motivo" : "Escolha o motivo do retrabalho";
+  if (r.rework && qtyOf(r) > 0 && !r.reason.trim()) errors.reason = "Escreva o motivo do retrabalho";
   return errors;
 }
 
@@ -200,13 +196,6 @@ export function EntryPage({ notify }: EntryPageProps) {
     setShowErrors(false);
     setPending(null);
   };
-
-  // Sugestão da OP liberada: preenche sem contar como alteração do usuário
-  const prefill = (machineId: string, rowKey: string, op: string) =>
-    setForm((f) => ({
-      ...f,
-      [machineId]: { ...f[machineId], rows: f[machineId].rows.map((r) => (r.key === rowKey && !r.op && !r.opTouched ? { ...r, op } : r)) },
-    }));
 
   const update = (machineId: string, fn: (e: MachineEntry) => MachineEntry) => {
     setForm((f) => ({ ...f, [machineId]: { ...fn(f[machineId]), error: undefined } }));
@@ -513,7 +502,6 @@ export function EntryPage({ notify }: EntryPageProps) {
                         total={totals[m.id]}
                         showErrors={showErrors}
                         onChange={(fn) => update(m.id, fn)}
-                        onPrefill={(key, op) => prefill(m.id, key, op)}
                       />
                     ))}
                   </ul>
@@ -577,7 +565,6 @@ function MachineEntryRow({
   total,
   showErrors,
   onChange,
-  onPrefill,
 }: {
   machineId: string;
   entry: MachineEntry;
@@ -588,8 +575,6 @@ function MachineEntryRow({
   total: number;
   showErrors: boolean;
   onChange: (fn: (e: MachineEntry) => MachineEntry) => void;
-  /** sugere a OP liberada na primeira linha, sem marcar o formulário como alterado */
-  onPrefill: (rowKey: string, op: string) => void;
 }) {
   const m = machineById(machineId);
   const { ops, status: opsStatus } = useOps();
@@ -598,12 +583,6 @@ function MachineEntryRow({
   const hintFor = (op: string) => (opsStatus === "ready" && op.length >= 4 ? opHint(op, m.id, ops, (id) => machineById(id)?.name ?? "outra máquina") : null);
   const listId = `ops-${m.id}`;
   const releasedNumbers = openOps.map((op) => op.id.replace("OP ", ""));
-  // Uma OP liberada só: ela já vem escolhida na primeira linha (quem aponta pode trocar)
-  const onlyOp = releasedNumbers.length === 1 ? releasedNumbers[0] : null;
-  const first = entry.rows[0];
-  useEffect(() => {
-    if (onlyOp && first && !first.op && !first.opTouched) onPrefill(first.key, onlyOp);
-  }, [onlyOp, first, onPrefill]);
   // Meta do turno NA DATA apontada
   const { base, crew, turn, hasMeta, meta } = shiftGoal(m, target, entry.people, overtime);
   const peopleHelp = !m.hasTarget
@@ -624,14 +603,15 @@ function MachineEntryRow({
     onChange((e) => ({ ...e, rows: e.rows.map((r) => (r.key === key ? { ...r, ...patch } : r)) }));
 
   return (
-    <li className="flex flex-col gap-200 border-t p-200 first:border-t-0 l:flex-row l:items-center">
+    <li className="flex flex-col gap-200 border-t p-200 first:border-t-0 l:flex-row l:items-start">
       {/* Identificação e resultado */}
       <div className="flex min-w-0 flex-col gap-100 l:w-column-name l:shrink-0">
-        <div className="flex flex-wrap items-center gap-100">
-          <h3 className="font-heading-xsmall text-default">{m.name}</h3>
+        <h3 className="font-heading-xsmall text-default">{m.name}</h3>
+        {/* Linha e situação numa fileira só, como na tabela do Dashboard */}
+        <div className="flex flex-wrap items-center gap-075">
+          <TagGroup items={m.lines} accentFor={(l) => LINE_ACCENT[l] ?? "gray"} />
           {existing && <Lozenge appearance="information">Já apontado</Lozenge>}
         </div>
-        <TagGroup items={m.lines} accentFor={(l) => LINE_ACCENT[l] ?? "gray"} />
         {existing && (
           <p className="font-body-small text-subtle">
             Gravado: <span className="font-semibold tabular-nums text-default">{formatNumber(existing.good)}</span> peças
@@ -643,7 +623,7 @@ function MachineEntryRow({
               </>
             )}
             .{" "}
-            <a href="#/historico" className="inline-flex items-center gap-025 text-link hover:underline">
+            <a href={`#/historico/${encodeURIComponent(m.id)}`} className="inline-flex items-center gap-025 text-link hover:underline">
               <History aria-hidden className="size-icon-small" />
               Corrigir no Histórico
             </a>
@@ -725,7 +705,7 @@ function MachineEntryRow({
                 placeholder="Ex.: 4501234"
                 list={listId}
                 value={r.op}
-                onChange={(e) => setRow(r.key, { op: e.target.value.replace(/\D/g, "").slice(0, 15), opTouched: true })}
+                onChange={(e) => setRow(r.key, { op: e.target.value.replace(/\D/g, "").slice(0, 15) })}
                 error={showErrors || (r.qty && !r.op) ? errors.op : null}
                 warning={errors.op ? null : hintFor(r.op)}
                 helper={releasedNumbers.includes(r.op) ? "OP liberada desta máquina" : undefined}
@@ -749,7 +729,7 @@ function MachineEntryRow({
                 <Checkbox
                   label={`Retrabalho, linha ${i + 1}, ${m.name}`}
                   checked={r.rework}
-                  onChange={(e) => setRow(r.key, { rework: e.target.checked, ...(e.target.checked ? {} : { reason: "", otherReason: false }) })}
+                  onChange={(e) => setRow(r.key, { rework: e.target.checked, ...(e.target.checked ? {} : { reason: "" }) })}
                 />
                 <span aria-hidden>Retrabalho</span>
               </label>
@@ -828,59 +808,27 @@ function ReworkReason({
   error?: string;
   onChange: (patch: Partial<OpRow>) => void;
 }) {
-  const chip = (selected: boolean) =>
-    cn(
-      "ds-pressable ds-hit-y relative inline-flex h-control-compact items-center rounded-full border px-150 font-body-small font-medium",
-      selected ? "border-selected bg-selected text-selected" : "bg-surface text-subtle hover:bg-neutral-subtle-hovered",
-    );
+  const listId = `motivos-${row.key}`;
   return (
-    <div className="flex basis-full flex-col gap-075 rounded-medium bg-warning p-150">
-      <span id={`motivo-${row.key}`} className="font-body-small font-semibold text-default">
-        Motivo do retrabalho <span className="font-normal text-subtle">· vai para o gráfico de motivos</span>
-      </span>
-      <div
-        role="radiogroup"
+    <div className="basis-full">
+      {/* Os motivos comuns aparecem como sugestão ao digitar, para o gráfico juntar os iguais */}
+      <datalist id={listId}>
+        {REWORK_REASONS.map((r) => (
+          <option key={r} value={r} />
+        ))}
+      </datalist>
+      <TextField
+        label="Motivo do retrabalho"
         aria-label={`Motivo do retrabalho, ${context}`}
-        aria-invalid={error ? true : undefined}
-        tabIndex={error ? -1 : undefined}
-        className="flex flex-wrap gap-075 outline-none"
-      >
-        {REWORK_REASONS.map((r) => {
-          const selected = !row.otherReason && row.reason === r;
-          return (
-            <button key={r} type="button" role="radio" aria-checked={selected} onClick={() => onChange({ reason: r, otherReason: false })} className={chip(selected)}>
-              {r}
-            </button>
-          );
-        })}
-        <button
-          type="button"
-          role="radio"
-          aria-checked={row.otherReason}
-          onClick={() => onChange({ otherReason: true, reason: "" })}
-          className={chip(row.otherReason)}
-        >
-          Outro motivo
-        </button>
-      </div>
-      {row.otherReason && (
-        <TextField
-          label={`Qual o motivo, ${context}`}
-          hideLabel
-          placeholder="Descreva em poucas palavras"
-          maxLength={80}
-          value={row.reason}
-          onChange={(e) => onChange({ reason: e.target.value })}
-          className="max-w-search-width"
-          autoFocus
-        />
-      )}
-      {error && (
-        <p className="flex items-center gap-050 font-body-small text-danger">
-          <CircleAlert aria-hidden className="size-icon-small shrink-0" />
-          {error}
-        </p>
-      )}
+        placeholder="Ex.: rebarba na peça"
+        maxLength={80}
+        list={listId}
+        value={row.reason}
+        onChange={(e) => onChange({ reason: e.target.value })}
+        error={error}
+        className="max-w-search-width"
+        autoFocus
+      />
     </div>
   );
 }

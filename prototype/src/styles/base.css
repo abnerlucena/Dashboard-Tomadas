@@ -47,6 +47,11 @@
   input[type="search"]::-webkit-search-cancel-button {
     appearance: none;
   }
+
+  /* Sem a seta preta nativa nos campos com sugestões (datalist): as sugestões aparecem ao digitar */
+  input[list]::-webkit-calendar-picker-indicator {
+    display: none !important;
+  }
 }
 
 @layer components {

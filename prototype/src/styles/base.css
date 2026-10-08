@@ -47,6 +47,11 @@
   input[type="search"]::-webkit-search-cancel-button {
     appearance: none;
   }
+
+  /* Sem a seta preta nativa nos campos com sugestões (datalist): as sugestões aparecem ao digitar */
+  input[list]::-webkit-calendar-picker-indicator {
+    display: none !important;
+  }
 }
 
 @layer components {
@@ -63,6 +68,38 @@
 }
 
 @layer utilities {
+  /*
+   * Faixa de KPIs com 2 ou 4 itens: todos numa linha quando cabem; senão, 2 por
+   * linha. Nunca 3 + 1 com o último esticado sozinho. A base vira 0 (uma linha)
+   * ou 50% (duas colunas) conforme a largura real, sem media query.
+   */
+  .kpi-balanced {
+    flex-basis: clamp(0px, calc((var(--dash-kpi-count) * var(--dash-size-kpi-min) - 100%) * 999), calc(50% - 1px));
+  }
+
+  /* Tela de toque: a área clicável chega a 44px sem mudar o desenho do controle */
+  @media (pointer: coarse) {
+    .ds-hit::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: max(100%, var(--dash-size-touch-target));
+      height: max(100%, var(--dash-size-touch-target));
+      transform: translate(-50%, -50%);
+    }
+    /* botão com texto: só cresce na altura (não invade o vizinho do lado) */
+    .ds-hit-y::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      height: max(100%, var(--dash-size-touch-target));
+      transform: translateY(-50%);
+    }
+  }
+
   /* Mostra shadow.overflow só de um lado (dica de conteúdo rolável) */
   .clip-shadow-bottom {
     clip-path: inset(0 0 var(--ds-space-negative-200) 0);

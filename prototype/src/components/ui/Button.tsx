@@ -56,7 +56,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       aria-pressed={isSelected}
       onClick={blocked ? (e) => e.preventDefault() : onClick}
       className={cn(
-        "ds-pressable relative inline-flex shrink-0 select-none items-center justify-center gap-075 whitespace-nowrap rounded-medium font-body font-medium",
+        "ds-pressable ds-hit-y relative inline-flex shrink-0 select-none items-center justify-center gap-075 whitespace-nowrap rounded-medium font-body font-medium",
         spacing === "compact" ? "h-control-compact px-100" : "h-control px-150",
         isDisabled ? DISABLED : isSelected ? SELECTED : APPEARANCE[appearance],
         isLoading && "cursor-progress",
@@ -117,7 +117,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       aria-label={label}
       aria-disabled={isDisabled || undefined}
       className={cn(
-        "ds-pressable relative inline-flex shrink-0 items-center justify-center rounded-medium",
+        "ds-pressable ds-hit relative inline-flex shrink-0 items-center justify-center rounded-medium",
         spacing === "compact" ? "size-control-compact" : "size-control",
         isDisabled
           ? "cursor-not-allowed text-icon-disabled"

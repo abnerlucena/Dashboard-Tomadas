@@ -2,9 +2,7 @@ import * as Accordion from "@radix-ui/react-accordion";
 import { ChevronDown, ClipboardList, FileText, History, LifeBuoy, Search, SearchX, Target, type LucideIcon } from "lucide-react";
 import { useState } from "react";
 import { DATA_ORIGIN, PERIOD_LABEL, STATUS_META, WORKING_DAYS, type Status } from "@/data/machines";
-import { type Notify } from "@/lib/utils";
 import { PageBody, PageHeader } from "@/components/layout/PageHeader";
-import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/Feedback";
 import { Kbd } from "@/components/ui/Kbd";
 import { Lozenge } from "@/components/ui/Lozenge";
@@ -17,17 +15,17 @@ const SHORTCUTS: Array<[string[], string]> = [
   [["Esc"], "Fechar painel, menu ou janela"],
   [["↑", "↓"], "Percorrer as linhas de uma tabela"],
   [["Enter"], "Abrir as ordens de produção da máquina"],
-  [["←", "→"], "Percorrer os dias num gráfico ou no Modo TV"],
+  [["←", "→"], "Percorrer os dias num gráfico ou os slides do Modo TV"],
 ];
 
 const FAQ: Array<{ q: string; a: string }> = [
   {
     q: "Como faço um apontamento?",
-    a: "Abra Apontamento, escolha a data e o turno e preencha, para cada máquina, o número da OP (7 dígitos) e a quantidade. Uma máquina pode ter várias OPs. Salve com o botão ou Ctrl+S.",
+    a: "Abra Apontamento, escolha a data e o turno e preencha, para cada máquina, o número da OP (só números) e a quantidade. Uma máquina pode ter várias OPs. Salve com o botão ou Ctrl+S.",
   },
   {
     q: "Posso corrigir um apontamento já salvo?",
-    a: "Sim. Em Histórico, escolha o dia no calendário e use o menu da linha para editar, mover para outra data ou excluir. Dá para agir em vários de uma vez selecionando as linhas. Toda ação pode ser desfeita logo depois pela notificação.",
+    a: "Sim. Em Histórico, filtre pela máquina se quiser, escolha o dia no calendário e use o menu da linha para editar, mover para outra data ou excluir. Dá para agir em vários de uma vez selecionando as linhas. Antes de excluir, a tela pede confirmação.",
   },
   {
     q: "O que significa cada cor de status?",
@@ -35,11 +33,15 @@ const FAQ: Array<{ q: string; a: string }> = [
   },
   {
     q: "Por que o atingimento do mês está baixo se os dias apontados vão bem?",
-    a: "O atingimento compara a produção com a meta do mês inteiro. Dias sem apontamento contam como zero. Veja a aba Detalhado da tela Máquinas: os traços (–) mostram os dias que ficaram sem registro.",
+    // Com o banco, a meta é a soma das metas gravadas nos turnos apontados (D08): dia sem apontamento não entra na conta
+    a:
+      DATA_ORIGIN === "backend"
+        ? "O atingimento compara a produção com a soma das metas dos turnos apontados. Um turno sem apontamento não entra na conta: não baixa o atingimento, mas também não soma produção. Se o número parece baixo, confira na aba Detalhado da tela Máquinas os dias com produção abaixo da meta."
+        : "O atingimento compara a produção com a meta do mês inteiro. Dias sem apontamento contam como zero. Veja a aba Detalhado da tela Máquinas: os traços (–) mostram os dias que ficaram sem registro.",
   },
   {
     q: "Como marco uma OP como retrabalho?",
-    a: "No apontamento, marque a caixa Retrabalho ao lado da OP. Os motivos e as taxas aparecem em Análises › Retrabalho.",
+    a: "No apontamento, marque a caixa Retrabalho ao lado da OP e escolha o motivo. Os motivos e as taxas aparecem em Análises › Retrabalho.",
   },
   {
     q: "Quem pode alterar as metas?",
@@ -76,7 +78,7 @@ const LINKS: Array<{ href: string; title: string; text: string; icon: LucideIcon
 
 const normalize = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-export function HelpPage({ notify }: { notify: Notify }) {
+export function HelpPage() {
   const [query, setQuery] = useState("");
   const q = normalize(query.trim());
   const faq = FAQ.filter((f) => !q || normalize(f.q + " " + f.a).includes(q));
@@ -203,9 +205,6 @@ export function HelpPage({ notify }: { notify: Notify }) {
             </h2>
             <p className="mt-025 text-subtle">Fale com o suporte de TI da fábrica. Versão 0.5 · {DATA_ORIGIN === "backend" ? "dados do banco" : `dados de demonstração de ${PERIOD_LABEL}`}.</p>
           </div>
-          <Button onClick={() => notify("Chamado aberto", "O suporte vai responder pelo seu e-mail corporativo (simulado).")}>
-            Falar com o suporte
-          </Button>
         </section>
       </PageBody>
     </>

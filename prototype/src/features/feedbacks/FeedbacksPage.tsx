@@ -87,12 +87,12 @@ export function FeedbacksPage({ opParam, notify }: { opParam?: string; notify: N
             <Lozenge>Tudo lido</Lozenge>
           )
         }
-        description="Conversas das OPs: observações que os operadores deixam no apontamento, respostas de preparadores, líderes e gestores, e cada mudança de etapa. A conversa se encerra quando a OP é concluída."
+        description="Uma conversa por OP, aberta pela observação do apontamento e encerrada quando a OP é concluída."
       />
       {/* Acesso: preparadores para cima. O operador participa pela observação do apontamento. */}
       <p className="flex items-center gap-075 px-200 pt-150 font-body-small text-subtle m:px-400">
         <Lock aria-hidden className="size-icon-small shrink-0" />
-        Visível para preparadores, líderes e gestores.
+        Só preparadores, líderes e gestores veem e respondem. O operador participa pela observação do apontamento.
       </p>
       <PageBody>
         {status === "error" && (
@@ -481,7 +481,8 @@ function Message({ msg, me }: { msg: OpMessage; me: string }) {
         </p>
         <p
           className={cn(
-            "rounded-large px-150 py-100 text-default",
+            // quebras de linha do Shift + Enter e palavras longas (links) dentro do balão
+            "whitespace-pre-line break-words rounded-large px-150 py-100 text-default",
             mine ? "rounded-tr-small bg-brand-subtlest" : "rounded-tl-small bg-neutral",
           )}
         >

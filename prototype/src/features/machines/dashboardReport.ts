@@ -232,7 +232,7 @@ export async function buildDashboardReport(x: DashboardExport): Promise<Blob> {
   if (x.demand.length)
     report.addTable<Machine>("Por demanda", {
       title: "Máquinas por demanda",
-      description: "Centros sem meta (D38): produzem conforme a necessidade e ficam fora do atingimento.",
+      description: "Centros sem meta: produzem conforme a necessidade e ficam fora do atingimento.",
       rows: [...x.demand].sort((a, b) => b.produced - a.produced),
       totals: true,
       tab: "FF8A94A3",

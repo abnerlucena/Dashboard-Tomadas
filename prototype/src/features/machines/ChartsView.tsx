@@ -189,7 +189,7 @@ export function ChartsView({
                 formatShortDate(p.date),
                 p.cumulative != null ? formatNumber(p.cumulative) : "—",
                 formatNumber(p.targetCumulative),
-                p.cumulative != null ? `${Math.round((p.cumulative / p.targetCumulative) * 100)}%` : "—",
+                p.cumulative != null && p.targetCumulative ? `${Math.round((p.cumulative / p.targetCumulative) * 100)}%` : "—",
               ])}
             />
           }
@@ -210,7 +210,7 @@ export function ChartsView({
               rows={elapsed.map((p) => [
                 formatShortDate(p.date),
                 formatNumber(p.value!),
-                `${Math.round((p.value! / p.dailyTarget) * 100)}%`,
+                p.dailyTarget ? `${Math.round((p.value! / p.dailyTarget) * 100)}%` : "—",
               ])}
             />
           }

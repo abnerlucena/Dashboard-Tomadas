@@ -50,7 +50,9 @@ export function BarList({ items, max, reference, barClass = "bg-chart-brand", la
       <ul className="flex flex-col">
         {items.map((item) => (
           <li key={item.id} className={cn("grid items-center py-075", grid)}>
-            <span className="truncate pr-100 text-default">{item.label}</span>
+            <span title={item.label} className="truncate pr-100 text-default">
+              {item.label}
+            </span>
             <span className="relative mr-150 flex h-250 items-center">
               {refLeft && (
                 <span aria-hidden className="absolute inset-y-0 border-l border-dashed border-chart-target" style={{ left: refLeft }} />

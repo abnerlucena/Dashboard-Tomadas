@@ -1,4 +1,4 @@
-import { ChevronDown, History, MessageSquarePlus, Plus, RefreshCw, RotateCcw, Save, Search, Trash2 } from "lucide-react";
+import { ChevronDown, CircleAlert, History, MessageSquarePlus, Plus, RefreshCw, RotateCcw, Save, Search, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ProdRecord } from "../../../../src/lib/api";
 import { mensagemDeErro } from "../../../../src/lib/erros";
@@ -10,6 +10,7 @@ import {
   LINE_ACCENT,
   MACHINE_GROUPS,
   MACHINES,
+  REWORK_REASONS,
   SHIFTS,
   SHIFT_META,
   STATUS_META,
@@ -48,6 +49,8 @@ interface OpRow {
   op: string;
   qty: string;
   rework: boolean;
+  /** motivo do retrabalho, escrito por quem aponta */
+  reason: string;
 }
 interface MachineEntry {
   /** ordens NOVAS deste lançamento: salvar acrescenta às já gravadas (D30) */
@@ -72,7 +75,7 @@ interface Existing extends ExistingRecord {
 }
 
 let rowSeq = 0;
-const newRow = (op = "", qty = "", rework = false): OpRow => ({ key: `r${rowSeq++}`, op, qty, rework });
+const newRow = (op = "", qty = "", rework = false): OpRow => ({ key: `r${rowSeq++}`, op, qty, rework, reason: "" });
 
 /**
  * Formulário vazio para a data/turno/regime, com o que já foi apontado ao lado.
@@ -115,24 +118,45 @@ function currentShift(now = new Date()): { date: string; shift: Shift } {
   return { date: toIsoDate(day), shift };
 }
 
+/**
+ * Meta do turno da máquina na data apontada, pela base e pelas pessoas
+ * informadas (a conta é a de src/lib/metas.ts, teto D49). Hora extra não tem
+ * meta (D27); sem meta cadastrada na data, também não.
+ */
+function shiftGoal(m: Machine, target: DayTarget | undefined, people: string, overtime: boolean) {
+  const base = target?.base ?? "per_shift";
+  const crew = target?.lotacao ?? null;
+  const turn = metaDoTurno({ cadastrada: m.hasTarget ? (target?.cadastrada ?? 0) : 0, base, pessoas: people, lotacaoPadrao: crew });
+  const hasMeta = m.hasTarget && !overtime && turn.valor > 0;
+  return { base, crew, turn, hasMeta, meta: hasMeta ? turn.valor : 0 };
+}
+
+/** Acima disto, a quantidade pede conferência (um zero a mais é o erro mais comum) */
+const TOO_HIGH = 2;
+
 // Nº da OP: só números, até 15 dígitos (D57). O banco recusa o resto, e uma OP ruim barra o apontamento inteiro
 const OP_PATTERN = /^\d{1,15}$/;
 const qtyOf = (r: OpRow) => (r.qty.trim() === "" ? 0 : Number(r.qty));
 
 function rowErrors(r: OpRow) {
   const qty = r.qty.trim();
-  const errors: { op?: string; qty?: string } = {};
+  const errors: { op?: string; qty?: string; reason?: string } = {};
   if (qty !== "" && (!Number.isInteger(Number(qty)) || Number(qty) < 0)) errors.qty = "Use um número inteiro";
   if (qtyOf(r) > 0 && !r.op.trim()) errors.op = "Informe o número da OP";
   else if (r.op.trim() && !OP_PATTERN.test(r.op.trim())) errors.op = "Use só números, até 15 dígitos";
+  // Retrabalho sem motivo deixa o gráfico "Motivos de retrabalho" sem informação
+  if (r.rework && qtyOf(r) > 0 && !r.reason.trim()) errors.reason = "Escreva o motivo do retrabalho";
   return errors;
 }
 
 interface EntryPageProps {
   notify: Notify;
+  /** a busca do topo do Dash filtra as máquinas desta tela (uma busca só) */
+  search: string;
+  onClearSearch: () => void;
 }
 
-export function EntryPage({ notify }: EntryPageProps) {
+export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
   const { client, session } = useAccess();
   // Com o banco, grava de verdade; na demonstração, só simula
   const live = DATA_ORIGIN === "backend";
@@ -150,9 +174,12 @@ export function EntryPage({ notify }: EntryPageProps) {
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [showErrors, setShowErrors] = useState(false);
-  const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [pending, setPending] = useState<{ date: string; shift: Shift; overtime: boolean } | null>(null);
+  // "Descartar alterações" apaga o que foi digitado: pede confirmação, como trocar a data ou o turno
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  // Quantidade acima de 2× a meta: pergunta uma vez antes de salvar, sem impedir
+  const [confirmHigh, setConfirmHigh] = useState<string[] | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   type Context = { date: string; shift: Shift; overtime: boolean };
@@ -191,7 +218,7 @@ export function EntryPage({ notify }: EntryPageProps) {
     .flatMap((e) => e.rows)
     .reduce((n, r) => n + Object.keys(rowErrors(r)).length, 0);
 
-  const save = useCallback(async () => {
+  const save = useCallback(async (checked = false) => {
     if (saving) return;
     if (live && targets.status === "loading") return;
     if (errorCount > 0) {
@@ -222,6 +249,17 @@ export function EntryPage({ notify }: EntryPageProps) {
       notify("Nada para salvar", "Lance a quantidade de pelo menos uma OP, ou mude a observação ou o nº de operadores.", "error");
       return;
     }
+    if (!checked) {
+      const high = plan
+        .map((p) => machineById(p.machineId))
+        .filter((m) => {
+          const g = shiftGoal(m, targets.status === "ready" ? targets.byMachine[m.id] : undefined, form[m.id].people, overtime);
+          return g.hasMeta && totals[m.id] > g.meta * TOO_HIGH;
+        })
+        .map((m) => m.name);
+      if (high.length) return setConfirmHigh(high);
+    }
+    setConfirmHigh(null);
     setSaving(true);
 
     // Demonstração: simula e mantém o que foi digitado
@@ -268,14 +306,14 @@ export function EntryPage({ notify }: EntryPageProps) {
     else if (ok) notify(`${ok} salvas, ${failedCount} com erro`, "As máquinas com erro continuam no formulário, com o motivo ao lado.", "error");
     else notify("Nada foi salvo", failed[plan[0].machineId], "error");
     if (!refreshed) notify("Salvo, mas a tela não atualizou", "Recarregue a página para ver os números novos.", "error");
-  }, [saving, live, targets, errorCount, notify, date, shift, overtime, form, existing, session, client]);
+  }, [saving, live, targets, errorCount, notify, date, shift, overtime, form, existing, session, client, totals]);
 
   // Ctrl+S salva
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
-        save();
+        void save();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -310,18 +348,17 @@ export function EntryPage({ notify }: EntryPageProps) {
       <PageHeader
         title="Apontamento"
         lozenge={status}
-        description="Registre a produção de cada máquina por turno. Uma máquina pode ter várias ordens de produção (OP)."
         actions={
           <>
             <Button
               appearance="subtle"
               iconBefore={RotateCcw}
               isDisabled={!dirty}
-              onClick={() => applyContext({ date, shift, overtime })}
+              onClick={() => setConfirmDiscard(true)}
             >
               Descartar alterações
             </Button>
-            <Button appearance="primary" iconBefore={Save} isLoading={saving} onClick={save} title="Ctrl+S">
+            <Button appearance="primary" iconBefore={Save} isLoading={saving} onClick={() => void save()} title="Ctrl+S">
               Salvar apontamento
             </Button>
           </>
@@ -342,8 +379,9 @@ export function EntryPage({ notify }: EntryPageProps) {
             referência.
           </ErrorMessage>
         )}
-        {/* ---------- Contexto: data, turno, busca, progresso ---------- */}
-        <div className="flex flex-wrap items-start gap-x-300 gap-y-200 rounded-large bg-surface-sunken p-200">
+        {/* ---------- Contexto: de qual turno é o apontamento, e quanto já foi preenchido ----------
+            A busca de máquinas é a do topo do Dash (uma busca só no app). */}
+        <div className="flex flex-wrap items-end gap-x-300 gap-y-200 rounded-large bg-surface-sunken p-200">
           <DateField
             label="Data"
             value={date}
@@ -382,20 +420,14 @@ export function EntryPage({ notify }: EntryPageProps) {
               ]}
             />
           </div>
-          <TextField
-            label="Filtrar máquinas"
-            placeholder="Nome da máquina"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            elemAfter={<Search aria-hidden className="size-icon-small" />}
-            className="min-w-column-name flex-1"
-          />
-          <div className="flex min-w-column-name flex-col gap-050" aria-live="polite">
-            <span className="font-body-small font-semibold text-subtle">Máquinas com produção</span>
-            <span className="flex h-control flex-col justify-center gap-050">
-              <span className="font-body-small text-subtle">
+          {/* Progresso do turno, à direita e separado dos campos */}
+          <div className="flex min-w-column-name flex-1 flex-col gap-075 m:ml-auto m:border-l m:pl-300" aria-live="polite">
+            <span className="flex items-baseline justify-between gap-100 font-body-small text-subtle">
+              <span className="font-semibold">Máquinas com produção</span>
+              <span>
                 <span className="font-semibold tabular-nums text-default">{filled}</span> de {listedCount}
               </span>
+            </span>
             <span
               role="progressbar"
               aria-label="Máquinas com produção"
@@ -405,20 +437,28 @@ export function EntryPage({ notify }: EntryPageProps) {
               className="flex h-075 overflow-hidden rounded-full bg-neutral"
             >
               <span className="h-full rounded-full bg-brand-bold" style={{ width: `${(filled / Math.max(listedCount, 1)) * 100}%` }} />
-              </span>
             </span>
           </div>
         </div>
 
         {/* ---------- Máquinas por linha ---------- */}
         <div ref={bodyRef} className="flex flex-col gap-300">
+          {q && groups.length > 0 && (
+            <p className="flex flex-wrap items-center gap-100 font-body-small text-subtle" aria-live="polite">
+              <Search aria-hidden className="size-icon-small text-icon-subtle" />
+              Mostrando as máquinas com “{search.trim()}”, pela busca do topo.
+              <Button appearance="subtle" spacing="compact" onClick={onClearSearch}>
+                Limpar busca
+              </Button>
+            </p>
+          )}
           {groups.length === 0 && (
             <div className="rounded-xlarge border">
               <EmptyState
                 icon={Search}
                 title="Nenhuma máquina encontrada"
                 hint={`Nada corresponde a "${search}".`}
-                action={{ label: "Limpar filtro", onClick: () => setSearch("") }}
+                action={{ label: "Limpar busca", onClick: onClearSearch }}
               />
             </div>
           )}
@@ -477,6 +517,35 @@ export function EntryPage({ notify }: EntryPageProps) {
       </PageBody>
 
       <Modal
+        open={confirmDiscard}
+        onOpenChange={setConfirmDiscard}
+        title="Descartar alterações?"
+        primary={{
+          label: "Descartar",
+          appearance: "danger",
+          onClick: () => {
+            setConfirmDiscard(false);
+            applyContext({ date, shift, overtime });
+          },
+        }}
+        cancelLabel="Continuar editando"
+      >
+        O que foi digitado para {SHIFT_META[shift].label.toLowerCase()} de {date.split("-").reverse().join("/")} e ainda não foi salvo será
+        apagado. O que já está gravado não muda.
+      </Modal>
+
+      <Modal
+        open={confirmHigh != null}
+        onOpenChange={(o) => !o && setConfirmHigh(null)}
+        title="Conferir as quantidades?"
+        primary={{ label: "Salvar assim", isLoading: saving, onClick: () => void save(true) }}
+        cancelLabel="Corrigir"
+      >
+        {confirmHigh?.length === 1 ? "Esta máquina passou" : "Estas máquinas passaram"} de {TOO_HIGH}× a meta do turno: {confirmHigh?.join(", ")}.
+        Se foi um zero a mais, corrija antes de salvar.
+      </Modal>
+
+      <Modal
         open={pending != null}
         onOpenChange={(o) => !o && setPending(null)}
         title="Descartar alterações?"
@@ -517,13 +586,9 @@ function MachineEntryRow({
   const openOps = releasedFor(ops, m.id);
   const hintFor = (op: string) => (opsStatus === "ready" && op.length >= 4 ? opHint(op, m.id, ops, (id) => machineById(id)?.name ?? "outra máquina") : null);
   const listId = `ops-${m.id}`;
-  // Meta do turno NA DATA apontada, pela base e pelas pessoas informadas — a conta é a de src/lib/metas.ts (teto D49)
-  const base = target?.base ?? "per_shift";
-  const crew = target?.lotacao ?? null;
-  const turn = metaDoTurno({ cadastrada: m.hasTarget ? (target?.cadastrada ?? 0) : 0, base, pessoas: entry.people, lotacaoPadrao: crew });
-  // Hora extra não tem meta (D27); sem meta cadastrada na data, também não
-  const hasMeta = m.hasTarget && !overtime && turn.valor > 0;
-  const meta = hasMeta ? turn.valor : 0;
+  const releasedNumbers = openOps.map((op) => op.id.replace("OP ", ""));
+  // Meta do turno NA DATA apontada
+  const { base, crew, turn, hasMeta, meta } = shiftGoal(m, target, entry.people, overtime);
   const peopleHelp = !m.hasTarget
     ? "Só registra a presença: centro por demanda, sem meta."
     : overtime
@@ -535,56 +600,42 @@ function MachineEntryRow({
         : `A meta acompanha o nº de pessoas${crew ? `, até a lotação padrão de ${crew}` : ""}. Gente a mais não aumenta a meta.`;
   const percent = meta ? Math.round((total / meta) * 100) : 0;
   const status = statusFor(percent);
-  const tooHigh = hasMeta && total > meta * 2;
+  const tooHigh = hasMeta && total > meta * TOO_HIGH;
   const peopleRequired = exigeOperadores(target?.base);
 
   const setRow = (key: string, patch: Partial<OpRow>) =>
     onChange((e) => ({ ...e, rows: e.rows.map((r) => (r.key === key ? { ...r, ...patch } : r)) }));
 
   return (
-    <li className="flex flex-col gap-200 border-t p-200 first:border-t-0 l:flex-row l:items-center">
+    <li className="flex flex-col gap-200 border-t p-200 first:border-t-0 l:flex-row l:items-start">
       {/* Identificação e resultado */}
       <div className="flex min-w-0 flex-col gap-100 l:w-column-name l:shrink-0">
-        <div className="flex flex-wrap items-center gap-100">
-          <h3 className="font-heading-xsmall text-default">{m.name}</h3>
+        <h3 className="font-heading-xsmall text-default">{m.name}</h3>
+        {/* Linha e situação numa fileira só, como na tabela do Dashboard */}
+        <div className="flex flex-wrap items-center gap-075">
+          <TagGroup items={m.lines} accentFor={(l) => LINE_ACCENT[l] ?? "gray"} />
           {existing && <Lozenge appearance="information">Já apontado</Lozenge>}
         </div>
-        <TagGroup items={m.lines} accentFor={(l) => LINE_ACCENT[l] ?? "gray"} />
-        {existing && (
-          <p className="font-body-small text-subtle">
-            Gravado: <span className="font-semibold tabular-nums text-default">{formatNumber(existing.good)}</span> peças
-            {existing.rework > 0 && <> + {formatNumber(existing.rework)} de retrabalho</>}
-            {existing.ops.length > 0 && (
-              <>
-                {" "}
-                em {existing.ops.length === 1 ? "OP" : "OPs"} <span className="font-code">{existing.ops.join(", ")}</span>
-              </>
-            )}
-            . O que lançar abaixo <strong className="font-semibold">soma</strong> a isso.{" "}
-            <a href="#/historico" className="inline-flex items-center gap-025 text-link hover:underline">
-              <History aria-hidden className="size-icon-small" />
-              Corrigir no Histórico
-            </a>
-          </p>
-        )}
         {entry.error && <p className="font-body-small text-danger" role="alert">Não salvou: {entry.error}</p>}
+        {/* Resultado do turno: barra e conta primeiro, como no Dashboard */}
         {hasMeta ? (
-          <>
-            <div className="mt-050 flex flex-wrap items-center gap-100">
+          <div className="mt-050 flex flex-col gap-050">
+            <div className="flex flex-wrap items-center gap-100">
               <SegmentedBar percent={percent} status={status} label={`${m.name}: ${percent}% da meta do turno`} />
               <span className="font-medium tabular-nums text-default">{percent}%</span>
               {total > 0 && <Lozenge appearance={STATUS_META[status].appearance}>{STATUS_META[status].label}</Lozenge>}
             </div>
-            <p className="font-body-small text-subtlest">
+            <p className="font-body-small text-subtle">
               <span className="font-semibold tabular-nums text-default">{formatNumber(total)}</span> de{" "}
-              <span className="tabular-nums">{formatNumber(meta)}</span> (meta do turno
-              {turn.dependeDaLotacao && ` · ${baseLabel(base).toLowerCase()}, ${turn.pessoas} ${turn.pessoas === 1 ? "pessoa" : "pessoas"}`}
-              {base === "per_shift_prorated" && crew && turn.pessoas > crew && `, conta até ${crew}`})
+              <span className="tabular-nums">{formatNumber(meta)}</span> peças · meta do turno
+              {turn.dependeDaLotacao && ` (${baseLabel(base).toLowerCase()}, ${turn.pessoas} ${turn.pessoas === 1 ? "pessoa" : "pessoas"}`}
+              {turn.dependeDaLotacao && base === "per_shift_prorated" && crew && turn.pessoas > crew && `, conta até ${crew}`}
+              {turn.dependeDaLotacao && ")"}
             </p>
             {turn.estimada && <p className="font-body-small text-warning">Informe o nº de operadores: a meta deste posto depende dele.</p>}
-          </>
+          </div>
         ) : (
-          <p className="mt-050 font-body-small text-subtlest">
+          <p className="mt-050 font-body-small text-subtle">
             <span className="font-semibold tabular-nums text-default">{formatNumber(total)}</span> peças no turno ·{" "}
             {!m.hasTarget
               ? "centro por demanda, sem meta"
@@ -595,18 +646,47 @@ function MachineEntryRow({
                   : "carregando a meta do dia…"}
           </p>
         )}
-        {openOps.length > 0 && (
-          <p className="font-body-small text-subtle">
-            {openOps.length === 1 ? "OP liberada: " : "OPs liberadas: "}
-            {openOps.map((op, i) => (
-              <span key={op.id}>
-                {i > 0 && ", "}
-                <a href={`#/feedbacks/${op.id.replace("OP ", "")}`} className="font-code text-link hover:underline">
-                  {op.id.replace("OP ", "")}
-                </a>
-              </span>
-            ))}
-          </p>
+        {/* O que já está gravado e as OPs liberadas, em rótulo e valor */}
+        {(existing || openOps.length > 0) && (
+          <dl className="flex flex-col gap-100 font-body-small">
+            {existing && (
+              <div>
+                <dt className="text-subtlest">Já gravado neste turno</dt>
+                <dd className="min-w-0 text-subtle">
+                  <span className="font-semibold tabular-nums text-default">{formatNumber(existing.good)}</span> peças
+                  {existing.rework > 0 && <> + {formatNumber(existing.rework)} retrabalho</>}
+                  {existing.ops.length > 0 && (
+                    <>
+                      {" "}
+                      · <span className="font-code">{existing.ops.join(", ")}</span>
+                    </>
+                  )}
+                  <a
+                    href={`#/historico/${encodeURIComponent(m.id)}`}
+                    className="mt-025 flex w-fit items-center gap-025 text-link hover:underline"
+                  >
+                    <History aria-hidden className="size-icon-small" />
+                    Corrigir no Histórico
+                  </a>
+                </dd>
+              </div>
+            )}
+            {openOps.length > 0 && (
+              <div>
+                <dt className="text-subtlest">{openOps.length === 1 ? "OP liberada" : "OPs liberadas"}</dt>
+                <dd className="min-w-0">
+                  {openOps.map((op, i) => (
+                    <span key={op.id}>
+                      {i > 0 && ", "}
+                      <a href={`#/feedbacks/${op.id.replace("OP ", "")}`} className="font-code text-link hover:underline">
+                        {op.id.replace("OP ", "")}
+                      </a>
+                    </span>
+                  ))}
+                </dd>
+              </div>
+            )}
+          </dl>
         )}
         <datalist id={listId}>
           {openOps.map((op) => (
@@ -621,25 +701,24 @@ function MachineEntryRow({
           placeholder={turn.dependeDaLotacao && crew ? String(crew) : "–"}
           value={entry.people}
           onChange={(e) => onChange((x) => ({ ...x, people: e.target.value.replace(/\D/g, "").slice(0, 2) }))}
-          helper={peopleRequired ? `Obrigatório. ${peopleHelp}` : peopleHelp}
+          // Ajuda só quando o número muda a meta; nos outros postos o campo fala por si
+          helper={peopleRequired ? `Obrigatório. ${peopleHelp}` : turn.dependeDaLotacao && hasMeta ? peopleHelp : undefined}
           error={peopleRequired && showErrors && !entry.people.trim() && (total > 0 || !!existing) ? "Informe quantas pessoas trabalharam" : null}
-          inputClassName="text-right tabular-nums"
+          // Um quarto da largura: o número tem 1 ou 2 dígitos; a ajuda embaixo continua na largura toda
+          inputClassName="max-w-[25%] text-right tabular-nums"
           className="mt-050"
         />
-        {tooHigh && (
-          <p className="font-body-small text-warning">Acima de 2× a meta do turno. Confira as quantidades.</p>
-        )}
       </div>
 
       {/* OPs */}
-      <div className="flex min-w-0 flex-1 flex-col gap-100">
+      <div className="flex min-w-0 flex-1 flex-col gap-150">
         {entry.rows.map((r, i) => {
           const errors = showErrors || r.op || r.qty ? rowErrors(r) : {};
           return (
-            <div key={r.key} className="flex flex-wrap items-start gap-100">
+            // Cada OP num bloco próprio, com linha entre uma e outra: o motivo do retrabalho fica claramente com a sua OP
+            <div key={r.key} className={cn("flex flex-wrap items-start gap-100", i > 0 && "border-t pt-150")}>
               <TextField
-                label="Nº da OP"
-                hideLabel={i > 0}
+                label={entry.rows.length > 1 ? `Nº da OP ${i + 1}` : "Nº da OP"}
                 aria-label={`Nº da OP, linha ${i + 1}, ${m.name}`}
                 inputMode="numeric"
                 placeholder="Ex.: 4501234"
@@ -648,12 +727,12 @@ function MachineEntryRow({
                 onChange={(e) => setRow(r.key, { op: e.target.value.replace(/\D/g, "").slice(0, 15) })}
                 error={showErrors || (r.qty && !r.op) ? errors.op : null}
                 warning={errors.op ? null : hintFor(r.op)}
+                helper={releasedNumbers.includes(r.op) ? "OP liberada desta máquina" : undefined}
                 inputClassName="font-code"
                 className="w-field-op flex-1 basis-field-op s:flex-none"
               />
               <TextField
                 label="Quantidade"
-                hideLabel={i > 0}
                 aria-label={`Quantidade, linha ${i + 1}, ${m.name}`}
                 inputMode="numeric"
                 placeholder="0"
@@ -664,26 +743,43 @@ function MachineEntryRow({
                 inputClassName="text-right tabular-nums"
                 className="w-field-quantity flex-1 basis-field-quantity s:flex-none"
               />
-              <label className={cn("flex h-control items-center gap-075 font-body text-subtle", i === 0 && "s:mt-250")}>
+              <label className="flex h-control items-center gap-075 font-body text-subtle s:mt-250">
                 <Checkbox
                   label={`Retrabalho, linha ${i + 1}, ${m.name}`}
                   checked={r.rework}
-                  onChange={(e) => setRow(r.key, { rework: e.target.checked })}
+                  onChange={(e) => setRow(r.key, { rework: e.target.checked, ...(e.target.checked ? {} : { reason: "" }) })}
                 />
                 <span aria-hidden>Retrabalho</span>
               </label>
               <IconButton
                 icon={Trash2}
-                label={`Remover OP da linha ${i + 1}`}
+                label={`Remover OP da linha ${i + 1}, ${m.name}`}
                 isDisabled={entry.rows.length === 1}
                 onClick={() =>
                   entry.rows.length > 1 && onChange((e) => ({ ...e, rows: e.rows.filter((x) => x.key !== r.key) }))
                 }
-                className={cn(i === 0 && "s:mt-250")}
+                className="s:mt-250"
               />
+              {r.rework && (
+                <ReworkReason
+                  row={r}
+                  context={`linha ${i + 1}, ${m.name}`}
+                  error={showErrors ? errors.reason : undefined}
+                  onChange={(patch) => setRow(r.key, patch)}
+                />
+              )}
             </div>
           );
         })}
+        {tooHigh && (
+          <p role="status" className="flex items-start gap-050 rounded-medium bg-warning px-150 py-100 font-body-small text-warning">
+            <CircleAlert aria-hidden className="mt-025 size-icon-small shrink-0" />
+            <span>
+              <span className="font-semibold">Confere {formatNumber(total)} peças?</span> A meta do turno é {formatNumber(meta)}. Se for um zero a
+              mais, corrija a quantidade.
+            </span>
+          </p>
+        )}
         <div className="flex flex-wrap gap-100">
           <Button
             appearance="subtle"
@@ -715,5 +811,42 @@ function MachineEntryRow({
         )}
       </div>
     </li>
+  );
+}
+
+/* ---------- Motivo do retrabalho: aparece ao marcar Retrabalho ---------- */
+function ReworkReason({
+  row,
+  context,
+  error,
+  onChange,
+}: {
+  row: OpRow;
+  context: string;
+  error?: string;
+  onChange: (patch: Partial<OpRow>) => void;
+}) {
+  const listId = `motivos-${row.key}`;
+  return (
+    <div className="basis-full">
+      {/* Os motivos comuns aparecem como sugestão ao digitar, para o gráfico juntar os iguais */}
+      <datalist id={listId}>
+        {REWORK_REASONS.map((r) => (
+          <option key={r} value={r} />
+        ))}
+      </datalist>
+      <TextField
+        label="Motivo do retrabalho"
+        aria-label={`Motivo do retrabalho, ${context}`}
+        placeholder="Ex.: rebarba na peça"
+        maxLength={80}
+        list={listId}
+        value={row.reason}
+        onChange={(e) => onChange({ reason: e.target.value })}
+        error={error}
+        className="max-w-search-width"
+        autoFocus
+      />
+    </div>
   );
 }

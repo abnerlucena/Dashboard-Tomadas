@@ -91,11 +91,12 @@ export function DataTable<T>({
     if (el.firstElementChild) ro.observe(el.firstElementChild);
     return () => ro.disconnect();
   }, []);
-  const colCount = columns.length + (selectable ? 1 : 0);
   const ids = rows.map(getRowId);
   const allSelected = ids.length > 0 && ids.every((id) => selectedIds.has(id));
   const someSelected = !allSelected && ids.some((id) => selectedIds.has(id));
   const isReady = state === "ready";
+  // Rodapé só quando há o que mostrar (total ou contagem)
+  const hasFooter = footerLead != null || columns.some((c) => c.footer != null);
 
   const toggleAll = () => onSelectionChange(allSelected ? new Set() : new Set(ids));
   const toggleOne = (id: string) => {
@@ -223,19 +224,6 @@ export function DataTable<T>({
                 </tr>
               ))}
 
-            {state === "empty" && (
-              <tr className="border-t">
-                <td colSpan={colCount}>{emptyState}</td>
-              </tr>
-            )}
-
-            {state === "error" && (
-              <tr className="border-t">
-                <td colSpan={colCount} className="p-200">
-                  {errorState}
-                </td>
-              </tr>
-            )}
 
             {isReady &&
               rows.map((row) => {
@@ -292,7 +280,7 @@ export function DataTable<T>({
               })}
           </tbody>
 
-          {isReady && (
+          {isReady && hasFooter && (
             <tfoot>
               <tr className="h-row border-t bg-surface-sunken">
                 {selectable && <td className={selectCell} />}
@@ -313,6 +301,12 @@ export function DataTable<T>({
           )}
         </table>
       </div>
+      {/*
+       * Vazio e erro ficam fora da área que rola de lado: numa tabela mais larga
+       * que a tela (celular), a mensagem acompanha a largura visível do cartão.
+       */}
+      {state === "empty" && <div className="border-t">{emptyState}</div>}
+      {state === "error" && <div className="border-t p-200">{errorState}</div>}
     </div>
   );
 }

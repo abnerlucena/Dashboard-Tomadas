@@ -1,64 +1,19 @@
 import { ArrowDown, ArrowUp, Equal, Medal } from "lucide-react";
 import { useMemo, useState } from "react";
-import {
-  COMPARISON_CUTOFF,
-  MONTH_RANGE,
-  TARGET_MACHINES,
-  SHIFTS,
-  SHIFT_META,
-  STATUS_META,
-  WORKING_DAYS,
-  groupOf,
-  progressUntil,
-  scopeToShift,
-  workingDatesIn,
-  statusFor,
-  type Machine,
-  type Shift,
-} from "@/data/machines";
+import { COMPARISON_CUTOFF, SHIFTS, SHIFT_META, STATUS_META, groupOf, statusFor, type Shift } from "@/data/machines";
 import { cn, formatDecimal, formatNumber, plural } from "@/lib/utils";
 import { DataTable, type Column } from "@/components/data/DataTable";
 import { PageBody, PageHeader } from "@/components/layout/PageHeader";
 import { FilterPill } from "@/components/ui/FilterPill";
 import { Lozenge } from "@/components/ui/Lozenge";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { METRICS, rankMachines, type Metric, type Ranked } from "./ranking";
 
-type Metric = "percent" | "produced" | "entries" | "rework";
 const cutoffLabel = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "numeric", month: "long" });
 
-const METRICS: Record<Metric, { label: string; hint: string; higherIsBetter: boolean }> = {
-  percent: { label: "Atingimento", hint: "Produção sobre a meta do mês", higherIsBetter: true },
-  produced: { label: "Produção", hint: "Unidades produzidas no mês", higherIsBetter: true },
-  entries: { label: "Apontamento", hint: "Dias com apontamento sobre dias úteis", higherIsBetter: true },
-  rework: { label: "Retrabalho", hint: "Peças retrabalhadas sobre a produção — menor é melhor", higherIsBetter: false },
-};
-
-/** "Semana passada" = dados até COMPARISON_CUTOFF (demonstração: sexta, 20/03) */
-function valueOf(m: Machine, metric: Metric, cutoff: Date | null = null) {
-  const orders = cutoff ? m.orders.filter((o) => o.date <= cutoff) : m.orders;
-  const { produced, target } = progressUntil(m, cutoff);
-  const workingDays = cutoff ? workingDatesIn({ from: MONTH_RANGE.from, to: cutoff }).length : WORKING_DAYS;
-  switch (metric) {
-    case "percent":
-      // na semana passada, compara contra a meta até ali
-      return target ? (produced / target) * 100 : 0;
-    case "produced":
-      return produced;
-    case "entries":
-      return (new Set(orders.map((o) => o.date.getDate())).size / Math.max(1, workingDays)) * 100;
-    case "rework":
-      return produced ? (orders.filter((o) => o.rework).reduce((s, o) => s + o.quantity, 0) / produced) * 100 : 0;
-  }
-}
-
-const display = (metric: Metric, v: number) => (metric === "produced" ? formatNumber(Math.round(v)) : `${formatDecimal(v)}%`);
-
-interface Ranked {
-  machine: Machine;
-  value: number;
-  position: number;
-  previous: number;
-}
+/** Atingimento e apontamento inteiros (como no Dashboard); retrabalho com uma casa */
+const display = (metric: Metric, v: number) =>
+  metric === "produced" ? formatNumber(Math.round(v)) : metric === "rework" ? `${formatDecimal(v)}%` : `${Math.round(v)}%`;
 
 export function RankingPage() {
   const [metric, setMetric] = useState<Metric>("percent");
@@ -66,25 +21,14 @@ export function RankingPage() {
   const shift: Shift | "all" = shiftFilter === "all" ? "all" : (Number(shiftFilter) as Shift);
   const meta = METRICS[metric];
 
-  const ranked = useMemo<Ranked[]>(() => {
-    const scoped = TARGET_MACHINES.map((m) => scopeToShift(m, shift));
-    const order = (cutoff: Date | null = null) =>
-      [...scoped]
-        .map((m) => ({ m, v: valueOf(m, metric, cutoff) }))
-        .sort((a, b) => (meta.higherIsBetter ? b.v - a.v : a.v - b.v))
-        .map((x) => x.m.id);
-    const now = order();
-    const before = COMPARISON_CUTOFF ? order(COMPARISON_CUTOFF) : now;
-    return now.map((id, i) => {
-      const machine = scoped.find((m) => m.id === id)!;
-      return { machine, value: valueOf(machine, metric), position: i + 1, previous: before.indexOf(id) + 1 };
-    });
-  }, [metric, shift, meta.higherIsBetter]);
+  const ranked = useMemo<Ranked[]>(() => rankMachines(metric, shift), [metric, shift]);
+  // Sem uma semana de dados não há posição anterior: a comparação sai da tela
+  const hasPrevious = COMPARISON_CUTOFF != null;
 
   const best = Math.max(...ranked.map((r) => r.value), 1);
 
   const Movement = ({ r }: { r: Ranked }) => {
-    const diff = r.previous - r.position;
+    const diff = (r.previous ?? r.position) - r.position;
     if (diff === 0)
       return (
         <span className="flex items-center gap-025 font-body-small text-subtlest">
@@ -132,18 +76,19 @@ export function RankingPage() {
         </span>
       ),
     },
-    {
+  ];
+  if (hasPrevious)
+    columns.push({
       id: "move",
       header: "Em relação à semana passada",
       className: "pr-200",
       cell: (r) => (
         <span className="flex items-center gap-100">
           <Movement r={r} />
-          <span className="font-body-small text-subtlest">era {r.previous}º</span>
+          {r.previous !== r.position && <span className="font-body-small text-subtlest">era {r.previous}º</span>}
         </span>
       ),
-    },
-  ];
+    });
 
   return (
     <>
@@ -184,9 +129,11 @@ export function RankingPage() {
                   <Medal aria-hidden className={cn("size-icon-small", r.position === 1 ? "text-icon-warning" : "text-icon-subtle")} />
                   {r.position}º lugar
                 </span>
-                <Movement r={r} />
+                {hasPrevious && <Movement r={r} />}
               </span>
-              <span className="truncate font-heading-small text-default">{r.machine.name}</span>
+              <span title={r.machine.name} className="truncate font-heading-small text-default">
+                {r.machine.name}
+              </span>
               <span className="font-metric-medium text-default">{display(metric, r.value)}</span>
               <span className="font-body-small text-subtlest">{groupOf(r.machine.id).label}</span>
             </li>

@@ -115,7 +115,11 @@ const sizeKeys = [
   "flag",
   "tooltip-max",
   "column-name",
+  "column-name-compact",
   "column-text",
+  "field-search",
+  "table-min",
+  "touch-target",
   "content-max",
   "kbd",
   "modal",
@@ -301,8 +305,9 @@ export default {
     extend: {
       gridTemplateColumns: {
         // nome da máquina | trilho da barra
-        attainment: "minmax(0, var(--dash-size-column-name)) minmax(0, 1fr) var(--dash-size-attainment-value)",
-        "attainment-wide": "minmax(0, var(--dash-size-bar-label-wide)) minmax(0, 1fr) var(--dash-size-attainment-value)",
+        // no celular o nome fica com até 40%: o trilho da barra nunca some
+        attainment: "minmax(0, min(var(--dash-size-column-name), 40%)) minmax(0, 1fr) var(--dash-size-attainment-value)",
+        "attainment-wide": "minmax(0, min(var(--dash-size-bar-label-wide), 40%)) minmax(0, 1fr) var(--dash-size-attainment-value)",
         tv: "minmax(0, var(--dash-size-tv-label)) minmax(0, 1fr) var(--dash-size-tv-value)",
         // posição | nome | trilho | valor | variação | peças/min
         "tv-rank": "var(--dash-size-tv-position) minmax(0, var(--dash-size-tv-label)) minmax(0, 1fr) var(--dash-size-tv-position) var(--dash-size-tv-position) var(--dash-size-tv-position)",

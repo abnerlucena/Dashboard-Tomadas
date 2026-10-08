@@ -100,7 +100,7 @@ export function EditRecordDialog({ order, original, minDate, onClose, onSave }: 
                   onChange={(ev) => setRow(r.key, { op: ev.target.value.replace(/\D/g, "") })}
                   error={e?.op}
                   helper={r.op === IMPORTED_OP && i === 0 ? "Veio da planilha" : undefined}
-                  className="min-w-0 flex-1 basis-[9rem]"
+                  className="min-w-0 flex-1 basis-field-quantity"
                   inputClassName="tabular-nums"
                 />
                 <TextField
@@ -111,10 +111,10 @@ export function EditRecordDialog({ order, original, minDate, onClose, onSave }: 
                   onChange={(ev) => setRow(r.key, { qty: ev.target.value.replace(/\D/g, "") })}
                   error={e?.qty}
                   elemAfter="un."
-                  className="w-[8.5rem]"
+                  className="w-field-quantity"
                   inputClassName="tabular-nums"
                 />
-                <label className={`flex h-control items-center gap-075 text-default ${i === 0 ? "mt-[1.375rem]" : ""}`}>
+                <label className={`flex h-control items-center gap-075 text-default ${i === 0 ? "mt-250" : ""}`}>
                   <Checkbox
                     label={`Retrabalho, linha ${i + 1}`}
                     checked={r.rework}
@@ -125,7 +125,7 @@ export function EditRecordDialog({ order, original, minDate, onClose, onSave }: 
                 <IconButton
                   icon={Trash2}
                   label={`Tirar a linha ${i + 1}`}
-                  className={i === 0 ? "mt-[1.375rem]" : undefined}
+                  className={i === 0 ? "mt-250" : undefined}
                   onClick={() => set({ rows: draft.rows.length > 1 ? draft.rows.filter((x) => x.key !== r.key) : [newDraftRow()] })}
                 />
               </div>

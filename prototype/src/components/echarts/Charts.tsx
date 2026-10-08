@@ -57,7 +57,7 @@ export function BurnupChart({ series, label, heightClass = "h-chart-large", vari
       },
       p.cumulative != null
         ? {
-            value: `${Math.round((p.cumulative / p.targetCumulative) * 100)}%`,
+            value: p.targetCumulative ? `${Math.round((p.cumulative / p.targetCumulative) * 100)}%` : "—",
             label: "da meta acumulada",
           }
         : { value: "—", label: "dia ainda não apontado" },
@@ -181,7 +181,7 @@ export function DailyColumns({ series, label }: { series: Point[]; label: string
               dashed: true,
             },
             {
-              value: `${Math.round((p.value / target) * 100)}%`,
+              value: target ? `${Math.round((p.value / target) * 100)}%` : "—",
               label: "da meta diária",
             },
           ],
@@ -308,7 +308,8 @@ export function AttainmentBars({
       const narrow = width < readToken("--dash-size-chart-card-min");
       // Colunas de nome e de valor com largura reservada (o containLabel do ECharts erra a medida da Inter)
       const gap = readToken("--ds-space-100");
-      const nameW = Math.min(readToken("--dash-size-bar-label-wide") / 2, width * (narrow ? 0.3 : 0.34));
+      // no celular o nome ganha espaço (com 30% todos viravam "Embaladora v…"); a barra continua visível
+      const nameW = Math.min(readToken("--dash-size-bar-label-wide") / 2, width * (narrow ? 0.42 : 0.34));
       const valueW = readToken("--dash-size-chart-value") * (narrow ? 0.5 : 1);
       return {
         ...baseOption(t),
@@ -718,6 +719,12 @@ export function ComboChart({
     (width: number) => {
       const stacks = new Map<string, number>();
       series.forEach((s, i) => s.stack && stacks.set(s.stack, i));
+      // largura real de cada rótulo: área de plotagem (eixos esquerdo e direito) dividida pelas categorias, menos um respiro
+      const labelW =
+        (width - readToken("--dash-size-chart-axis") - readToken(hasRight ? "--dash-size-chart-axis" : "--ds-space-100")) / categories.length -
+        readToken("--ds-space-100");
+      // Estreito demais para a palavra inteira (celular): rótulo inclinado, terminando em "…" (o nome completo fica no tooltip)
+      const tilted = labelW < readToken("--ds-space-800");
       return {
         ...baseOption(t),
         grid: {
@@ -732,17 +739,26 @@ export function ComboChart({
           // poucas categorias com nome (motivos, faixas): todos os rótulos, quebrando linha
           ...(categories.length <= 6
             ? {
-                axisLabel: {
-                  ...axisStyle(t).axisLabel,
-                  interval: 0,
-                  alignMinLabel: "center",
-                  alignMaxLabel: "center",
-                  // largura real da área de plotagem (eixos esquerdo e direito) menos um respiro entre rótulos
-                width:
-                  (width - readToken("--dash-size-chart-axis") - readToken(hasRight ? "--dash-size-chart-axis" : "--ds-space-100")) / categories.length -
-                  readToken("--ds-space-100"),
-                  overflow: "break",
-                },
+                axisLabel: tilted
+                  ? {
+                      ...axisStyle(t).axisLabel,
+                      interval: 0,
+                      rotate: 35,
+                      // inclinado, todo rótulo termina no seu traço (o padrão do app alinha o 1º à esquerda)
+                      alignMinLabel: "right",
+                      alignMaxLabel: "right",
+                      width: readToken("--ds-space-1000"),
+                      overflow: "truncate",
+                      ellipsis: "…",
+                    }
+                  : {
+                      ...axisStyle(t).axisLabel,
+                      interval: 0,
+                      alignMinLabel: "center",
+                      alignMaxLabel: "center",
+                      width: labelW,
+                      overflow: "break",
+                    },
               }
             : {}),
           splitLine: { show: false },

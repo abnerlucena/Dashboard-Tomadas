@@ -283,7 +283,7 @@ function CurrentMetas({ notify, history, setHistory, proposal, onDismissProposal
           return (
             <span className="flex items-center gap-100">
               <SegmentedBar percent={pct} status={st} label={`Atingimento de ${m.name}`} />
-              <span aria-hidden className="w-400 text-right font-medium tabular-nums text-default">
+              <span aria-hidden className="min-w-500 text-right font-medium tabular-nums text-default">
                 {pct}%
               </span>
               <Lozenge appearance={STATUS_META[st].appearance}>{STATUS_META[st].label}</Lozenge>
@@ -339,7 +339,7 @@ function CurrentMetas({ notify, history, setHistory, proposal, onDismissProposal
       notify(
         "Metas salvas",
         effective === todayIso
-          ? `${plural(ids.length)}: ${ids.length === 1 ? "a nova meta já vale" : "as novas metas já valem"} hoje. Apontamentos feitos antes guardam a meta antiga (D31).`
+          ? `${plural(ids.length)}: ${ids.length === 1 ? "a nova meta já vale" : "as novas metas já valem"} hoje. Apontamentos feitos antes guardam a meta antiga.`
           : `${plural(ids.length)}: ${ids.length === 1 ? "a nova meta passa" : "as novas metas passam"} a valer em ${when}. Até lá, a tabela mostra as metas de hoje.`,
       );
       return;
@@ -379,11 +379,6 @@ function CurrentMetas({ notify, history, setHistory, proposal, onDismissProposal
           ) : (
             <Lozenge>Vigente desde {dateOnly.format(META_EFFECTIVE_FROM)}</Lozenge>
           )}
-          <span className="text-subtle">
-            Meta por dia = meta do turno (pela base, com a lotação padrão) × turnos da máquina. Meta do mês
-            {live ? " prevista" : ""} = meta por dia × dias úteis.
-            {live && " O atingimento soma a meta gravada em cada apontamento."}
-          </span>
         </span>
         <PageActions>
           {editing ? (
@@ -487,7 +482,7 @@ function CurrentMetas({ notify, history, setHistory, proposal, onDismissProposal
           getRowId={(m) => m.id}
           getRowLabel={(m) => `${m.name}, meta por turno ${formatNumber(perShift(m.id))}`}
           selectable={false}
-          footerLead={`${TARGET_MACHINES.length} máquinas`}
+          footerLead={plural(TARGET_MACHINES.length)}
         />
 
         <section aria-labelledby="meta-history" className="flex flex-col gap-150">

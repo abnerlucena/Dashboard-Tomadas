@@ -22,8 +22,8 @@ export function machineColumns({ onOpenOrders, onAction, totals }: ColumnOptions
       id: "name",
       header: "Máquina",
       sortable: true,
-      className: "min-w-column-name",
-      cell: (m) => <span className="font-medium text-default">{m.name}</span>,
+      // Nome quebra em até duas linhas (como no Histórico e em Metas): a tabela cabe sem rolar de lado
+      cell: (m) => <span className="block w-column-name-compact whitespace-normal py-075 font-medium text-default">{m.name}</span>,
       skeleton: <Skeleton className="h-150 w-1000 xs:w-full" />,
     },
     {
@@ -72,9 +72,9 @@ export function machineColumns({ onOpenOrders, onAction, totals }: ColumnOptions
       header: "Atingimento",
       sortable: true,
       cell: (m) => (
-        <span className="flex items-center gap-150">
+        <span className="flex items-center gap-100">
           <SegmentedBar percent={m.percent} status={m.status} label={`Atingimento de ${m.name}`} />
-          <span aria-hidden className="w-400 text-right font-medium tabular-nums text-default">
+          <span aria-hidden className="min-w-500 text-right font-medium tabular-nums text-default">
             {m.percent}%
           </span>
           <Lozenge appearance={STATUS_META[m.status].appearance}>{STATUS_META[m.status].label}</Lozenge>
@@ -82,7 +82,7 @@ export function machineColumns({ onOpenOrders, onAction, totals }: ColumnOptions
       ),
       footer: (
         <>
-          Média <span className="font-semibold tabular-nums text-default">{totals.percent}%</span>
+          Geral <span className="font-semibold tabular-nums text-default">{totals.percent}%</span>
         </>
       ),
       skeleton: (
@@ -121,7 +121,7 @@ export function machineColumns({ onOpenOrders, onAction, totals }: ColumnOptions
       header: "",
       srHeader: "Ações",
       align: "end",
-      className: "w-500 pr-150",
+      className: "w-500 pr-050",
       cell: (m) => (
         <span className="flex justify-end" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
           <Menu>

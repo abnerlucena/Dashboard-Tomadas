@@ -1,10 +1,11 @@
 import { Download, History, PackageOpen } from "lucide-react";
-import { STATUS_META, opLabel, type Machine, type ProductionOrder } from "@/data/machines";
+import { STATUS_META, opLabel, type Machine } from "@/data/machines";
 import { formatLongDate, formatNumber } from "@/lib/utils";
 import { Panel } from "@/components/layout/Panel";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/Feedback";
 import { Lozenge } from "@/components/ui/Lozenge";
+import { ordersByDay } from "./panelDays";
 
 interface MachinePanelProps {
   machine: Machine | null;
@@ -20,7 +21,7 @@ interface MachinePanelProps {
 
 export function MachinePanel({ machine, open, scopeLabel, periodText, workingDays, onClose, onAction }: MachinePanelProps) {
   if (!machine) return null;
-  const groups = groupByDay(machine.orders);
+  const groups = ordersByDay(machine.orders);
   const meta = STATUS_META[machine.status];
 
   return (
@@ -35,7 +36,8 @@ export function MachinePanel({ machine, open, scopeLabel, periodText, workingDay
         </>
       }
       headerExtra={
-        <dl className="grid grid-cols-3 overflow-hidden rounded-large border">
+        <div className="overflow-hidden rounded-large border">
+          <dl className="grid grid-cols-3">
           {[
             { label: "Produção", value: formatNumber(machine.produced) },
             { label: "Meta", value: formatNumber(machine.target) },
@@ -46,13 +48,15 @@ export function MachinePanel({ machine, open, scopeLabel, periodText, workingDay
               <dd className="font-metric-small tabular-nums text-default">{s.value}</dd>
             </div>
           ))}
-          <div className="col-span-3 flex items-center gap-100 border-t px-150 py-100">
+          </dl>
+          {/* Fora do <dl>: a linha de status não é um par termo/valor */}
+          <div className="flex items-center gap-100 border-t px-150 py-100">
             <Lozenge appearance={meta.appearance}>{meta.label}</Lozenge>
             <span className="font-body-small text-subtlest">
               {machine.days} de {workingDays} dias com apontamento · meta diária {formatNumber(machine.dailyTarget)}
             </span>
           </div>
-        </dl>
+        </div>
       }
       footer={
         <>
@@ -75,20 +79,26 @@ export function MachinePanel({ machine, open, scopeLabel, periodText, workingDay
         />
       ) : (
         <div className="flex flex-col gap-250 pt-050">
-          {groups.map(([day, items]) => (
-            <section key={day} aria-label={formatLongDate(items[0].date)}>
+          {groups.map(({ key, date, total, orders }) => (
+            <section key={key} aria-label={formatLongDate(date)}>
               <h3 className="flex items-baseline justify-between pb-075 font-heading-xxsmall text-subtlest">
-                <span className="first-letter:uppercase">{formatLongDate(items[0].date)}</span>
-                <span className="font-body-small tabular-nums">
-                  {formatNumber(items.reduce((s, o) => s + o.quantity, 0))} un.
-                </span>
+                <span className="first-letter:uppercase">{formatLongDate(date)}</span>
+                <span className="font-body-small tabular-nums">{formatNumber(total)} un.</span>
               </h3>
               <ul className="flex flex-col overflow-hidden rounded-large border">
-                {items.map((o) => (
+                {orders.map((o) => (
                   <li key={o.id} className="flex min-h-row items-center gap-150 border-t px-150 py-075 first:border-t-0">
                     <div className="min-w-0 flex-1">
-                      <p className="font-code text-default">{opLabel(o)}</p>
-                      {o.product && <p className="truncate font-body-small text-subtle">{o.product}</p>}
+                      {/* etiqueta de retrabalho junto da OP: o nome do produto fica com a largura toda */}
+                      <p className="flex items-center gap-100">
+                        <span className="font-code text-default">{opLabel(o)}</span>
+                        {o.rework && <Lozenge appearance="warning">Retrabalho</Lozenge>}
+                      </p>
+                      {o.product && (
+                        <p title={o.product} className="truncate font-body-small text-subtle">
+                          {o.product}
+                        </p>
+                      )}
                     </div>
                     <Lozenge>Turno {o.shift}</Lozenge>
                     <span className="w-800 text-right font-medium tabular-nums text-default">
@@ -103,13 +113,4 @@ export function MachinePanel({ machine, open, scopeLabel, periodText, workingDay
       )}
     </Panel>
   );
-}
-
-function groupByDay(orders: ProductionOrder[]) {
-  const map = new Map<string, ProductionOrder[]>();
-  for (const o of orders) {
-    const key = o.date.toISOString().slice(0, 10);
-    map.set(key, [...(map.get(key) ?? []), o]);
-  }
-  return [...map.entries()];
 }

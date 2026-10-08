@@ -1,0 +1,652 @@
+<title>Apontamento em três passos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: barra de passos fixa no topo; passo 2 = lista curta à esquerda + uma máquina aberta à direita (tela cheia no celular).
+   Cores e tipos copiados do Dash de Produção (tokens.css), para o protótipo parecer a tela real. */
+:root {
+  --bg: #F7F9FA;
+  --surface: #FFFFFF;
+  --sunken: #EEF1F4;
+  --fg: #161F2D;
+  --subtle: #434F60;
+  --subtlest: #5D6979;
+  --border: #D9DEE5;
+  --brand: #0062B2;
+  --brand-hover: #00508F;
+  --on-brand: #FFFFFF;
+  --selected-bg: #E7F3FE;
+  --selected-fg: #105893;
+  --success: #126836; --success-bg: #E7F8ED;
+  --warning: #914808; --warning-bg: #FFF1D1;
+  --danger: #AD1F1F; --danger-bg: #FEE9E9;
+  --neutral-bg: #EEF1F4;
+  --banner: #2C3644; --on-banner: #FFFFFF;
+  --shadow: 0 1px 2px rgba(22,31,45,.08), 0 0 1px rgba(22,31,45,.18);
+  --overlay: rgba(22,31,45,.45);
+  --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --r: 8px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101722; --surface: #18212E; --sunken: #121A25; --fg: #E6EAF0; --subtle: #B4BDC9; --subtlest: #96A1AF;
+    --border: #2F3B4B; --brand: #4C9EEB; --brand-hover: #74B5F2; --on-brand: #0B1420;
+    --selected-bg: #11304D; --selected-fg: #9CCBF7;
+    --success: #6FD39A; --success-bg: #12301F; --warning: #F5B25C; --warning-bg: #3A2A10; --danger: #F38B8B; --danger-bg: #3D1717;
+    --neutral-bg: #222D3B; --banner: #050A12; --on-banner: #E6EAF0;
+    --shadow: 0 0 0 1px #2F3B4B; --overlay: rgba(0,0,0,.6); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101722; --surface: #18212E; --sunken: #121A25; --fg: #E6EAF0; --subtle: #B4BDC9; --subtlest: #96A1AF;
+  --border: #2F3B4B; --brand: #4C9EEB; --brand-hover: #74B5F2; --on-brand: #0B1420;
+  --selected-bg: #11304D; --selected-fg: #9CCBF7;
+  --success: #6FD39A; --success-bg: #12301F; --warning: #F5B25C; --warning-bg: #3A2A10; --danger: #F38B8B; --danger-bg: #3D1717;
+  --neutral-bg: #222D3B; --banner: #050A12; --on-banner: #E6EAF0;
+  --shadow: 0 0 0 1px #2F3B4B; --overlay: rgba(0,0,0,.6); color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 400 15px/1.45 var(--font); margin: 0; }
+button, input, textarea { font: inherit; color: inherit; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.num { font-variant-numeric: tabular-nums; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+.banner { background: var(--banner); color: var(--on-banner); padding: 8px 16px; font-size: 13px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.banner b { font-weight: 600; }
+.banner .sp { flex: 1; }
+.banner button { background: transparent; border: 1px solid rgba(255,255,255,.35); color: inherit; border-radius: 6px; padding: 3px 10px; cursor: pointer; font-size: 13px; }
+
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--border); }
+.top-in { max-width: 1240px; margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.top h1 { font-size: 18px; font-weight: 700; }
+.steps { display: flex; gap: 4px; list-style: none; margin: 0; padding: 0; flex-wrap: wrap; }
+.steps li button { display: flex; align-items: center; gap: 8px; border: 0; background: transparent; padding: 6px 10px; border-radius: 999px; cursor: pointer; color: var(--subtlest); font-weight: 500; font-size: 14px; }
+.steps li button:disabled { cursor: not-allowed; opacity: .6; }
+.steps .dot { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--neutral-bg); color: var(--subtle); }
+.steps li[aria-current="step"] button { background: var(--selected-bg); color: var(--selected-fg); }
+.steps li[aria-current="step"] .dot { background: var(--brand); color: var(--on-brand); }
+.steps li.done .dot { background: var(--success-bg); color: var(--success); }
+.ctx { margin-left: auto; font-size: 13px; color: var(--subtle); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ctx .chip { background: var(--sunken); border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; }
+
+main { max-width: 1240px; margin: 0 auto; padding-block: 24px 48px; padding-inline: 16px; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 0 16px; border-radius: 6px; border: 1px solid transparent; font-weight: 600; cursor: pointer; font-size: 14px; }
+.btn-primary { background: var(--brand); color: var(--on-brand); }
+.btn-primary:hover { background: var(--brand-hover); }
+.btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+.btn-default { background: var(--neutral-bg); color: var(--fg); }
+.btn-default:hover { filter: brightness(.96); }
+.btn-subtle { background: transparent; color: var(--subtle); }
+.btn-subtle:hover { background: var(--neutral-bg); }
+.btn-link { background: none; border: 0; color: var(--brand); padding: 0; cursor: pointer; font-weight: 500; }
+.btn-lg { min-height: 48px; font-size: 15px; padding: 0 20px; }
+
+.card { background: var(--surface); border-radius: 12px; box-shadow: var(--shadow); }
+label.lbl, .lbl { display: block; font-size: 13px; font-weight: 600; color: var(--subtle); margin-bottom: 6px; }
+.hint { font-size: 13px; color: var(--subtlest); }
+.err { font-size: 13px; color: var(--danger); margin-top: 6px; }
+input[type=text], input[type=date], input[type=number], textarea { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; min-height: 44px; padding: 8px 12px; }
+input:focus, textarea:focus { border-color: var(--brand); outline: none; box-shadow: 0 0 0 1px var(--brand); }
+input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger); }
+
+.seg { display: inline-flex; background: var(--sunken); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 3px; flex-wrap: wrap; }
+.seg button { border: 0; background: transparent; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 500; color: var(--subtle); text-align: left; }
+.seg button small { display: block; font-size: 12px; font-weight: 400; color: var(--subtlest); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--selected-fg); box-shadow: var(--shadow); }
+.seg button[aria-pressed="true"] small { color: var(--selected-fg); }
+.seg.invalid { border-color: var(--danger); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 6px 12px; cursor: pointer; font-size: 14px; min-height: 36px; }
+.chips button[aria-pressed="true"] { background: var(--selected-bg); border-color: var(--brand); color: var(--selected-fg); font-weight: 600; }
+
+.loz { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 6px; border-radius: 4px; white-space: nowrap; }
+.loz-ok { background: var(--success-bg); color: var(--success); }
+.loz-warn { background: var(--warning-bg); color: var(--warning); }
+.loz-off { background: var(--neutral-bg); color: var(--subtle); }
+.loz-info { background: var(--selected-bg); color: var(--selected-fg); }
+
+/* ---------- Passo 1 ---------- */
+.step1 { max-width: 640px; margin: 0 auto; padding: 24px; display: grid; gap: 24px; }
+.step1 h2 { font-size: 22px; }
+.step1 p { margin: 4px 0 0; color: var(--subtle); }
+
+/* ---------- Passo 2 ---------- */
+.split { display: grid; grid-template-columns: minmax(0, 400px) minmax(0, 1fr); gap: 24px; align-items: start; }
+.list { padding: 16px; display: grid; gap: 16px; }
+.progress { display: grid; gap: 6px; }
+.bar { height: 6px; background: var(--neutral-bg); border-radius: 999px; overflow: hidden; display: flex; }
+.bar span { display: block; height: 100%; }
+.bar .b-ok { background: var(--success); }
+.bar .b-off { background: var(--subtlest); }
+.legend .sw { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 13px; color: var(--subtle); }
+.group h3 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--subtlest); margin: 0 0 6px; display: flex; gap: 8px; }
+.rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.row { width: 100%; display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 10px; align-items: center; text-align: left; background: transparent; border: 0; border-radius: 8px; padding: 10px; cursor: pointer; min-height: 48px; }
+.row:hover { background: var(--sunken); }
+.row[aria-current="true"] { background: var(--selected-bg); }
+.row .st { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--subtlest); }
+.row.ok .st { background: var(--success); border-color: var(--success); }
+.row.off .st { background: var(--subtlest); border-color: var(--subtlest); }
+.row .nm { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .sub { font-size: 13px; color: var(--subtlest); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row.next:not([aria-current="true"]) { box-shadow: inset 0 0 0 1px var(--brand); }
+
+.detail { padding: 24px; display: grid; gap: 20px; }
+.detail-wrap { position: sticky; top: 90px; max-height: calc(100vh - 110px); overflow-y: auto; border-radius: 12px; }
+.detail-empty { padding: 48px 24px; text-align: center; color: var(--subtle); display: grid; gap: 8px; justify-items: center; }
+.dhead { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.dhead h2 { font-size: 20px; flex: 1; min-width: 0; }
+.meta-line { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 14px; color: var(--subtle); }
+.meta-line b { color: var(--fg); font-weight: 600; }
+.op { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 10px; }
+.op-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.qty { font-size: 22px !important; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.op-tools { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.check { display: inline-flex; gap: 8px; align-items: center; cursor: pointer; min-height: 36px; }
+.check input { width: 18px; height: 18px; accent-color: var(--brand); }
+.reason { background: var(--warning-bg); border-radius: 8px; padding: 12px; display: grid; gap: 8px; }
+.reason .lbl { color: var(--warning); margin: 0; }
+.warn { background: var(--warning-bg); color: var(--warning); border-radius: 8px; padding: 10px 12px; font-size: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.warn b { font-weight: 600; }
+.warn .btn { min-height: 32px; padding: 0 10px; background: var(--surface); color: var(--fg); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; border-top: 1px solid var(--border); padding-top: 16px; }
+.actions .sp { flex: 1; }
+.stopped { display: grid; gap: 12px; padding: 16px; border: 1px dashed var(--border); border-radius: 10px; }
+.saved { background: var(--success-bg); color: var(--success); border-radius: 8px; padding: 10px 12px; font-size: 14px; }
+.back-mobile { display: none; }
+
+/* ---------- Passo 3 ---------- */
+.step3 { max-width: 760px; margin: 0 auto; display: grid; gap: 16px; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.kpi { padding: 16px 20px; border-right: 1px solid var(--border); }
+.kpi:last-child { border-right: 0; }
+.kpi span { display: block; font-size: 13px; color: var(--subtle); }
+.kpi strong { display: block; font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.box { padding: 20px; display: grid; gap: 12px; }
+.box h3 { font-size: 16px; }
+.plain { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.plain li { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.done-msg { padding: 32px 24px; text-align: center; display: grid; gap: 8px; justify-items: center; }
+.done-msg h2 { font-size: 22px; }
+
+.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--banner); color: var(--on-banner); padding: 10px 16px; border-radius: 8px; font-size: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.2); z-index: 30; max-width: calc(100% - 32px); }
+@media (prefers-reduced-motion: no-preference) { .toast { animation: up .18s ease-out; } @keyframes up { from { transform: translate(-50%, 8px); opacity: 0; } } }
+
+.modal-bg { position: fixed; inset: 0; background: var(--overlay); display: grid; place-items: center; padding: 16px; z-index: 40; }
+.modal { background: var(--surface); border-radius: 12px; padding: 24px; max-width: 440px; width: 100%; display: grid; gap: 12px; }
+.modal h2 { font-size: 18px; }
+.modal .row-btn { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+
+@media (max-width: 860px) {
+  .split { grid-template-columns: minmax(0, 1fr); }
+  .detail-wrap { position: fixed; inset: 0; top: 0; max-height: none; border-radius: 0; z-index: 20; background: var(--bg); overflow-y: auto; padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); }
+  .desk-only { display: none; }
+  .detail-wrap[hidden] { display: none !important; }
+  .detail { position: static; border-radius: 0; box-shadow: none; min-height: 100%; }
+  .back-mobile { display: inline-flex; flex-basis: 100%; justify-content: flex-start; padding-left: 0; min-height: 44px; }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi:nth-child(2) { border-right: 0; }
+  .kpi:nth-child(-n+2) { border-bottom: 1px solid var(--border); }
+  .ctx { margin-left: 0; }
+}
+@media (max-width: 480px) {
+  .op-grid { grid-template-columns: minmax(0, 1fr); }
+  .step1 { padding: 16px; }
+}
+</style>
+
+<div class="banner" role="note">
+  <b>Protótipo</b> <span>Dados fictícios, nada é gravado. Serve só para testar o fluxo.</span>
+  <span class="sp"></span>
+  <button type="button" id="sample">Carregar exemplo (turno pela metade)</button>
+  <button type="button" id="reset">Recomeçar</button>
+</div>
+
+<header class="top">
+  <div class="top-in">
+    <h1>Apontamento</h1>
+    <ol class="steps" id="steps"></ol>
+    <div class="ctx" id="ctx"></div>
+  </div>
+</header>
+
+<main id="app"></main>
+<div id="layer"></div>
+
+<script>
+(() => {
+  // ---------- Dados (os mesmos nomes e metas do modo de demonstração do Dash) ----------
+  const M = [
+    ["m1", "Máquina de interruptores Composé nº 1", "Montagem", 4000],
+    ["m4", "Máquina de tomadas Composé (Aumaq)", "Montagem", 11000],
+    ["m11", "Máquina de plugue Slin (Aumaq)", "Montagem", 5800],
+    ["m2", "Embaladora kit parafusos nº 1", "Montagem", null],
+    ["m3", "Embaladora kit parafusos nº 2", "Montagem", null],
+    ["m5", "Bancada nº 1 · teste de interruptores", "Montagem", null],
+    ["m6", "Bancada nº 2 · montagem de interruptores", "Montagem", null],
+    ["m7", "Bancada nº 3 · diversos", "Montagem", null],
+    ["m8", "Bancada nº 4 · diversos", "Montagem", null],
+    ["m9", "Bancada nº 5 · eletrônicos", "Montagem", null],
+    ["m10", "Prensa de inserção de contatos", "Montagem", null],
+    ["m12", "Prensa Tox", "Montagem", null],
+    ["m13", "Prensa placa Refinatto", "Montagem", null],
+    ["e1", "Embaladora vertical conjuntos nº 1", "Embalagem", 4400],
+    ["e2", "Embaladora vertical conjuntos nº 2", "Embalagem", 4400],
+    ["e3", "Embaladora horizontal nº 1", "Embalagem", 9200],
+    ["e4", "Embaladora horizontal nº 2", "Embalagem", 9200],
+    ["e5", "Embaladora 4x2 suportes/placas nº 1", "Embalagem", 6800],
+    ["e6", "Embaladora 4x2 suportes/placas nº 2", "Embalagem", 6800],
+    ["e7", "Embaladora vertical módulos nº 1", "Embalagem", 11600],
+    ["e8", "Embaladora vertical módulos nº 2", "Embalagem", 11600],
+    ["e9", "Bancada de embalagem a granel", "Granel", 21000],
+  ].map(([id, name, line, perShift], i) => ({
+    id, name, line, perShift,
+    // OPs liberadas (fictícias): a primeira já vem escolhida
+    released: i % 5 === 1 ? ["45" + (10204 + i * 37), "45" + (10311 + i * 41)] : ["45" + (10204 + i * 37)],
+    // Onde a meta depende do nº de pessoas (no Dash: "conforme a lotação")
+    byPeople: id === "e9" || id === "e5" || id === "e6",
+    stdPeople: id === "e9" ? 6 : 3,
+  }));
+  const MINE = ["m1", "m4", "e9"]; // "Suas máquinas": as que esta pessoa apontou da última vez (exemplo)
+  const SHIFTS = [
+    { v: "1", label: "Turno 1", hours: "04h55–14h18" },
+    { v: "2", label: "Turno 2", hours: "14h18–23h24" },
+    { v: "3", label: "Turno 3", hours: "23h24–05h00" },
+  ];
+  const REASONS = ["Rebarba na peça", "Cor fora do padrão", "Montagem invertida", "Falha no teste elétrico", "Encaixe com folga"];
+  const STOP_REASONS = ["Parada", "Manutenção", "Sem OP liberada", "Sem operador", "Setup / troca de produto"];
+  const nf = new Intl.NumberFormat("pt-BR");
+  const fmt = (n) => nf.format(n);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const byId = (id) => M.find((m) => m.id === id);
+  const dateLabel = (iso) => new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" }).format(new Date(iso + "T12:00:00"));
+
+  // ---------- Estado ----------
+  const fresh = () => ({
+    step: 1,
+    turn: { date: "", shift: "", regime: "" },
+    showTurnErrors: false,
+    status: {}, // id -> { kind: "ok", orders: [...], people, note } | { kind: "off", reason, note }
+    open: null, // máquina aberta
+    draft: null,
+    showErrors: false,
+    filter: "",
+    closed: false,
+  });
+  let S = fresh();
+
+  const resolved = () => M.filter((m) => S.status[m.id]);
+  const pending = () => M.filter((m) => !S.status[m.id]);
+  const nextPending = (after) => {
+    const order = [...MINE.map(byId), ...M.filter((m) => !MINE.includes(m.id))];
+    const i = after ? order.findIndex((m) => m.id === after) : -1;
+    return [...order.slice(i + 1), ...order.slice(0, i + 1)].find((m) => !S.status[m.id]) || null;
+  };
+  const totalOf = (st) => (st && st.kind === "ok" ? st.orders.reduce((s, o) => s + (o.rework ? 0 : o.qty), 0) : 0);
+  const reworkOf = (st) => (st && st.kind === "ok" ? st.orders.reduce((s, o) => s + (o.rework ? o.qty : 0), 0) : 0);
+  const shiftLabel = () => SHIFTS.find((s) => s.v === S.turn.shift)?.label ?? "";
+
+  // ---------- Barra de passos ----------
+  function renderTop() {
+    const steps = [["Turno", 1], ["Máquinas", 2], ["Conferir e terminar", 3]];
+    const can = (n) => n === 1 || turnReady();
+    document.getElementById("steps").innerHTML = steps
+      .map(([t, n]) => `<li ${S.step === n ? 'aria-current="step"' : ""} class="${S.step > n ? "done" : ""}"><button type="button" data-go="${n}" ${can(n) ? "" : "disabled"}><span class="dot">${S.step > n ? "✓" : n}</span>${t}</button></li>`)
+      .join("");
+    document.getElementById("ctx").innerHTML = turnReady() && S.step > 1
+      ? `<span class="chip">${dateLabel(S.turn.date)}</span><span class="chip">${shiftLabel()}</span><span class="chip">${S.turn.regime === "extra" ? "Hora extra" : "Normal"}</span><button type="button" class="btn-link" data-go="1">Trocar</button>`
+      : "";
+  }
+  const turnReady = () => S.turn.date && S.turn.shift && S.turn.regime;
+
+  // ---------- Passo 1: o turno, escolhido por quem aponta ----------
+  function renderStep1() {
+    const e = S.showTurnErrors;
+    return `<section class="card step1" aria-labelledby="s1t">
+      <div><h2 id="s1t">De qual turno é este apontamento?</h2>
+        <p>Escolha a data, o turno e o regime. O que você lançar a seguir vai para este turno.</p></div>
+      <div><label class="lbl" for="date">Data</label>
+        <input type="date" id="date" value="${S.turn.date}" max="2026-12-31" class="${e && !S.turn.date ? "invalid" : ""}">
+        ${e && !S.turn.date ? '<p class="err">Escolha a data.</p>' : ""}</div>
+      <div><span class="lbl" id="shl">Turno</span>
+        <div class="seg ${e && !S.turn.shift ? "invalid" : ""}" role="group" aria-labelledby="shl">
+          ${SHIFTS.map((s) => `<button type="button" data-shift="${s.v}" aria-pressed="${S.turn.shift === s.v}">${s.label}<small>${s.hours}</small></button>`).join("")}
+        </div>${e && !S.turn.shift ? '<p class="err">Escolha o turno.</p>' : ""}</div>
+      <div><span class="lbl" id="rgl">Regime</span>
+        <div class="seg ${e && !S.turn.regime ? "invalid" : ""}" role="group" aria-labelledby="rgl">
+          <button type="button" data-regime="normal" aria-pressed="${S.turn.regime === "normal"}">Normal</button>
+          <button type="button" data-regime="extra" aria-pressed="${S.turn.regime === "extra"}">Hora extra<small>fica fora da meta</small></button>
+        </div>${e && !S.turn.regime ? '<p class="err">Escolha o regime.</p>' : ""}</div>
+      <div><button type="button" class="btn btn-primary btn-lg" id="toStep2">Continuar para as máquinas</button></div>
+    </section>`;
+  }
+
+  // ---------- Passo 2: lista curta + uma máquina por vez ----------
+  function rowHtml(m, next) {
+    const st = S.status[m.id];
+    const sub = !st
+      ? m.perShift ? `Pendente · meta ${fmt(m.perShift)}` : "Pendente · por demanda"
+      : st.kind === "ok"
+        ? `${fmt(totalOf(st))} un.${reworkOf(st) ? ` + ${fmt(reworkOf(st))} retrabalho` : ""} · OP ${st.orders.map((o) => o.op).join(", ")}`
+        : `Não produziu: ${st.reason}`;
+    return `<li><button type="button" class="row ${st ? st.kind : ""} ${next && next.id === m.id ? "next" : ""}" data-open="${m.id}" aria-current="${S.open === m.id}">
+      <span class="st" aria-hidden="true"></span>
+      <span style="min-width:0"><span class="nm" style="display:block">${esc(m.name)}</span><span class="sub" style="display:block">${esc(sub)}</span></span>
+      ${!st ? '<span class="loz loz-off">Pendente</span>' : st.kind === "ok" ? '<span class="loz loz-ok">Apontada</span>' : '<span class="loz loz-off">Parada</span>'}
+    </button></li>`;
+  }
+
+  function renderStep2() {
+    const ok = M.filter((m) => S.status[m.id]?.kind === "ok").length;
+    const off = M.filter((m) => S.status[m.id]?.kind === "off").length;
+    const q = S.filter.trim().toLowerCase();
+    const match = (m) => !q || m.name.toLowerCase().includes(q);
+    const next = nextPending(null);
+    const mine = MINE.map(byId).filter(match);
+    const groups = ["Montagem", "Embalagem", "Granel"].map((l) => [l, M.filter((m) => m.line === l && !MINE.includes(m.id) && match(m))]).filter(([, ms]) => ms.length);
+    const list = `<section class="card list" aria-label="Máquinas do turno">
+      <div class="progress">
+        <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><strong class="num">${ok + off} de ${M.length} resolvidas</strong><span class="hint num">${M.length - ok - off} pendentes</span></div>
+        <div class="bar" role="img" aria-label="${ok} apontadas, ${off} paradas, ${M.length - ok - off} pendentes"><span class="b-ok" style="width:${(ok / M.length) * 100}%"></span><span class="b-off" style="width:${(off / M.length) * 100}%"></span></div>
+        <div class="legend"><span><i class="sw b-ok"></i>${ok} ${ok === 1 ? "apontada" : "apontadas"}</span><span><i class="sw b-off"></i>${off} não ${off === 1 ? "produziu" : "produziram"}</span></div>
+      </div>
+      <div><label class="lbl" for="filter">Procurar máquina</label><input type="text" id="filter" placeholder="Nome da máquina" value="${esc(S.filter)}" autocomplete="off"></div>
+      ${mine.length ? `<div class="group"><h3>Suas máquinas <span style="text-transform:none;letter-spacing:0;font-weight:400">(da última vez)</span></h3><ul class="rows">${mine.map((m) => rowHtml(m, next)).join("")}</ul></div>` : ""}
+      ${groups.map(([l, ms]) => `<div class="group"><h3>${l}</h3><ul class="rows">${ms.map((m) => rowHtml(m, next)).join("")}</ul></div>`).join("")}
+      ${!mine.length && !groups.length ? '<p class="hint">Nenhuma máquina com esse nome.</p>' : ""}
+      <button type="button" class="btn btn-default" data-go="3">Conferir e terminar o turno</button>
+    </section>`;
+    return `<div class="split">${list}<div class="detail-wrap" ${S.open ? "" : "hidden"} id="dw">${renderDetail()}</div>${S.open ? "" : `<div class="card detail-empty desk-only">${emptyDetail(next)}</div>`}</div>`;
+  }
+
+  const emptyDetail = (next) => next
+    ? `<strong>Escolha uma máquina na lista</strong><span class="hint">A próxima pendente é ${esc(next.name)}.</span><button type="button" class="btn btn-primary" data-open="${next.id}">Abrir ${esc(next.name)}</button>`
+    : `<strong>Todas as máquinas foram resolvidas</strong><button type="button" class="btn btn-primary" data-go="3">Conferir e terminar o turno</button>`;
+
+  function newDraft(m) {
+    const st = S.status[m.id];
+    if (st && st.kind === "ok") return { mode: "ok", orders: st.orders.map((o) => ({ ...o, qty: String(o.qty) })), people: st.people ?? "", note: st.note ?? "", showNote: !!st.note, confirmedHigh: true };
+    if (st && st.kind === "off") return { mode: "off", orders: [blankOrder(m)], reason: st.reason, note: st.note ?? "", showNote: !!st.note, people: "" };
+    return { mode: "ok", orders: [blankOrder(m)], people: "", note: "", showNote: false, confirmedHigh: false };
+  }
+  const blankOrder = (m) => ({ op: m.released[0], qty: "", rework: false, reason: "", other: "" });
+
+  function renderDetail() {
+    if (!S.open) return "";
+    const m = byId(S.open);
+    const d = S.draft;
+    const e = S.showErrors;
+    const st = S.status[m.id];
+    const head = `<div class="dhead">
+        <button type="button" class="btn btn-subtle back-mobile" id="close">← Lista</button>
+        <h2>${esc(m.name)}</h2>
+        ${!st ? '<span class="loz loz-off">Pendente</span>' : st.kind === "ok" ? '<span class="loz loz-ok">Apontada</span>' : '<span class="loz loz-off">Não produziu</span>'}
+      </div>
+      <div class="meta-line">
+        <span>${m.line}</span>
+        <span>${m.perShift ? `Meta do turno <b class="num">${fmt(m.perShift)}</b>${m.byPeople ? ` com ${m.stdPeople} pessoas` : ""}` : "Por demanda, sem meta"}</span>
+        <span>OP liberada <b class="mono">${m.released.join(", ")}</b></span>
+      </div>`;
+
+    if (d.mode === "off") {
+      return `<section class="card detail" aria-label="${esc(m.name)}">${head}
+        <div class="stopped">
+          <span class="lbl" id="stl">Por que a máquina não produziu neste turno?</span>
+          <div class="chips" role="group" aria-labelledby="stl">${STOP_REASONS.map((r) => `<button type="button" data-stop="${esc(r)}" aria-pressed="${d.reason === r}">${r}</button>`).join("")}</div>
+          ${e && !d.reason ? '<p class="err">Escolha o motivo.</p>' : ""}
+          <div><label class="lbl" for="note">Observação (opcional)</label><textarea id="note" rows="2" maxlength="500" placeholder="Ex.: aguardando peça da manutenção">${esc(d.note)}</textarea></div>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn btn-subtle" id="backToOk">Voltar: ela produziu</button><span class="sp"></span>
+          <button type="button" class="btn btn-primary btn-lg" id="finish">Concluir máquina</button>
+        </div></section>`;
+    }
+
+    const good = d.orders.reduce((s, o) => s + (o.rework ? 0 : Number(o.qty) || 0), 0);
+    const high = m.perShift && good > 2 * m.perShift && !d.confirmedHigh;
+    const ordersHtml = d.orders.map((o, i) => {
+      const qtyErr = e && !(Number(o.qty) > 0);
+      const opErr = e && !/^\d{1,15}$/.test(o.op);
+      const reasonVal = o.reason === "Outro motivo" ? o.other.trim() : o.reason;
+      return `<div class="op">
+        <div class="op-grid">
+          <div><label class="lbl" for="op${i}">Nº da OP</label>
+            <input type="text" inputmode="numeric" id="op${i}" class="mono ${opErr ? "invalid" : ""}" value="${esc(o.op)}" data-op="${i}" list="ops${m.id}" autocomplete="off">
+            ${opErr ? '<p class="err">Só números, até 15 dígitos.</p>' : m.released.includes(o.op) ? '<p class="hint">OP liberada para esta máquina</p>' : ""}</div>
+          <div><label class="lbl" for="q${i}">Quantidade${o.rework ? " retrabalhada" : ""}</label>
+            <input type="number" inputmode="numeric" min="0" id="q${i}" class="qty ${qtyErr ? "invalid" : ""}" value="${esc(o.qty)}" data-qty="${i}" placeholder="0">
+            ${qtyErr ? '<p class="err">Informe a quantidade.</p>' : ""}</div>
+        </div>
+        <div class="op-tools">
+          <label class="check"><input type="checkbox" data-rework="${i}" ${o.rework ? "checked" : ""}> Retrabalho</label>
+          ${d.orders.length > 1 ? `<button type="button" class="btn-link" data-remove="${i}" style="color:var(--danger)">Tirar esta OP</button>` : ""}
+        </div>
+        ${o.rework ? `<div class="reason"><span class="lbl" id="rl${i}">Qual foi o motivo do retrabalho?</span>
+          <div class="chips" role="group" aria-labelledby="rl${i}">${[...REASONS, "Outro motivo"].map((r) => `<button type="button" data-reason="${i}" data-val="${esc(r)}" aria-pressed="${o.reason === r}">${r}</button>`).join("")}</div>
+          ${o.reason === "Outro motivo" ? `<input type="text" id="oth${i}" data-other="${i}" value="${esc(o.other)}" placeholder="Descreva o motivo" maxlength="80">` : ""}
+          ${e && !reasonVal ? '<p class="err">Escolha o motivo do retrabalho.</p>' : ""}</div>` : ""}
+      </div>`;
+    }).join("");
+
+    const peopleErr = e && m.byPeople && !(Number(d.people) > 0);
+    return `<section class="card detail" aria-label="${esc(m.name)}">${head}
+      <datalist id="ops${m.id}">${m.released.map((r) => `<option value="${r}">`).join("")}</datalist>
+      ${st && st.kind === "ok" ? '<p class="saved">Já gravada neste turno. O que você mudar aqui substitui o que estava.</p>' : ""}
+      ${ordersHtml}
+      <div><button type="button" class="btn-link" id="addOp">+ Adicionar outra OP</button></div>
+      ${high ? `<div class="warn" role="status"><span><b>Confere ${fmt(good)} peças?</b> A meta do turno é ${fmt(m.perShift)}. Se for um zero a mais, corrija a quantidade.</span><button type="button" class="btn" id="okHigh">Está certo</button></div>` : ""}
+      ${m.byPeople ? `<div style="max-width:220px"><label class="lbl" for="people">Nº de pessoas</label>
+        <input type="number" min="1" inputmode="numeric" id="people" value="${esc(d.people)}" class="${peopleErr ? "invalid" : ""}">
+        ${peopleErr ? '<p class="err">Informe quantas pessoas trabalharam.</p>' : '<p class="hint">Aqui a meta muda com o nº de pessoas.</p>'}</div>` : ""}
+      ${d.showNote ? `<div><label class="lbl" for="note">Observação do turno</label><textarea id="note" rows="2" maxlength="500">${esc(d.note)}</textarea></div>` : '<div><button type="button" class="btn-link" id="showNote">+ Adicionar observação</button></div>'}
+      <div class="actions">
+        <button type="button" class="btn btn-subtle" id="toOff">Não produziu</button><span class="sp"></span>
+        <button type="button" class="btn btn-primary btn-lg" id="finish">Concluir máquina</button>
+      </div>
+    </section>`;
+  }
+
+  // ---------- Passo 3: conferir ----------
+  function renderStep3() {
+    if (S.closed) {
+      return `<section class="card done-msg step3"><h2>Turno encerrado</h2>
+        <p class="hint">${shiftLabel()} de ${dateLabel(S.turn.date)}: ${resolved().length} de ${M.length} máquinas resolvidas. Correções depois disso são feitas no Histórico.</p>
+        <button type="button" class="btn btn-default" id="reset2">Começar outro apontamento</button></section>`;
+    }
+    const oks = M.filter((m) => S.status[m.id]?.kind === "ok");
+    const offs = M.filter((m) => S.status[m.id]?.kind === "off");
+    const pend = pending();
+    const total = oks.reduce((s, m) => s + totalOf(S.status[m.id]), 0);
+    const rework = oks.reduce((s, m) => s + reworkOf(S.status[m.id]), 0);
+    const warns = [];
+    for (const m of oks) {
+      const st = S.status[m.id];
+      if (m.perShift && totalOf(st) > 2 * m.perShift) warns.push([m, `${fmt(totalOf(st))} peças, mais que o dobro da meta (${fmt(m.perShift)})`]);
+      if (m.perShift && totalOf(st) < 0.3 * m.perShift) warns.push([m, `${fmt(totalOf(st))} peças, menos de 30% da meta (${fmt(m.perShift)})`]);
+    }
+    const seen = {};
+    for (const m of oks) for (const o of S.status[m.id].orders) (seen[o.op] ??= []).push(m);
+    for (const [op, ms] of Object.entries(seen)) if (new Set(ms).size > 1) warns.push([ms[1], `OP ${op} também apontada em ${ms[0].name}`]);
+    return `<div class="step3">
+      <section class="card kpis" aria-label="Resumo do turno">
+        <div class="kpi"><span>Apontadas</span><strong>${oks.length}</strong></div>
+        <div class="kpi"><span>Não produziram</span><strong>${offs.length}</strong></div>
+        <div class="kpi"><span>Pendentes</span><strong style="color:${pend.length ? "var(--warning)" : "inherit"}">${pend.length}</strong></div>
+        <div class="kpi"><span>Peças boas</span><strong>${fmt(total)}</strong>${rework ? `<span>+ ${fmt(rework)} retrabalho</span>` : ""}</div>
+      </section>
+      ${warns.length ? `<section class="card box"><h3>Vale conferir</h3><ul class="plain">${warns.map(([m, t]) => `<li><span><b>${esc(m.name)}</b>: ${esc(t)}</span><button type="button" class="btn-link" data-open="${m.id}">Abrir</button></li>`).join("")}</ul><p class="hint">Os avisos não impedem de terminar.</p></section>` : ""}
+      ${pend.length ? `<section class="card box"><h3>Ainda sem apontamento</h3><ul class="plain">${pend.map((m) => `<li><span>${esc(m.name)}</span><span style="display:flex;gap:12px"><button type="button" class="btn-link" data-open="${m.id}">Apontar</button><button type="button" class="btn-link" data-quickoff="${m.id}">Não produziu</button></span></li>`).join("")}</ul></section>` : ""}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+        <button type="button" class="btn btn-default" data-go="2">Voltar às máquinas</button>
+        <button type="button" class="btn btn-primary btn-lg" id="close-turn">Terminar o turno</button>
+      </div>
+    </div>`;
+  }
+
+  // ---------- Desenho ----------
+  let lastFocus = null;
+  function render() {
+    renderTop();
+    const app = document.getElementById("app");
+    app.innerHTML = S.step === 1 ? renderStep1() : S.step === 2 ? renderStep2() : renderStep3();
+    if (lastFocus) {
+      const el = document.getElementById(lastFocus.id);
+      if (el) { el.focus(); if (lastFocus.sel != null && el.setSelectionRange) try { el.setSelectionRange(lastFocus.sel, lastFocus.sel); } catch (_) {} }
+      lastFocus = null;
+    }
+  }
+  const keepFocus = (el) => { lastFocus = { id: el.id, sel: el.selectionStart ?? null }; };
+
+  let toastT;
+  function toast(msg) {
+    const layer = document.getElementById("layer");
+    layer.querySelector(".toast")?.remove();
+    const t = document.createElement("div");
+    t.className = "toast"; t.setAttribute("role", "status"); t.textContent = msg;
+    layer.appendChild(t);
+    clearTimeout(toastT); toastT = setTimeout(() => t.remove(), 3200);
+  }
+
+  function modal(title, body, primary, onOk, cancel = "Cancelar") {
+    const layer = document.getElementById("layer");
+    const bg = document.createElement("div");
+    bg.className = "modal-bg";
+    bg.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="mt"><h2 id="mt">${title}</h2><p class="hint" style="margin:0">${body}</p><div class="row-btn"><button type="button" class="btn btn-subtle" data-x>${cancel}</button><button type="button" class="btn btn-primary" data-ok>${primary}</button></div></div>`;
+    layer.appendChild(bg);
+    bg.querySelector("[data-ok]").focus();
+    const close = () => bg.remove();
+    bg.addEventListener("click", (ev) => { if (ev.target === bg || ev.target.closest("[data-x]")) close(); if (ev.target.closest("[data-ok]")) { close(); onOk(); } });
+    bg.addEventListener("keydown", (ev) => { if (ev.key === "Escape") close(); });
+  }
+
+  // ---------- Ações ----------
+  const dirty = () => {
+    if (!S.open || !S.draft) return false;
+    const fresh = JSON.stringify(newDraft(byId(S.open)));
+    return JSON.stringify(S.draft) !== fresh;
+  };
+  function openMachine(id) {
+    const go = () => { S.step = 2; S.open = id; S.draft = newDraft(byId(id)); S.showErrors = false; render(); document.getElementById("dw")?.scrollTo?.(0, 0); const f = document.querySelector('[data-qty="0"]') || document.getElementById("close"); f?.focus(); };
+    if (S.open && S.open !== id && dirty()) modal("Sair sem concluir?", `O que você digitou em ${esc(byId(S.open).name)} não foi gravado.`, "Sair sem gravar", go, "Continuar nela");
+    else go();
+  }
+  function closeMachine() { S.open = null; S.draft = null; S.showErrors = false; render(); }
+
+  function finish() {
+    const m = byId(S.open);
+    const d = S.draft;
+    if (d.mode === "off") {
+      if (!d.reason) { S.showErrors = true; render(); return; }
+      S.status[m.id] = { kind: "off", reason: d.reason, note: d.note.trim() };
+    } else {
+      const bad = d.orders.some((o) => !/^\d{1,15}$/.test(o.op) || !(Number(o.qty) > 0) || (o.rework && !(o.reason === "Outro motivo" ? o.other.trim() : o.reason))) || (m.byPeople && !(Number(d.people) > 0));
+      if (bad) { S.showErrors = true; render(); document.querySelector(".invalid, .reason .err")?.scrollIntoView({ block: "center" }); return; }
+      const good = d.orders.reduce((s, o) => s + (o.rework ? 0 : Number(o.qty)), 0);
+      if (m.perShift && good > 2 * m.perShift && !d.confirmedHigh) { render(); document.getElementById("okHigh")?.focus(); return; }
+      S.status[m.id] = {
+        kind: "ok",
+        orders: d.orders.map((o) => ({ op: o.op, qty: Number(o.qty), rework: o.rework, reason: o.rework ? (o.reason === "Outro motivo" ? o.other.trim() : o.reason) : "" , other: o.other })),
+        people: d.people, note: d.note.trim(),
+      };
+    }
+    const done = m;
+    const nxt = nextPending(done.id);
+    toast(`${done.name}: gravada`);
+    if (nxt && window.matchMedia("(min-width: 861px)").matches) { S.open = nxt.id; S.draft = newDraft(nxt); S.showErrors = false; render(); document.querySelector('[data-qty="0"]')?.focus(); }
+    else { closeMachine(); }
+    if (!nxt) { S.open = null; render(); toast("Todas as máquinas resolvidas. Confira e termine o turno."); }
+  }
+
+  function goStep(n) {
+    if (n > 1 && !turnReady()) { S.showTurnErrors = true; S.step = 1; render(); return; }
+    const go = () => { S.step = n; if (n !== 2) { S.open = null; S.draft = null; } render(); window.scrollTo(0, 0); };
+    if (S.step === 2 && n !== 2 && dirty()) modal("Sair sem concluir?", `O que você digitou em ${esc(byId(S.open).name)} não foi gravado.`, "Sair sem gravar", go, "Continuar nela");
+    else go();
+  }
+
+  document.addEventListener("click", (ev) => {
+    const t = ev.target.closest("button");
+    if (!t || t.closest(".modal-bg")) return;
+    const d = S.draft;
+    if (t.dataset.go) return goStep(Number(t.dataset.go));
+    if (t.dataset.shift) {
+      const set = () => { S.turn.shift = t.dataset.shift; render(); };
+      if (resolved().length && S.turn.shift && S.turn.shift !== t.dataset.shift) modal("Trocar o turno?", "As máquinas já concluídas ficam gravadas no turno anterior. A lista recomeça para o turno novo.", "Trocar o turno", () => { S.status = {}; set(); });
+      else set();
+      return;
+    }
+    if (t.dataset.regime) { S.turn.regime = t.dataset.regime; return render(); }
+    if (t.id === "toStep2") {
+      if (!turnReady()) { S.showTurnErrors = true; render(); document.querySelector(".invalid, .seg.invalid button")?.focus(); return; }
+      S.showTurnErrors = false; S.step = 2; render(); window.scrollTo(0, 0); return;
+    }
+    if (t.dataset.open) return openMachine(t.dataset.open);
+    if (t.id === "close") return closeMachine();
+    if (t.dataset.quickoff) { openMachine(t.dataset.quickoff); S.draft.mode = "off"; return render(); }
+    if (t.id === "finish") return finish();
+    if (t.id === "toOff") { d.mode = "off"; S.showErrors = false; return render(); }
+    if (t.id === "backToOk") { d.mode = "ok"; S.showErrors = false; return render(); }
+    if (t.dataset.stop) { d.reason = t.dataset.stop; return render(); }
+    if (t.id === "addOp") { d.orders.push({ op: "", qty: "", rework: false, reason: "", other: "" }); render(); document.getElementById(`op${d.orders.length - 1}`)?.focus(); return; }
+    if (t.dataset.remove) { d.orders.splice(Number(t.dataset.remove), 1); return render(); }
+    if (t.dataset.reason) { const o = d.orders[Number(t.dataset.reason)]; o.reason = t.dataset.val; render(); if (o.reason === "Outro motivo") document.getElementById(`oth${t.dataset.reason}`)?.focus(); return; }
+    if (t.id === "okHigh") { d.confirmedHigh = true; return render(); }
+    if (t.id === "showNote") { d.showNote = true; render(); document.getElementById("note")?.focus(); return; }
+    if (t.id === "close-turn") {
+      const p = pending().length;
+      const doClose = () => { S.closed = true; render(); };
+      if (p) modal(`Terminar com ${p} ${p === 1 ? "máquina pendente" : "máquinas pendentes"}?`, "Elas vão aparecer como sem apontamento. Se alguma não produziu, marque o motivo antes.", "Terminar assim", doClose, "Voltar");
+      else doClose();
+      return;
+    }
+    if (t.id === "reset" || t.id === "reset2") { S = fresh(); render(); window.scrollTo(0, 0); return; }
+    if (t.id === "sample") { loadSample(); return; }
+  });
+
+  document.addEventListener("input", (ev) => {
+    const el = ev.target;
+    const d = S.draft;
+    if (el.id === "date") { S.turn.date = el.value; return renderTop(); }
+    if (el.id === "filter") { S.filter = el.value; keepFocus(el); return render(); }
+    if (!d) return;
+    if (el.dataset.op != null) { d.orders[Number(el.dataset.op)].op = el.value.replace(/\D/g, ""); keepFocus(el); return render(); }
+    if (el.dataset.qty != null) { d.orders[Number(el.dataset.qty)].qty = el.value; d.confirmedHigh = false; keepFocus(el); return render(); }
+    if (el.dataset.other != null) { d.orders[Number(el.dataset.other)].other = el.value; return; }
+    if (el.id === "people") { d.people = el.value; return; }
+    if (el.id === "note") { d.note = el.value; return; }
+  });
+  document.addEventListener("change", (ev) => {
+    const el = ev.target;
+    if (el.dataset.rework != null && S.draft) { const o = S.draft.orders[Number(el.dataset.rework)]; o.rework = el.checked; if (!el.checked) { o.reason = ""; o.other = ""; } render(); }
+  });
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && S.open && !document.querySelector(".modal-bg")) closeMachine();
+    if (ev.key === "Enter" && ev.target.matches && ev.target.matches("[data-qty]")) { ev.preventDefault(); finish(); }
+  });
+
+  function loadSample() {
+    S = fresh();
+    S.turn = { date: "2026-10-08", shift: "1", regime: "normal" };
+    S.step = 2;
+    const put = (id, orders, extra = {}) => (S.status[id] = { kind: "ok", orders: orders.map(([op, qty, rework, reason]) => ({ op, qty, rework: !!rework, reason: reason || "", other: "" })), people: "", note: "", ...extra });
+    put("m1", [[byId("m1").released[0], 3820]]);
+    put("m4", [[byId("m4").released[0], 10450], [byId("m4").released[0], 380, true, "Rebarba na peça"]]);
+    put("e9", [[byId("e9").released[0], 19800]], { people: "6" });
+    put("e3", [[byId("e3").released[0], 9050]]);
+    put("e7", [[byId("e7").released[0], 116000]]); // um zero a mais, para ver o aviso no passo 3
+    S.status.m13 = { kind: "off", reason: "Manutenção", note: "" };
+    S.status.m8 = { kind: "off", reason: "Sem OP liberada", note: "" };
+    render();
+    toast("Exemplo carregado: Turno 1, 7 de 22 máquinas resolvidas");
+  }
+
+  render();
+})();
+</script>

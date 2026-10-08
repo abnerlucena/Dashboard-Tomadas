@@ -3,7 +3,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: barra de passos fixa no topo; passo 2 = lista curta à esquerda + uma máquina aberta à direita (tela cheia no celular).
+/* Layout: barra de passos no topo; passo 2 = lista de status fixa à esquerda + todas as máquinas em sequência à direita,
+   cada uma com "Concluir" (o distribuidor aponta as 22 em sequência, sem abrir e fechar telas).
    Cores e tipos copiados do Dash de Produção (tokens.css), para o protótipo parecer a tela real. */
 :root {
   --bg: #F7F9FA;
@@ -27,7 +28,6 @@
   --overlay: rgba(22,31,45,.45);
   --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-  --r: 8px;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -54,6 +54,7 @@ h1, h2, h3 { text-wrap: balance; margin: 0; }
 .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .num { font-variant-numeric: tabular-nums; }
 :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+input[list]::-webkit-calendar-picker-indicator { display: none !important; }
 
 .banner { background: var(--banner); color: var(--on-banner); padding: 8px 16px; font-size: 13px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .banner b { font-weight: 600; }
@@ -78,27 +79,24 @@ main { max-width: 1240px; margin: 0 auto; padding-block: 24px 48px; padding-inli
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 0 16px; border-radius: 6px; border: 1px solid transparent; font-weight: 600; cursor: pointer; font-size: 14px; }
 .btn-primary { background: var(--brand); color: var(--on-brand); }
 .btn-primary:hover { background: var(--brand-hover); }
-.btn-primary:disabled { opacity: .45; cursor: not-allowed; }
 .btn-default { background: var(--neutral-bg); color: var(--fg); }
 .btn-default:hover { filter: brightness(.96); }
 .btn-subtle { background: transparent; color: var(--subtle); }
 .btn-subtle:hover { background: var(--neutral-bg); }
-.btn-link { background: none; border: 0; color: var(--brand); padding: 0; cursor: pointer; font-weight: 500; }
+.btn-link { background: none; border: 0; color: var(--brand); padding: 0; cursor: pointer; font-weight: 500; min-height: 32px; }
 .btn-lg { min-height: 48px; font-size: 15px; padding: 0 20px; }
 
 .card { background: var(--surface); border-radius: 12px; box-shadow: var(--shadow); }
-label.lbl, .lbl { display: block; font-size: 13px; font-weight: 600; color: var(--subtle); margin-bottom: 6px; }
-.hint { font-size: 13px; color: var(--subtlest); }
-.err { font-size: 13px; color: var(--danger); margin-top: 6px; }
+.lbl { display: block; font-size: 13px; font-weight: 600; color: var(--subtle); margin-bottom: 6px; }
+.hint { font-size: 13px; color: var(--subtlest); margin: 4px 0 0; }
+.err { font-size: 13px; color: var(--danger); margin: 6px 0 0; }
 input[type=text], input[type=date], input[type=number], textarea { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; min-height: 44px; padding: 8px 12px; }
 input:focus, textarea:focus { border-color: var(--brand); outline: none; box-shadow: 0 0 0 1px var(--brand); }
 input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger); }
 
 .seg { display: inline-flex; background: var(--sunken); border: 1px solid var(--border); border-radius: 8px; padding: 3px; gap: 3px; flex-wrap: wrap; }
-.seg button { border: 0; background: transparent; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 500; color: var(--subtle); text-align: left; }
-.seg button small { display: block; font-size: 12px; font-weight: 400; color: var(--subtlest); }
+.seg button { border: 0; background: transparent; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 500; color: var(--subtle); min-height: 40px; }
 .seg button[aria-pressed="true"] { background: var(--surface); color: var(--selected-fg); box-shadow: var(--shadow); }
-.seg button[aria-pressed="true"] small { color: var(--selected-fg); }
 .seg.invalid { border-color: var(--danger); }
 
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -107,60 +105,66 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
 
 .loz { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 6px; border-radius: 4px; white-space: nowrap; }
 .loz-ok { background: var(--success-bg); color: var(--success); }
-.loz-warn { background: var(--warning-bg); color: var(--warning); }
 .loz-off { background: var(--neutral-bg); color: var(--subtle); }
-.loz-info { background: var(--selected-bg); color: var(--selected-fg); }
+.loz-edit { background: var(--selected-bg); color: var(--selected-fg); }
 
 /* ---------- Passo 1 ---------- */
 .step1 { max-width: 640px; margin: 0 auto; padding: 24px; display: grid; gap: 24px; }
 .step1 h2 { font-size: 22px; }
 .step1 p { margin: 4px 0 0; color: var(--subtle); }
 
-/* ---------- Passo 2 ---------- */
-.split { display: grid; grid-template-columns: minmax(0, 400px) minmax(0, 1fr); gap: 24px; align-items: start; }
-.list { padding: 16px; display: grid; gap: 16px; }
+/* ---------- Passo 2: lista de status + todas as máquinas ---------- */
+.split { display: grid; grid-template-columns: minmax(0, 290px) minmax(0, 1fr); gap: 24px; align-items: start; }
+.status { position: sticky; top: 84px; max-height: calc(100vh - 100px); overflow-y: auto; padding: 16px; display: grid; gap: 14px; }
 .progress { display: grid; gap: 6px; }
 .bar { height: 6px; background: var(--neutral-bg); border-radius: 999px; overflow: hidden; display: flex; }
 .bar span { display: block; height: 100%; }
-.bar .b-ok { background: var(--success); }
-.bar .b-off { background: var(--subtlest); }
-.legend .sw { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+.b-ok { background: var(--success); }
+.b-off { background: var(--subtlest); }
 .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 13px; color: var(--subtle); }
-.group h3 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--subtlest); margin: 0 0 6px; display: flex; gap: 8px; }
-.rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-.row { width: 100%; display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 10px; align-items: center; text-align: left; background: transparent; border: 0; border-radius: 8px; padding: 10px; cursor: pointer; min-height: 48px; }
-.row:hover { background: var(--sunken); }
-.row[aria-current="true"] { background: var(--selected-bg); }
-.row .st { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--subtlest); }
-.row.ok .st { background: var(--success); border-color: var(--success); }
-.row.off .st { background: var(--subtlest); border-color: var(--subtlest); }
-.row .nm { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.row .sub { font-size: 13px; color: var(--subtlest); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.row.next:not([aria-current="true"]) { box-shadow: inset 0 0 0 1px var(--brand); }
+.legend .sw { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+.group-t { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--subtlest); margin: 0 0 4px; }
+.srows { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+.srow { width: 100%; display: grid; grid-template-columns: 10px minmax(0, 1fr); gap: 10px; align-items: center; text-align: left; background: transparent; border: 0; border-radius: 6px; padding: 6px 8px; cursor: pointer; font-size: 13.5px; min-height: 34px; }
+.srow:hover { background: var(--sunken); }
+.srow .st { width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--subtlest); }
+.srow.ok .st { background: var(--success); border-color: var(--success); }
+.srow.off .st { background: var(--subtlest); border-color: var(--subtlest); }
+.srow .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.srow.ok .nm, .srow.off .nm { color: var(--subtle); }
+.srow.next { background: var(--selected-bg); color: var(--selected-fg); font-weight: 600; }
 
-.detail { padding: 24px; display: grid; gap: 20px; }
-.detail-wrap { position: sticky; top: 90px; max-height: calc(100vh - 110px); overflow-y: auto; border-radius: 12px; }
-.detail-empty { padding: 48px 24px; text-align: center; color: var(--subtle); display: grid; gap: 8px; justify-items: center; }
-.dhead { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
-.dhead h2 { font-size: 20px; flex: 1; min-width: 0; }
-.meta-line { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 14px; color: var(--subtle); }
-.meta-line b { color: var(--fg); font-weight: 600; }
-.op { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 10px; }
-.op-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
-.qty { font-size: 22px !important; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
-.op-tools { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.check { display: inline-flex; gap: 8px; align-items: center; cursor: pointer; min-height: 36px; }
+.machines { display: grid; gap: 28px; min-width: 0; }
+.mgroup { display: grid; gap: 10px; }
+.mgroup h2 { font-size: 16px; display: flex; gap: 8px; align-items: baseline; }
+.mgroup h2 span { font-size: 13px; font-weight: 400; color: var(--subtlest); }
+.mcard { padding: 18px 20px; display: grid; gap: 14px; scroll-margin-top: 140px; }
+.mcard.next { box-shadow: 0 0 0 2px var(--brand); }
+.mhead { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+.mhead h3 { font-size: 16px; flex: 1; min-width: 0; }
+.mmeta { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13.5px; color: var(--subtle); }
+.mmeta b { color: var(--fg); font-weight: 600; }
+.op { display: grid; grid-template-columns: minmax(0, 170px) minmax(0, 150px) auto; gap: 10px 12px; align-items: start; }
+.op + .op { border-top: 1px solid var(--border); padding-top: 14px; }
+.op .reason { grid-column: 1 / -1; max-width: 460px; }
+.qty { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.op-tools { display: flex; align-items: center; gap: 12px; padding-top: 26px; flex-wrap: wrap; }
+.check { display: inline-flex; gap: 8px; align-items: center; cursor: pointer; min-height: 40px; }
 .check input { width: 18px; height: 18px; accent-color: var(--brand); }
-.reason { background: var(--warning-bg); border-radius: 8px; padding: 12px; display: grid; gap: 8px; }
-.reason .lbl { color: var(--warning); margin: 0; }
 .warn { background: var(--warning-bg); color: var(--warning); border-radius: 8px; padding: 10px 12px; font-size: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .warn b { font-weight: 600; }
 .warn .btn { min-height: 32px; padding: 0 10px; background: var(--surface); color: var(--fg); }
-.actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; border-top: 1px solid var(--border); padding-top: 16px; }
-.actions .sp { flex: 1; }
-.stopped { display: grid; gap: 12px; padding: 16px; border: 1px dashed var(--border); border-radius: 10px; }
-.saved { background: var(--success-bg); color: var(--success); border-radius: 8px; padding: 10px 12px; font-size: 14px; }
-.back-mobile { display: none; }
+.extras { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; }
+.people { max-width: 90px; }
+.mactions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; border-top: 1px solid var(--border); padding-top: 14px; }
+.mactions .sp { flex: 1; }
+/* Máquina concluída: uma linha só, com o resumo e "Editar" */
+.mdone { padding: 12px 20px; display: flex; gap: 8px 12px; align-items: center; flex-wrap: wrap; scroll-margin-top: 140px; }
+.mdone h3 { font-size: 15px; font-weight: 600; }
+.mdone .sum { color: var(--subtle); font-size: 14px; flex: 1; min-width: 12rem; }
+.stopped { display: grid; gap: 10px; }
+
+.mobile-bar { display: none; }
 
 /* ---------- Passo 3 ---------- */
 .step3 { max-width: 760px; margin: 0 auto; display: grid; gap: 16px; }
@@ -186,18 +190,21 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
 
 @media (max-width: 860px) {
   .split { grid-template-columns: minmax(0, 1fr); }
-  .detail-wrap { position: fixed; inset: 0; top: 0; max-height: none; border-radius: 0; z-index: 20; background: var(--bg); overflow-y: auto; padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); }
-  .desk-only { display: none; }
-  .detail-wrap[hidden] { display: none !important; }
-  .detail { position: static; border-radius: 0; box-shadow: none; min-height: 100%; }
-  .back-mobile { display: inline-flex; flex-basis: 100%; justify-content: flex-start; padding-left: 0; min-height: 44px; }
+  .status { display: none; }
+  /* No celular o topo rola junto; fica fixa só a barra de progresso */
+  .top { position: static; }
+  .mcard, .mdone { scroll-margin-top: 72px; }
+  .mobile-bar { display: flex; position: sticky; top: env(safe-area-inset-top, 0px); z-index: 4; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; box-shadow: var(--shadow); }
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kpi:nth-child(2) { border-right: 0; }
   .kpi:nth-child(-n+2) { border-bottom: 1px solid var(--border); }
   .ctx { margin-left: 0; }
 }
-@media (max-width: 480px) {
-  .op-grid { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 520px) {
+  .op { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .op-tools { grid-column: 1 / -1; padding-top: 0; }
+  .mcard { padding: 16px; }
+  .mdone { padding: 12px 16px; }
   .step1 { padding: 16px; }
 }
 </style>
@@ -248,17 +255,13 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
     ["e9", "Bancada de embalagem a granel", "Granel", 21000],
   ].map(([id, name, line, perShift], i) => ({
     id, name, line, perShift,
-    // OPs liberadas (fictícias): a primeira já vem escolhida
     released: i % 5 === 1 ? ["45" + (10204 + i * 37), "45" + (10311 + i * 41)] : ["45" + (10204 + i * 37)],
     // Onde a meta depende do nº de pessoas (no Dash: "conforme a lotação")
     byPeople: id === "e9" || id === "e5" || id === "e6",
     stdPeople: id === "e9" ? 6 : 3,
   }));
-  const SHIFTS = [
-    { v: "1", label: "Turno 1", hours: "04h55–14h18" },
-    { v: "2", label: "Turno 2", hours: "14h18–23h24" },
-    { v: "3", label: "Turno 3", hours: "23h24–05h00" },
-  ];
+  const LINES = ["Montagem", "Embalagem", "Granel"];
+  const SHIFTS = [{ v: "1", label: "Turno 1" }, { v: "2", label: "Turno 2" }, { v: "3", label: "Turno 3" }];
   const REASONS = ["Rebarba na peça", "Cor fora do padrão", "Montagem invertida", "Falha no teste elétrico", "Encaixe com folga"];
   const STOP_REASONS = ["Parada", "Manutenção", "Sem OP liberada", "Sem operador", "Setup / troca de produto"];
   const nf = new Intl.NumberFormat("pt-BR");
@@ -268,14 +271,15 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
   const dateLabel = (iso) => new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" }).format(new Date(iso + "T12:00:00"));
 
   // ---------- Estado ----------
+  const blankOrder = () => ({ op: "", qty: "", rework: false, reason: "" });
+  const blankDraft = () => ({ mode: "ok", orders: [blankOrder()], people: "", note: "", showNote: false, stop: "", confirmedHigh: false, showErrors: false });
   const fresh = () => ({
     step: 1,
     turn: { date: "", shift: "", regime: "" },
     showTurnErrors: false,
-    status: {}, // id -> { kind: "ok", orders: [...], people, note } | { kind: "off", reason, note }
-    open: null, // máquina aberta
-    draft: null,
-    showErrors: false,
+    status: {}, // id -> { kind: "ok", orders, people, note } | { kind: "off", reason }
+    drafts: Object.fromEntries(M.map((m) => [m.id, blankDraft()])),
+    editing: {}, // máquinas concluídas reabertas para editar
     filter: "",
     closed: false,
   });
@@ -284,13 +288,14 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
   const resolved = () => M.filter((m) => S.status[m.id]);
   const pending = () => M.filter((m) => !S.status[m.id]);
   const nextPending = (after) => {
-    const order = M;
-    const i = after ? order.findIndex((m) => m.id === after) : -1;
-    return [...order.slice(i + 1), ...order.slice(0, i + 1)].find((m) => !S.status[m.id]) || null;
+    const i = after ? M.findIndex((m) => m.id === after) : -1;
+    return [...M.slice(i + 1), ...M.slice(0, i + 1)].find((m) => !S.status[m.id]) || null;
   };
-  const totalOf = (st) => (st && st.kind === "ok" ? st.orders.reduce((s, o) => s + (o.rework ? 0 : o.qty), 0) : 0);
-  const reworkOf = (st) => (st && st.kind === "ok" ? st.orders.reduce((s, o) => s + (o.rework ? o.qty : 0), 0) : 0);
+  const goodOf = (orders) => orders.reduce((s, o) => s + (o.rework ? 0 : Number(o.qty) || 0), 0);
+  const reworkOf = (orders) => orders.reduce((s, o) => s + (o.rework ? Number(o.qty) || 0 : 0), 0);
   const shiftLabel = () => SHIFTS.find((s) => s.v === S.turn.shift)?.label ?? "";
+  const turnReady = () => S.turn.date && S.turn.shift && S.turn.regime;
+  const isOpen = (id) => !S.status[id] || S.editing[id];
 
   // ---------- Barra de passos ----------
   function renderTop() {
@@ -303,7 +308,6 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
       ? `<span class="chip">${dateLabel(S.turn.date)}</span><span class="chip">${shiftLabel()}</span><span class="chip">${S.turn.regime === "extra" ? "Hora extra" : "Normal"}</span><button type="button" class="btn-link" data-go="1">Trocar</button>`
       : "";
   }
-  const turnReady = () => S.turn.date && S.turn.shift && S.turn.regime;
 
   // ---------- Passo 1: o turno, escolhido por quem aponta ----------
   function renderStep1() {
@@ -316,157 +320,157 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
         ${e && !S.turn.date ? '<p class="err">Escolha a data.</p>' : ""}</div>
       <div><span class="lbl" id="shl">Turno</span>
         <div class="seg ${e && !S.turn.shift ? "invalid" : ""}" role="group" aria-labelledby="shl">
-          ${SHIFTS.map((s) => `<button type="button" data-shift="${s.v}" aria-pressed="${S.turn.shift === s.v}">${s.label}<small>${s.hours}</small></button>`).join("")}
+          ${SHIFTS.map((s) => `<button type="button" data-shift="${s.v}" aria-pressed="${S.turn.shift === s.v}">${s.label}</button>`).join("")}
         </div>${e && !S.turn.shift ? '<p class="err">Escolha o turno.</p>' : ""}</div>
       <div><span class="lbl" id="rgl">Regime</span>
         <div class="seg ${e && !S.turn.regime ? "invalid" : ""}" role="group" aria-labelledby="rgl">
           <button type="button" data-regime="normal" aria-pressed="${S.turn.regime === "normal"}">Normal</button>
-          <button type="button" data-regime="extra" aria-pressed="${S.turn.regime === "extra"}">Hora extra<small>fica fora da meta</small></button>
+          <button type="button" data-regime="extra" aria-pressed="${S.turn.regime === "extra"}">Hora extra</button>
         </div>${e && !S.turn.regime ? '<p class="err">Escolha o regime.</p>' : ""}</div>
       <div><button type="button" class="btn btn-primary btn-lg" id="toStep2">Continuar para as máquinas</button></div>
     </section>`;
   }
 
-  // ---------- Passo 2: lista curta + uma máquina por vez ----------
-  function rowHtml(m, next) {
+  // ---------- Passo 2: lista de status fixa + todas as máquinas em sequência ----------
+  function progressHtml() {
+    const ok = M.filter((m) => S.status[m.id]?.kind === "ok").length;
+    const off = M.filter((m) => S.status[m.id]?.kind === "off").length;
+    return `<div class="progress">
+      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><strong class="num">${ok + off} de ${M.length} concluídas</strong><span class="hint num" style="margin:0">${M.length - ok - off} pendentes</span></div>
+      <div class="bar" role="img" aria-label="${ok} apontadas, ${off} paradas, ${M.length - ok - off} pendentes"><span class="b-ok" style="width:${(ok / M.length) * 100}%"></span><span class="b-off" style="width:${(off / M.length) * 100}%"></span></div>
+      <div class="legend"><span><i class="sw b-ok"></i>${ok} ${ok === 1 ? "apontada" : "apontadas"}</span><span><i class="sw b-off"></i>${off} não ${off === 1 ? "produziu" : "produziram"}</span></div>
+    </div>`;
+  }
+
+  function renderStatus(next) {
+    return `<aside class="card status" aria-label="Situação das máquinas">
+      ${progressHtml()}
+      <div><label class="lbl" for="filter">Procurar máquina</label><input type="text" id="filter" placeholder="Nome da máquina" value="${esc(S.filter)}" autocomplete="off"></div>
+      ${LINES.map((l) => `<div><p class="group-t">${l}</p><ul class="srows">${M.filter((m) => m.line === l).map((m) => {
+        const st = S.status[m.id];
+        return `<li><button type="button" class="srow ${st ? st.kind : ""} ${next && next.id === m.id ? "next" : ""}" data-goto="${m.id}" title="${esc(m.name)}"><span class="st" aria-hidden="true"></span><span class="nm">${esc(m.name)}</span></button></li>`;
+      }).join("")}</ul></div>`).join("")}
+      <button type="button" class="btn btn-default" data-go="3">Conferir e terminar o turno</button>
+    </aside>`;
+  }
+
+  function doneCard(m) {
     const st = S.status[m.id];
-    const sub = !st
-      ? m.perShift ? `Pendente · meta ${fmt(m.perShift)}` : "Pendente · por demanda"
-      : st.kind === "ok"
-        ? `${fmt(totalOf(st))} un.${reworkOf(st) ? ` + ${fmt(reworkOf(st))} retrabalho` : ""} · OP ${st.orders.map((o) => o.op).join(", ")}`
-        : `Não produziu: ${st.reason}`;
-    return `<li><button type="button" class="row ${st ? st.kind : ""} ${next && next.id === m.id ? "next" : ""}" data-open="${m.id}" aria-current="${S.open === m.id}">
-      <span class="st" aria-hidden="true"></span>
-      <span style="min-width:0"><span class="nm" style="display:block">${esc(m.name)}</span><span class="sub" style="display:block">${esc(sub)}</span></span>
-      ${!st ? '<span class="loz loz-off">Pendente</span>' : st.kind === "ok" ? '<span class="loz loz-ok">Apontada</span>' : '<span class="loz loz-off">Parada</span>'}
-    </button></li>`;
+    const sum = st.kind === "ok"
+      ? `${fmt(goodOf(st.orders))} peças${reworkOf(st.orders) ? ` + ${fmt(reworkOf(st.orders))} retrabalho` : ""} · OP ${st.orders.map((o) => o.op).join(", ")}`
+      : `Não produziu: ${st.reason}`;
+    return `<article class="card mdone" id="card-${m.id}" aria-label="${esc(m.name)}">
+      ${st.kind === "ok" ? '<span class="loz loz-ok">Apontada</span>' : '<span class="loz loz-off">Parada</span>'}
+      <h3>${esc(m.name)}</h3>
+      <span class="sum">${esc(sum)}</span>
+      <button type="button" class="btn-link" data-edit="${m.id}">Editar</button>
+    </article>`;
+  }
+
+  function openCard(m, next) {
+    const d = S.drafts[m.id];
+    const e = d.showErrors;
+    const head = `<div class="mhead">
+        <h3>${esc(m.name)}</h3>
+        ${S.editing[m.id] ? '<span class="loz loz-edit">Editando</span>' : '<span class="loz loz-off">Pendente</span>'}
+      </div>
+      <div class="mmeta">
+        <span>${m.perShift ? `Meta do turno <b class="num">${fmt(m.perShift)}</b>${m.byPeople ? ` com ${m.stdPeople} pessoas` : ""}` : "Por demanda, sem meta"}</span>
+        <span>${m.released.length === 1 ? "OP liberada" : "OPs liberadas"} <b class="mono">${m.released.join(", ")}</b></span>
+      </div>`;
+    const actions = `<div class="mactions">
+        ${d.mode === "ok" ? `<button type="button" class="btn btn-subtle" data-tooff="${m.id}">Não produziu</button>` : `<button type="button" class="btn btn-subtle" data-took="${m.id}">Voltar: ela produziu</button>`}
+        ${S.editing[m.id] ? `<button type="button" class="btn btn-subtle" data-canceledit="${m.id}">Cancelar edição</button>` : ""}
+        <span class="sp"></span>
+        <button type="button" class="btn btn-primary" data-finish="${m.id}">Concluir</button>
+      </div>`;
+    const cls = `card mcard ${next && next.id === m.id ? "next" : ""}`;
+
+    if (d.mode === "off") {
+      return `<article class="${cls}" id="card-${m.id}" aria-label="${esc(m.name)}">${head}
+        <div class="stopped">
+          <span class="lbl" id="st-${m.id}" style="margin:0">Por que a máquina não produziu neste turno?</span>
+          <div class="chips" role="group" aria-labelledby="st-${m.id}">${STOP_REASONS.map((r) => `<button type="button" data-stop="${m.id}" data-val="${esc(r)}" aria-pressed="${d.stop === r}">${r}</button>`).join("")}</div>
+          ${e && !d.stop ? '<p class="err">Escolha o motivo.</p>' : ""}
+        </div>
+        ${actions}
+      </article>`;
+    }
+
+    const good = goodOf(d.orders);
+    const high = m.perShift && good > 2 * m.perShift && !d.confirmedHigh;
+    const many = d.orders.length > 1;
+    const orders = d.orders.map((o, i) => {
+      const qtyErr = e && !(Number(o.qty) > 0);
+      const opErr = e && !/^\d{1,15}$/.test(o.op);
+      const id = `${m.id}-${i}`;
+      return `<div class="op">
+        <div><label class="lbl" for="op-${id}">${many ? `Nº da OP ${i + 1}` : "Nº da OP"}</label>
+          <input type="text" inputmode="numeric" id="op-${id}" class="mono ${opErr ? "invalid" : ""}" value="${esc(o.op)}" data-op="${id}" list="ops-${m.id}" placeholder="Ex.: 4501234" autocomplete="off">
+          ${opErr ? '<p class="err">Só números, até 15 dígitos.</p>' : m.released.includes(o.op) ? '<p class="hint">OP liberada desta máquina</p>' : ""}</div>
+        <div><label class="lbl" for="q-${id}">Quantidade</label>
+          <input type="number" inputmode="numeric" min="0" id="q-${id}" class="qty ${qtyErr ? "invalid" : ""}" value="${esc(o.qty)}" data-qty="${id}" placeholder="0">
+          ${qtyErr ? '<p class="err">Informe a quantidade.</p>' : ""}</div>
+        <div class="op-tools">
+          <label class="check"><input type="checkbox" data-rework="${id}" ${o.rework ? "checked" : ""}> Retrabalho</label>
+          ${many ? `<button type="button" class="btn-link" data-remove="${id}" style="color:var(--danger)">Tirar</button>` : ""}
+        </div>
+        ${o.rework ? `<div class="reason"><label class="lbl" for="r-${id}">Motivo do retrabalho</label>
+          <input type="text" id="r-${id}" data-reason="${id}" value="${esc(o.reason)}" list="motivos" placeholder="Ex.: rebarba na peça" maxlength="80" class="${e && !o.reason.trim() ? "invalid" : ""}">
+          ${e && !o.reason.trim() ? '<p class="err">Escreva o motivo do retrabalho.</p>' : ""}</div>` : ""}
+      </div>`;
+    }).join("");
+    const peopleErr = e && m.byPeople && !(Number(d.people) > 0);
+    return `<article class="${cls}" id="card-${m.id}" aria-label="${esc(m.name)}">${head}
+      <datalist id="ops-${m.id}">${m.released.map((r) => `<option value="${r}">`).join("")}</datalist>
+      ${orders}
+      ${high ? `<div class="warn" role="status"><span><b>Confere ${fmt(good)} peças?</b> A meta do turno é ${fmt(m.perShift)}. Se for um zero a mais, corrija a quantidade.</span><button type="button" class="btn" data-okhigh="${m.id}">Está certo</button></div>` : ""}
+      <div class="extras">
+        ${m.byPeople ? `<div><label class="lbl" for="p-${m.id}">Nº de pessoas</label><input type="number" min="1" inputmode="numeric" id="p-${m.id}" data-people="${m.id}" value="${esc(d.people)}" class="people ${peopleErr ? "invalid" : ""}">${peopleErr ? '<p class="err">Informe as pessoas.</p>' : ""}</div>` : ""}
+        <button type="button" class="btn-link" data-addop="${m.id}">+ Adicionar OP</button>
+        ${d.showNote ? "" : `<button type="button" class="btn-link" data-shownote="${m.id}">+ Adicionar observação</button>`}
+      </div>
+      ${d.showNote ? `<div><label class="lbl" for="n-${m.id}">Observação do turno</label><textarea id="n-${m.id}" data-note="${m.id}" rows="2" maxlength="500">${esc(d.note)}</textarea></div>` : ""}
+      ${actions}
+    </article>`;
   }
 
   function renderStep2() {
-    const ok = M.filter((m) => S.status[m.id]?.kind === "ok").length;
-    const off = M.filter((m) => S.status[m.id]?.kind === "off").length;
+    const next = nextPending(null);
     const q = S.filter.trim().toLowerCase();
     const match = (m) => !q || m.name.toLowerCase().includes(q);
-    const next = nextPending(null);
-    const groups = ["Montagem", "Embalagem", "Granel"].map((l) => [l, M.filter((m) => m.line === l && match(m))]).filter(([, ms]) => ms.length);
-    const list = `<section class="card list" aria-label="Máquinas do turno">
-      <div class="progress">
-        <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><strong class="num">${ok + off} de ${M.length} resolvidas</strong><span class="hint num">${M.length - ok - off} pendentes</span></div>
-        <div class="bar" role="img" aria-label="${ok} apontadas, ${off} paradas, ${M.length - ok - off} pendentes"><span class="b-ok" style="width:${(ok / M.length) * 100}%"></span><span class="b-off" style="width:${(off / M.length) * 100}%"></span></div>
-        <div class="legend"><span><i class="sw b-ok"></i>${ok} ${ok === 1 ? "apontada" : "apontadas"}</span><span><i class="sw b-off"></i>${off} não ${off === 1 ? "produziu" : "produziram"}</span></div>
+    const groups = LINES.map((l) => [l, M.filter((m) => m.line === l && match(m))]).filter(([, ms]) => ms.length);
+    const done = M.length - pending().length;
+    return `<div class="split">
+      ${renderStatus(next)}
+      <div class="machines">
+        <div class="mobile-bar"><strong class="num">${done} de ${M.length} concluídas</strong>${next ? `<button type="button" class="btn-link" data-goto="${next.id}">Próxima pendente</button>` : `<button type="button" class="btn-link" data-go="3">Conferir e terminar</button>`}</div>
+        ${groups.map(([l, ms]) => `<section class="mgroup" aria-label="${l}"><h2>${l} <span>${ms.filter((m) => S.status[m.id]).length} de ${ms.length} concluídas</span></h2>
+          ${ms.map((m) => (isOpen(m.id) ? openCard(m, next) : doneCard(m))).join("")}</section>`).join("")}
+        ${!groups.length ? '<p class="hint">Nenhuma máquina com esse nome.</p>' : ""}
+        <div style="display:flex;justify-content:flex-end"><button type="button" class="btn btn-primary btn-lg" data-go="3">Conferir e terminar o turno</button></div>
       </div>
-      <div><label class="lbl" for="filter">Procurar máquina</label><input type="text" id="filter" placeholder="Nome da máquina" value="${esc(S.filter)}" autocomplete="off"></div>
-      ${groups.map(([l, ms]) => `<div class="group"><h3>${l}</h3><ul class="rows">${ms.map((m) => rowHtml(m, next)).join("")}</ul></div>`).join("")}
-      ${!groups.length ? '<p class="hint">Nenhuma máquina com esse nome.</p>' : ""}
-      <button type="button" class="btn btn-default" data-go="3">Conferir e terminar o turno</button>
-    </section>`;
-    return `<div class="split">${list}<div class="detail-wrap" ${S.open ? "" : "hidden"} id="dw">${renderDetail()}</div>${S.open ? "" : `<div class="card detail-empty desk-only">${emptyDetail(next)}</div>`}</div>`;
-  }
-
-  const emptyDetail = (next) => next
-    ? `<strong>Escolha uma máquina na lista</strong><span class="hint">A próxima pendente é ${esc(next.name)}.</span><button type="button" class="btn btn-primary" data-open="${next.id}">Abrir ${esc(next.name)}</button>`
-    : `<strong>Todas as máquinas foram resolvidas</strong><button type="button" class="btn btn-primary" data-go="3">Conferir e terminar o turno</button>`;
-
-  function newDraft(m) {
-    const st = S.status[m.id];
-    if (st && st.kind === "ok") return { mode: "ok", orders: st.orders.map((o) => ({ ...o, qty: String(o.qty) })), people: st.people ?? "", note: st.note ?? "", showNote: !!st.note, confirmedHigh: true };
-    if (st && st.kind === "off") return { mode: "off", orders: [blankOrder(m)], reason: st.reason, note: st.note ?? "", showNote: !!st.note, people: "" };
-    return { mode: "ok", orders: [blankOrder(m)], people: "", note: "", showNote: false, confirmedHigh: false };
-  }
-  const blankOrder = (m) => ({ op: m.released[0], qty: "", rework: false, reason: "", other: "" });
-
-  function renderDetail() {
-    if (!S.open) return "";
-    const m = byId(S.open);
-    const d = S.draft;
-    const e = S.showErrors;
-    const st = S.status[m.id];
-    const head = `<div class="dhead">
-        <button type="button" class="btn btn-subtle back-mobile" id="close">← Lista</button>
-        <h2>${esc(m.name)}</h2>
-        ${!st ? '<span class="loz loz-off">Pendente</span>' : st.kind === "ok" ? '<span class="loz loz-ok">Apontada</span>' : '<span class="loz loz-off">Não produziu</span>'}
-      </div>
-      <div class="meta-line">
-        <span>${m.line}</span>
-        <span>${m.perShift ? `Meta do turno <b class="num">${fmt(m.perShift)}</b>${m.byPeople ? ` com ${m.stdPeople} pessoas` : ""}` : "Por demanda, sem meta"}</span>
-        <span>OP liberada <b class="mono">${m.released.join(", ")}</b></span>
-      </div>`;
-
-    if (d.mode === "off") {
-      return `<section class="card detail" aria-label="${esc(m.name)}">${head}
-        <div class="stopped">
-          <span class="lbl" id="stl">Por que a máquina não produziu neste turno?</span>
-          <div class="chips" role="group" aria-labelledby="stl">${STOP_REASONS.map((r) => `<button type="button" data-stop="${esc(r)}" aria-pressed="${d.reason === r}">${r}</button>`).join("")}</div>
-          ${e && !d.reason ? '<p class="err">Escolha o motivo.</p>' : ""}
-          <div><label class="lbl" for="note">Observação (opcional)</label><textarea id="note" rows="2" maxlength="500" placeholder="Ex.: aguardando peça da manutenção">${esc(d.note)}</textarea></div>
-        </div>
-        <div class="actions">
-          <button type="button" class="btn btn-subtle" id="backToOk">Voltar: ela produziu</button><span class="sp"></span>
-          <button type="button" class="btn btn-primary btn-lg" id="finish">Concluir máquina</button>
-        </div></section>`;
-    }
-
-    const good = d.orders.reduce((s, o) => s + (o.rework ? 0 : Number(o.qty) || 0), 0);
-    const high = m.perShift && good > 2 * m.perShift && !d.confirmedHigh;
-    const ordersHtml = d.orders.map((o, i) => {
-      const qtyErr = e && !(Number(o.qty) > 0);
-      const opErr = e && !/^\d{1,15}$/.test(o.op);
-      const reasonVal = o.reason === "Outro motivo" ? o.other.trim() : o.reason;
-      return `<div class="op">
-        <div class="op-grid">
-          <div><label class="lbl" for="op${i}">Nº da OP</label>
-            <input type="text" inputmode="numeric" id="op${i}" class="mono ${opErr ? "invalid" : ""}" value="${esc(o.op)}" data-op="${i}" list="ops${m.id}" autocomplete="off">
-            ${opErr ? '<p class="err">Só números, até 15 dígitos.</p>' : m.released.includes(o.op) ? '<p class="hint">OP liberada para esta máquina</p>' : ""}</div>
-          <div><label class="lbl" for="q${i}">Quantidade${o.rework ? " retrabalhada" : ""}</label>
-            <input type="number" inputmode="numeric" min="0" id="q${i}" class="qty ${qtyErr ? "invalid" : ""}" value="${esc(o.qty)}" data-qty="${i}" placeholder="0">
-            ${qtyErr ? '<p class="err">Informe a quantidade.</p>' : ""}</div>
-        </div>
-        <div class="op-tools">
-          <label class="check"><input type="checkbox" data-rework="${i}" ${o.rework ? "checked" : ""}> Retrabalho</label>
-          ${d.orders.length > 1 ? `<button type="button" class="btn-link" data-remove="${i}" style="color:var(--danger)">Tirar esta OP</button>` : ""}
-        </div>
-        ${o.rework ? `<div class="reason"><span class="lbl" id="rl${i}">Qual foi o motivo do retrabalho?</span>
-          <div class="chips" role="group" aria-labelledby="rl${i}">${[...REASONS, "Outro motivo"].map((r) => `<button type="button" data-reason="${i}" data-val="${esc(r)}" aria-pressed="${o.reason === r}">${r}</button>`).join("")}</div>
-          ${o.reason === "Outro motivo" ? `<input type="text" id="oth${i}" data-other="${i}" value="${esc(o.other)}" placeholder="Descreva o motivo" maxlength="80">` : ""}
-          ${e && !reasonVal ? '<p class="err">Escolha o motivo do retrabalho.</p>' : ""}</div>` : ""}
-      </div>`;
-    }).join("");
-
-    const peopleErr = e && m.byPeople && !(Number(d.people) > 0);
-    return `<section class="card detail" aria-label="${esc(m.name)}">${head}
-      <datalist id="ops${m.id}">${m.released.map((r) => `<option value="${r}">`).join("")}</datalist>
-      ${st && st.kind === "ok" ? '<p class="saved">Já gravada neste turno. O que você mudar aqui substitui o que estava.</p>' : ""}
-      ${ordersHtml}
-      <div><button type="button" class="btn-link" id="addOp">+ Adicionar outra OP</button></div>
-      ${high ? `<div class="warn" role="status"><span><b>Confere ${fmt(good)} peças?</b> A meta do turno é ${fmt(m.perShift)}. Se for um zero a mais, corrija a quantidade.</span><button type="button" class="btn" id="okHigh">Está certo</button></div>` : ""}
-      ${m.byPeople ? `<div style="max-width:220px"><label class="lbl" for="people">Nº de pessoas</label>
-        <input type="number" min="1" inputmode="numeric" id="people" value="${esc(d.people)}" class="${peopleErr ? "invalid" : ""}">
-        ${peopleErr ? '<p class="err">Informe quantas pessoas trabalharam.</p>' : '<p class="hint">Aqui a meta muda com o nº de pessoas.</p>'}</div>` : ""}
-      ${d.showNote ? `<div><label class="lbl" for="note">Observação do turno</label><textarea id="note" rows="2" maxlength="500">${esc(d.note)}</textarea></div>` : '<div><button type="button" class="btn-link" id="showNote">+ Adicionar observação</button></div>'}
-      <div class="actions">
-        <button type="button" class="btn btn-subtle" id="toOff">Não produziu</button><span class="sp"></span>
-        <button type="button" class="btn btn-primary btn-lg" id="finish">Concluir máquina</button>
-      </div>
-    </section>`;
+    </div>
+    <datalist id="motivos">${REASONS.map((r) => `<option value="${r}">`).join("")}</datalist>`;
   }
 
   // ---------- Passo 3: conferir ----------
   function renderStep3() {
     if (S.closed) {
       return `<section class="card done-msg step3"><h2>Turno encerrado</h2>
-        <p class="hint">${shiftLabel()} de ${dateLabel(S.turn.date)}: ${resolved().length} de ${M.length} máquinas resolvidas. Correções depois disso são feitas no Histórico.</p>
+        <p class="hint">${shiftLabel()} de ${dateLabel(S.turn.date)}: ${resolved().length} de ${M.length} máquinas concluídas. Correções depois disso são feitas no Histórico.</p>
         <button type="button" class="btn btn-default" id="reset2">Começar outro apontamento</button></section>`;
     }
     const oks = M.filter((m) => S.status[m.id]?.kind === "ok");
     const offs = M.filter((m) => S.status[m.id]?.kind === "off");
     const pend = pending();
-    const total = oks.reduce((s, m) => s + totalOf(S.status[m.id]), 0);
-    const rework = oks.reduce((s, m) => s + reworkOf(S.status[m.id]), 0);
+    const total = oks.reduce((s, m) => s + goodOf(S.status[m.id].orders), 0);
+    const rework = oks.reduce((s, m) => s + reworkOf(S.status[m.id].orders), 0);
     const warns = [];
     for (const m of oks) {
-      const st = S.status[m.id];
-      if (m.perShift && totalOf(st) > 2 * m.perShift) warns.push([m, `${fmt(totalOf(st))} peças, mais que o dobro da meta (${fmt(m.perShift)})`]);
-      if (m.perShift && totalOf(st) < 0.3 * m.perShift) warns.push([m, `${fmt(totalOf(st))} peças, menos de 30% da meta (${fmt(m.perShift)})`]);
+      const g = goodOf(S.status[m.id].orders);
+      if (m.perShift && g > 2 * m.perShift) warns.push([m, `${fmt(g)} peças, mais que o dobro da meta (${fmt(m.perShift)})`]);
+      if (m.perShift && g < 0.3 * m.perShift) warns.push([m, `${fmt(g)} peças, menos de 30% da meta (${fmt(m.perShift)})`]);
     }
     const seen = {};
     for (const m of oks) for (const o of S.status[m.id].orders) (seen[o.op] ??= []).push(m);
@@ -478,8 +482,8 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
         <div class="kpi"><span>Pendentes</span><strong style="color:${pend.length ? "var(--warning)" : "inherit"}">${pend.length}</strong></div>
         <div class="kpi"><span>Peças boas</span><strong>${fmt(total)}</strong>${rework ? `<span>+ ${fmt(rework)} retrabalho</span>` : ""}</div>
       </section>
-      ${warns.length ? `<section class="card box"><h3>Vale conferir</h3><ul class="plain">${warns.map(([m, t]) => `<li><span><b>${esc(m.name)}</b>: ${esc(t)}</span><button type="button" class="btn-link" data-open="${m.id}">Abrir</button></li>`).join("")}</ul><p class="hint">Os avisos não impedem de terminar.</p></section>` : ""}
-      ${pend.length ? `<section class="card box"><h3>Ainda sem apontamento</h3><ul class="plain">${pend.map((m) => `<li><span>${esc(m.name)}</span><span style="display:flex;gap:12px"><button type="button" class="btn-link" data-open="${m.id}">Apontar</button><button type="button" class="btn-link" data-quickoff="${m.id}">Não produziu</button></span></li>`).join("")}</ul></section>` : ""}
+      ${warns.length ? `<section class="card box"><h3>Vale conferir</h3><ul class="plain">${warns.map(([m, t]) => `<li><span><b>${esc(m.name)}</b>: ${esc(t)}</span><button type="button" class="btn-link" data-edit="${m.id}">Abrir</button></li>`).join("")}</ul><p class="hint">Os avisos não impedem de terminar.</p></section>` : ""}
+      ${pend.length ? `<section class="card box"><h3>Ainda sem apontamento</h3><ul class="plain">${pend.map((m) => `<li><span>${esc(m.name)}</span><span style="display:flex;gap:12px"><button type="button" class="btn-link" data-goto="${m.id}">Apontar</button><button type="button" class="btn-link" data-quickoff="${m.id}">Não produziu</button></span></li>`).join("")}</ul></section>` : ""}
       <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
         <button type="button" class="btn btn-default" data-go="2">Voltar às máquinas</button>
         <button type="button" class="btn btn-primary btn-lg" id="close-turn">Terminar o turno</button>
@@ -491,15 +495,20 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
   let lastFocus = null;
   function render() {
     renderTop();
-    const app = document.getElementById("app");
-    app.innerHTML = S.step === 1 ? renderStep1() : S.step === 2 ? renderStep2() : renderStep3();
+    document.getElementById("app").innerHTML = S.step === 1 ? renderStep1() : S.step === 2 ? renderStep2() : renderStep3();
     if (lastFocus) {
       const el = document.getElementById(lastFocus.id);
-      if (el) { el.focus(); if (lastFocus.sel != null && el.setSelectionRange) try { el.setSelectionRange(lastFocus.sel, lastFocus.sel); } catch (_) {} }
+      if (el) { el.focus({ preventScroll: true }); if (lastFocus.sel != null && el.setSelectionRange) try { el.setSelectionRange(lastFocus.sel, lastFocus.sel); } catch (_) {} }
       lastFocus = null;
     }
   }
-  const keepFocus = (el) => { lastFocus = { id: el.id, sel: el.selectionStart ?? null }; };
+  const keepFocus = (el) => { let sel = null; try { sel = el.selectionStart; } catch (_) {} lastFocus = { id: el.id, sel }; };
+  const scrollToCard = (id, focus = true) => {
+    const card = document.getElementById(`card-${id}`);
+    if (!card) return;
+    card.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    if (focus) setTimeout(() => card.querySelector("input")?.focus({ preventScroll: true }), 300);
+  };
 
   let toastT;
   function toast(msg) {
@@ -508,7 +517,7 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
     const t = document.createElement("div");
     t.className = "toast"; t.setAttribute("role", "status"); t.textContent = msg;
     layer.appendChild(t);
-    clearTimeout(toastT); toastT = setTimeout(() => t.remove(), 3200);
+    clearTimeout(toastT); toastT = setTimeout(() => t.remove(), 3000);
   }
 
   function modal(title, body, primary, onOk, cancel = "Cancelar") {
@@ -524,78 +533,66 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
   }
 
   // ---------- Ações ----------
-  const dirty = () => {
-    if (!S.open || !S.draft) return false;
-    const fresh = JSON.stringify(newDraft(byId(S.open)));
-    return JSON.stringify(S.draft) !== fresh;
-  };
-  function openMachine(id) {
-    const go = () => { S.step = 2; S.open = id; S.draft = newDraft(byId(id)); S.showErrors = false; render(); document.getElementById("dw")?.scrollTo?.(0, 0); const f = document.querySelector('[data-qty="0"]') || document.getElementById("close"); f?.focus(); };
-    if (S.open && S.open !== id && dirty()) modal("Sair sem concluir?", `O que você digitou em ${esc(byId(S.open).name)} não foi gravado.`, "Sair sem gravar", go, "Continuar nela");
-    else go();
-  }
-  function closeMachine() { S.open = null; S.draft = null; S.showErrors = false; render(); }
+  const split = (key) => { const k = key.lastIndexOf("-"); return [key.slice(0, k), Number(key.slice(k + 1))]; };
+  const showMachine = (id, focus = true) => { S.step = 2; render(); scrollToCard(id, focus); };
 
-  function finish() {
-    const m = byId(S.open);
-    const d = S.draft;
+  function finish(id) {
+    const m = byId(id);
+    const d = S.drafts[id];
     if (d.mode === "off") {
-      if (!d.reason) { S.showErrors = true; render(); return; }
-      S.status[m.id] = { kind: "off", reason: d.reason, note: d.note.trim() };
+      if (!d.stop) { d.showErrors = true; return render(); }
+      S.status[id] = { kind: "off", reason: d.stop };
     } else {
-      const bad = d.orders.some((o) => !/^\d{1,15}$/.test(o.op) || !(Number(o.qty) > 0) || (o.rework && !(o.reason === "Outro motivo" ? o.other.trim() : o.reason))) || (m.byPeople && !(Number(d.people) > 0));
-      if (bad) { S.showErrors = true; render(); document.querySelector(".invalid, .reason .err")?.scrollIntoView({ block: "center" }); return; }
-      const good = d.orders.reduce((s, o) => s + (o.rework ? 0 : Number(o.qty)), 0);
-      if (m.perShift && good > 2 * m.perShift && !d.confirmedHigh) { render(); document.getElementById("okHigh")?.focus(); return; }
-      S.status[m.id] = {
-        kind: "ok",
-        orders: d.orders.map((o) => ({ op: o.op, qty: Number(o.qty), rework: o.rework, reason: o.rework ? (o.reason === "Outro motivo" ? o.other.trim() : o.reason) : "" , other: o.other })),
-        people: d.people, note: d.note.trim(),
-      };
+      const bad = d.orders.some((o) => !/^\d{1,15}$/.test(o.op) || !(Number(o.qty) > 0) || (o.rework && !o.reason.trim())) || (m.byPeople && !(Number(d.people) > 0));
+      if (bad) { d.showErrors = true; render(); document.querySelector(`#card-${id} .invalid`)?.focus(); return; }
+      if (m.perShift && goodOf(d.orders) > 2 * m.perShift && !d.confirmedHigh) { render(); document.querySelector(`[data-okhigh="${id}"]`)?.focus(); return; }
+      S.status[id] = { kind: "ok", orders: d.orders.map((o) => ({ op: o.op, qty: Number(o.qty), rework: o.rework, reason: o.rework ? o.reason.trim() : "" })), people: d.people, note: d.note.trim() };
     }
-    const done = m;
-    const nxt = nextPending(done.id);
-    toast(`${done.name}: gravada`);
-    if (nxt && window.matchMedia("(min-width: 861px)").matches) { S.open = nxt.id; S.draft = newDraft(nxt); S.showErrors = false; render(); document.querySelector('[data-qty="0"]')?.focus(); }
-    else { closeMachine(); }
-    if (!nxt) { S.open = null; render(); toast("Todas as máquinas resolvidas. Confira e termine o turno."); }
+    delete S.editing[id];
+    d.showErrors = false;
+    const nxt = nextPending(id);
+    render();
+    if (nxt) { toast(`${m.name}: gravada`); scrollToCard(nxt.id); }
+    else toast("Todas as máquinas concluídas. Confira e termine o turno.");
   }
 
   function goStep(n) {
     if (n > 1 && !turnReady()) { S.showTurnErrors = true; S.step = 1; render(); return; }
-    const go = () => { S.step = n; if (n !== 2) { S.open = null; S.draft = null; } render(); window.scrollTo(0, 0); };
-    if (S.step === 2 && n !== 2 && dirty()) modal("Sair sem concluir?", `O que você digitou em ${esc(byId(S.open).name)} não foi gravado.`, "Sair sem gravar", go, "Continuar nela");
-    else go();
+    S.step = n; render(); window.scrollTo(0, 0);
   }
 
   document.addEventListener("click", (ev) => {
     const t = ev.target.closest("button");
     if (!t || t.closest(".modal-bg")) return;
-    const d = S.draft;
-    if (t.dataset.go) return goStep(Number(t.dataset.go));
-    if (t.dataset.shift) {
-      const set = () => { S.turn.shift = t.dataset.shift; render(); };
-      if (resolved().length && S.turn.shift && S.turn.shift !== t.dataset.shift) modal("Trocar o turno?", "As máquinas já concluídas ficam gravadas no turno anterior. A lista recomeça para o turno novo.", "Trocar o turno", () => { S.status = {}; set(); });
+    const ds = t.dataset;
+    if (ds.go) return goStep(Number(ds.go));
+    if (ds.shift) {
+      const set = () => { S.turn.shift = ds.shift; render(); };
+      if (resolved().length && S.turn.shift && S.turn.shift !== ds.shift) modal("Trocar o turno?", "As máquinas já concluídas ficam gravadas no turno anterior. A lista recomeça para o turno novo.", "Trocar o turno", () => { const t0 = S.turn; S = fresh(); S.turn = t0; set(); });
       else set();
       return;
     }
-    if (t.dataset.regime) { S.turn.regime = t.dataset.regime; return render(); }
+    if (ds.regime) { S.turn.regime = ds.regime; return render(); }
     if (t.id === "toStep2") {
-      if (!turnReady()) { S.showTurnErrors = true; render(); document.querySelector(".invalid, .seg.invalid button")?.focus(); return; }
+      if (!turnReady()) { S.showTurnErrors = true; render(); return; }
       S.showTurnErrors = false; S.step = 2; render(); window.scrollTo(0, 0); return;
     }
-    if (t.dataset.open) return openMachine(t.dataset.open);
-    if (t.id === "close") return closeMachine();
-    if (t.dataset.quickoff) { openMachine(t.dataset.quickoff); S.draft.mode = "off"; return render(); }
-    if (t.id === "finish") return finish();
-    if (t.id === "toOff") { d.mode = "off"; S.showErrors = false; return render(); }
-    if (t.id === "backToOk") { d.mode = "ok"; S.showErrors = false; return render(); }
-    if (t.dataset.stop) { d.reason = t.dataset.stop; return render(); }
-    if (t.id === "addOp") { d.orders.push({ op: "", qty: "", rework: false, reason: "", other: "" }); render(); document.getElementById(`op${d.orders.length - 1}`)?.focus(); return; }
-    if (t.dataset.remove) { d.orders.splice(Number(t.dataset.remove), 1); return render(); }
-    if (t.dataset.reason) { const o = d.orders[Number(t.dataset.reason)]; o.reason = t.dataset.val; render(); if (o.reason === "Outro motivo") document.getElementById(`oth${t.dataset.reason}`)?.focus(); return; }
-    if (t.id === "okHigh") { d.confirmedHigh = true; return render(); }
-    if (t.id === "showNote") { d.showNote = true; render(); document.getElementById("note")?.focus(); return; }
+    if (ds.goto) {
+      // máquina concluída abre para editar; pendente só recebe o foco
+      if (S.status[ds.goto]) startEdit(ds.goto);
+      return showMachine(ds.goto);
+    }
+    if (ds.finish) return finish(ds.finish);
+    if (ds.edit) { startEdit(ds.edit); return showMachine(ds.edit); }
+    if (ds.canceledit) { delete S.editing[ds.canceledit]; return render(); }
+    if (ds.tooff) { S.drafts[ds.tooff].mode = "off"; S.drafts[ds.tooff].showErrors = false; return render(); }
+    if (ds.took) { S.drafts[ds.took].mode = "ok"; S.drafts[ds.took].showErrors = false; return render(); }
+    if (ds.quickoff) { S.drafts[ds.quickoff].mode = "off"; return showMachine(ds.quickoff, false); }
+    if (ds.stop) { S.drafts[ds.stop].stop = ds.val; return render(); }
+    if (ds.addop) { const d = S.drafts[ds.addop]; d.orders.push(blankOrder()); render(); document.getElementById(`op-${ds.addop}-${d.orders.length - 1}`)?.focus(); return; }
+    if (ds.remove) { const [id, i] = split(ds.remove); S.drafts[id].orders.splice(i, 1); return render(); }
+    if (ds.okhigh) { S.drafts[ds.okhigh].confirmedHigh = true; return render(); }
+    if (ds.shownote) { S.drafts[ds.shownote].showNote = true; render(); document.getElementById(`n-${ds.shownote}`)?.focus(); return; }
     if (t.id === "close-turn") {
       const p = pending().length;
       const doClose = () => { S.closed = true; render(); };
@@ -607,41 +604,58 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
     if (t.id === "sample") { loadSample(); return; }
   });
 
+  function startEdit(id) {
+    const st = S.status[id];
+    if (!st || S.editing[id]) return;
+    S.editing[id] = true;
+    S.drafts[id] = st.kind === "ok"
+      ? { ...blankDraft(), orders: st.orders.map((o) => ({ op: o.op, qty: String(o.qty), rework: o.rework, reason: o.reason })), people: st.people || "", note: st.note || "", showNote: !!st.note, confirmedHigh: true }
+      : { ...blankDraft(), mode: "off", stop: st.reason };
+  }
+
   document.addEventListener("input", (ev) => {
     const el = ev.target;
-    const d = S.draft;
+    const ds = el.dataset;
     if (el.id === "date") { S.turn.date = el.value; return renderTop(); }
     if (el.id === "filter") { S.filter = el.value; keepFocus(el); return render(); }
-    if (!d) return;
-    if (el.dataset.op != null) { d.orders[Number(el.dataset.op)].op = el.value.replace(/\D/g, ""); keepFocus(el); return render(); }
-    if (el.dataset.qty != null) { d.orders[Number(el.dataset.qty)].qty = el.value; d.confirmedHigh = false; keepFocus(el); return render(); }
-    if (el.dataset.other != null) { d.orders[Number(el.dataset.other)].other = el.value; return; }
-    if (el.id === "people") { d.people = el.value; return; }
-    if (el.id === "note") { d.note = el.value; return; }
+    if (ds.op) { const [id, i] = split(ds.op); S.drafts[id].orders[i].op = el.value.replace(/\D/g, "").slice(0, 15); keepFocus(el); return render(); }
+    if (ds.qty) { const [id, i] = split(ds.qty); S.drafts[id].orders[i].qty = el.value; S.drafts[id].confirmedHigh = false; keepFocus(el); return render(); }
+    if (ds.reason) { const [id, i] = split(ds.reason); S.drafts[id].orders[i].reason = el.value; return; }
+    if (ds.people) { S.drafts[ds.people].people = el.value; return; }
+    if (ds.note) { S.drafts[ds.note].note = el.value; return; }
   });
   document.addEventListener("change", (ev) => {
-    const el = ev.target;
-    if (el.dataset.rework != null && S.draft) { const o = S.draft.orders[Number(el.dataset.rework)]; o.rework = el.checked; if (!el.checked) { o.reason = ""; o.other = ""; } render(); }
+    const ds = ev.target.dataset;
+    if (ds.rework) {
+      const [id, i] = split(ds.rework);
+      const o = S.drafts[id].orders[i];
+      o.rework = ev.target.checked;
+      if (!o.rework) o.reason = "";
+      render();
+      if (o.rework) document.getElementById(`r-${id}-${i}`)?.focus();
+    }
   });
+  // Enter na quantidade conclui a máquina e leva à próxima
   document.addEventListener("keydown", (ev) => {
-    if (ev.key === "Escape" && S.open && !document.querySelector(".modal-bg")) closeMachine();
-    if (ev.key === "Enter" && ev.target.matches && ev.target.matches("[data-qty]")) { ev.preventDefault(); finish(); }
+    if (ev.key === "Enter" && ev.target.matches && ev.target.matches("[data-qty]")) { ev.preventDefault(); finish(split(ev.target.dataset.qty)[0]); }
   });
 
   function loadSample() {
     S = fresh();
     S.turn = { date: "2026-10-08", shift: "1", regime: "normal" };
     S.step = 2;
-    const put = (id, orders, extra = {}) => (S.status[id] = { kind: "ok", orders: orders.map(([op, qty, rework, reason]) => ({ op, qty, rework: !!rework, reason: reason || "", other: "" })), people: "", note: "", ...extra });
+    const put = (id, orders, extra = {}) => (S.status[id] = { kind: "ok", orders: orders.map(([op, qty, rework, reason]) => ({ op, qty, rework: !!rework, reason: reason || "" })), people: "", note: "", ...extra });
     put("m1", [[byId("m1").released[0], 3820]]);
     put("m4", [[byId("m4").released[0], 10450], [byId("m4").released[0], 380, true, "Rebarba na peça"]]);
-    put("e9", [[byId("e9").released[0], 19800]], { people: "6" });
+    put("m11", [[byId("m11").released[0], 5100]]);
+    S.status.m2 = { kind: "off", reason: "Sem OP liberada" };
+    put("m3", [[byId("m3").released[0], 2400]]);
     put("e3", [[byId("e3").released[0], 9050]]);
     put("e7", [[byId("e7").released[0], 116000]]); // um zero a mais, para ver o aviso no passo 3
-    S.status.m13 = { kind: "off", reason: "Manutenção", note: "" };
-    S.status.m8 = { kind: "off", reason: "Sem OP liberada", note: "" };
     render();
-    toast("Exemplo carregado: Turno 1, 7 de 22 máquinas resolvidas");
+    toast("Exemplo carregado: Turno 1, 7 de 22 máquinas concluídas");
+    const nxt = nextPending(null);
+    if (nxt) scrollToCard(nxt.id, false);
   }
 
   render();

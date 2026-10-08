@@ -25,7 +25,7 @@ const FAQ: Array<{ q: string; a: string }> = [
   },
   {
     q: "Posso corrigir um apontamento já salvo?",
-    a: "Sim. Em Histórico, escolha o dia no calendário e use o menu da linha para editar, mover para outra data ou excluir. Dá para agir em vários de uma vez selecionando as linhas. Antes de excluir, a tela pede confirmação.",
+    a: "Sim. Em Histórico, filtre pela máquina se quiser, escolha o dia no calendário e use o menu da linha para editar, mover para outra data ou excluir. Dá para agir em vários de uma vez selecionando as linhas. Antes de excluir, a tela pede confirmação.",
   },
   {
     q: "O que significa cada cor de status?",
@@ -33,11 +33,15 @@ const FAQ: Array<{ q: string; a: string }> = [
   },
   {
     q: "Por que o atingimento do mês está baixo se os dias apontados vão bem?",
-    a: "O atingimento compara a produção com a meta do mês inteiro. Dias sem apontamento contam como zero. Veja a aba Detalhado da tela Máquinas: os traços (–) mostram os dias que ficaram sem registro.",
+    // Com o banco, a meta é a soma das metas gravadas nos turnos apontados (D08): dia sem apontamento não entra na conta
+    a:
+      DATA_ORIGIN === "backend"
+        ? "O atingimento compara a produção com a soma das metas dos turnos apontados. Um turno sem apontamento não entra na conta: não baixa o atingimento, mas também não soma produção. Se o número parece baixo, confira na aba Detalhado da tela Máquinas os dias com produção abaixo da meta."
+        : "O atingimento compara a produção com a meta do mês inteiro. Dias sem apontamento contam como zero. Veja a aba Detalhado da tela Máquinas: os traços (–) mostram os dias que ficaram sem registro.",
   },
   {
     q: "Como marco uma OP como retrabalho?",
-    a: "No apontamento, marque a caixa Retrabalho ao lado da OP. Os motivos e as taxas aparecem em Análises › Retrabalho.",
+    a: "No apontamento, marque a caixa Retrabalho ao lado da OP e escolha o motivo. Os motivos e as taxas aparecem em Análises › Retrabalho.",
   },
   {
     q: "Quem pode alterar as metas?",

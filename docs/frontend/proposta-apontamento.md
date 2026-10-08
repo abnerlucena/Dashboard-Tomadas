@@ -3,6 +3,12 @@
 > 08/10/2026 · Sessão da interface · **Proposta, nada disto está implementado.**
 > Pedido do usuário no item 8 das decisões da auditoria
 > ([relatório](auditoria-2026-10-07.md)).
+>
+> **Protótipo clicável:** [`prototipo-apontamento.html`](prototipo-apontamento.html)
+> (abra no navegador; dados fictícios, nada é gravado).
+>
+> Revisão de 08/10: data, turno e regime ficam com quem aponta (sem
+> preencher pelo relógio).
 
 ## Como é hoje
 
@@ -29,15 +35,17 @@ O que pesa para quem aponta no fim do turno:
 
 ```mermaid
 flowchart LR
-  A["1. Turno<br/>data · turno · regime<br/>(já vem preenchido)"] --> B["2. Máquinas<br/>lista curta com status<br/>abre uma por vez"]
+  A["1. Turno<br/>data · turno · regime<br/>(escolhidos por quem aponta)"] --> B["2. Máquinas<br/>lista curta com status<br/>abre uma por vez"]
   B --> C["3. Conferir e salvar<br/>resumo + avisos"]
   B -- "salva cada máquina<br/>ao concluir" --> B
 ```
 
-### 1. Turno — já vem certo
+### 1. Turno — quem aponta escolhe
 
-- Data de hoje e o turno **pelo relógio** (às 14h10 já é o Turno 1 terminando).
-  O operador só confere. Regime "Normal" por padrão.
+- Data, turno e regime **começam vazios** e são escolhidos por quem aponta. A
+  tela não adivinha: sem os três, não passa para as máquinas.
+- Trocar o turno depois pede confirmação, porque a lista recomeça para o
+  turno novo.
 - Ao abrir, a tela lembra as **máquinas da última vez** dessa pessoa e as mostra
   primeiro ("Suas máquinas"). As outras continuam a um toque ("Todas as
   máquinas").
@@ -89,7 +97,7 @@ sendo o lugar de corrigir apontamentos já gravados.
 
 | Etapa | O que entra | Depende do banco? |
 |---|---|---|
-| A | Turno pelo relógio, OP liberada pré-escolhida, aviso de quantidade acima de 2× a meta | Não |
+| A | OP liberada pré-escolhida, aviso de quantidade acima de 2× a meta | Não |
 | B | Lista curta com status + uma máquina por vez + "Concluir máquina" (grava por máquina) | Não: o `saveEntries` aceita uma lista com uma máquina só. Como ele acrescenta (D30), reabrir uma máquina concluída mostra o que já foi gravado, como hoje |
 | C | "Suas máquinas" (lembrar as máquinas de cada pessoa) | Não no começo (fica no navegador); depois, de preferência no perfil do usuário |
 | D | "Não produziu" com motivo | **Sim**: precisa de um lugar para gravar máquina parada e o motivo. Proposta vai como recado ao banco quando a etapa for aprovada |

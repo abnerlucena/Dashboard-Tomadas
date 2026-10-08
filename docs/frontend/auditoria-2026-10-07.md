@@ -43,7 +43,8 @@ fim). Nenhum item foi adiado ou recusado.
 
 **Atualização em 08/10/2026:** o usuário decidiu 10 das 12. Nove foram feitas em
 três commits (`42b5598`, `09f765e`, `52d661c`); T12 fica como está (as telas de
-Perfil e Preferências virão). Continuam abertas **M6** e **Aj3**. A decisão do
+Perfil e Preferências virão). Na mesma data, **M6** e **Aj3** também foram
+decididas e feitas (`aa1bb79`, `7d25050`): nenhuma decisão ficou aberta. A decisão do
 Rw2 trouxe um pedido novo: o Apontamento pergunta o **motivo do retrabalho**, e
 ele alimenta o gráfico "Motivos de retrabalho" (veja o fim do relatório).
 
@@ -111,7 +112,7 @@ negócio). **Status:** *Corrigido*, *Aguardando decisão*, *Adiado* ou *Recusado
 | M3 | Visão geral | **A tabela não cabe em 1440px** com a navegação aberta: 1.157px de conteúdo para 1.054px. "Último apontamento" aparece cortado e o menu de ações (⋯) fica fora da tela. | Alto | `machineColumns.tsx`; `antes/dashboard-1440-light.jpg` | Duas opções, juntas cabem: **(a)** tirar a coluna de seleção (ver M4); **(b)** deixar o nome da máquina quebrar em duas linhas, como já fazem Histórico e Metas. | Decisão | Corrigido (`42b5598`) |
 | M4 | Visão geral | **Seleção de linhas sem uso.** Marcar máquinas só mostra "N de 12 selecionadas"; Exportar ignora a seleção. | Médio | `MachinesPage.tsx:140,495-501` | Tirar a seleção, ou fazer o Exportar levar só as marcadas. | Decisão | Corrigido (`42b5598`) |
 | M5 | Cabeçalho | **"Em produção" verde fixo** ao lado do título, até nos estados de erro e vazio. Não informa nada. | Médio | `MachinesPage.tsx:406-410`; `antes/dashboard-erro-1440-light.jpg` | Tirar a etiqueta (Linhas e Turnos continuam com o horário do turno). | Decisão | Corrigido (`42b5598`) |
-| M6 | Menu da linha e painel | **"Histórico da máquina" e "Histórico completo" não levam a lugar nenhum:** mostram "Ainda não existe uma tela só da máquina". | Alto | `MachinesPage.tsx:275`, `machineColumns.tsx:144`, `MachinePanel.tsx:56` | Levar ao Histórico (que hoje não filtra por máquina) ou tirar os dois botões até existir o filtro. | Decisão | Aguardando decisão |
+| M6 | Menu da linha e painel | **"Histórico da máquina" e "Histórico completo" não levam a lugar nenhum:** mostram "Ainda não existe uma tela só da máquina". | Alto | `MachinesPage.tsx:275`, `machineColumns.tsx:144`, `MachinePanel.tsx:56` | Levar ao Histórico (que hoje não filtra por máquina) ou tirar os dois botões até existir o filtro. | Decisão | Corrigido (`aa1bb79`): abre o Histórico filtrado pela máquina |
 | M7 | Estado de erro | **"Ver status do sistema"** mostra um aviso inventado ("instável"). Só aparece na demonstração. | Baixo | `MachinesPage.tsx:330` | Tirar o botão. | Decisão | Corrigido (`42b5598`) |
 | M8 | Rodapé da tabela | **"Média 76%"** é o atingimento geral (produção total ÷ meta total), não a média das máquinas (que daria outro número). | Médio | `machineColumns.tsx:85` | "Geral 76%". | Segura | Corrigido (`07ea509`) |
 | M9 | Coluna Atingimento | **"102%" sai da caixa** de 32px e desalinha a coluna quando passa de 99%. | Baixo | `machineColumns.tsx:77` (+9px), também `MetasPage.tsx:286` | Caixa do número com a largura de quatro algarismos. | Segura | Corrigido (`07ea509`) |
@@ -211,7 +212,7 @@ cabem sem rolagem, contraste e tamanhos de TV bons.)
 |---|---|---|---|---|---|---|---|
 | Aj1 | FAQ | **"número da OP (7 dígitos)"** — o sistema aceita até 15 dígitos (D57). | Médio | `HelpPage.tsx:26` | "o número da OP (só números)". | Segura | Corrigido (`7a99f1a`) |
 | Aj2 | FAQ | **"Toda ação pode ser desfeita logo depois pela notificação"** — com o banco, excluir e mover não têm desfazer (o próprio diálogo diz "Não dá para desfazer"). | Médio | `HelpPage.tsx:30` | "Antes de excluir, a tela pede confirmação." | Segura | Corrigido (`7a99f1a`) |
-| Aj3 | FAQ e legenda | **"Dias sem apontamento contam como zero"** e "Meta do mês = meta por dia × 22 dias úteis" valem para a demonstração; com o banco, a meta é a soma das metas gravadas nos turnos apontados (D08). | Médio | `HelpPage.tsx:38` e o rodapé da legenda | Reescrever as duas respostas pela regra do banco. | Decisão | Aguardando decisão |
+| Aj3 | FAQ e legenda | **"Dias sem apontamento contam como zero"** e "Meta do mês = meta por dia × 22 dias úteis" valem para a demonstração; com o banco, a meta é a soma das metas gravadas nos turnos apontados (D08). | Médio | `HelpPage.tsx:38` e o rodapé da legenda | Reescrever as duas respostas pela regra do banco. | Decisão | Corrigido (`7d25050`) |
 | Aj4 | Atalhos | "← →: percorrer os dias num gráfico **ou no Modo TV**" — na TV as setas trocam o slide. | Baixo | `HelpPage.tsx:20` | "…num gráfico ou os slides do Modo TV". | Segura | Corrigido (`7a99f1a`) |
 | Aj5 | Suporte | **"Falar com o suporte" diz "Chamado aberto"** sem abrir nada (também com o banco). | Alto | `HelpPage.tsx:206` | Trocar por um contato real (e-mail ou ramal de TI) ou tirar o botão. | Decisão | Corrigido (`42b5598`): botão retirado |
 
@@ -241,14 +242,13 @@ Decididas em 08/10/2026:
 | A3 — confirmar "Descartar alterações" | Confirmar | Feito (`09f765e`) |
 | Rw2 — filtro de período no Retrabalho | Colocar o seletor do Dashboard | Feito (`52d661c`) |
 | F2 e Me1 — descrições de Feedbacks e Metas | Encurtar; tirar a fórmula de Metas | Feito (`42b5598`) |
+| M6 — "Histórico da máquina" / "Histórico completo" | Filtro de máquina no Histórico; os dois botões abrem o Histórico já filtrado | Feito (`aa1bb79`) |
+| Aj3 — regra de meta na Ajuda | Com o banco, turno sem apontamento não entra na meta | Feito (`7d25050`) |
 | Novo — motivo do retrabalho | Perguntar o motivo ao marcar retrabalho e levar ao gráfico | Feito (`09f765e`), com recado ao banco |
 
-Ainda abertas:
-
-1. **M6 — "Histórico da máquina" / "Histórico completo":** ficam no menu ⋯ de
-   cada linha do Dashboard e no rodapé do painel que abre ao clicar numa
-   máquina. Recomendo tirar até o Histórico filtrar por máquina.
-2. **Aj3 — Texto da regra de meta na Ajuda** com o banco: confirmar a frase.
+Nenhuma decisão ficou aberta. A proposta de um Apontamento em três passos
+está em [proposta-apontamento.md](proposta-apontamento.md), com um
+[protótipo clicável](prototipo-apontamento.html).
 
 ### Motivo do retrabalho
 

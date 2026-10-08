@@ -266,4 +266,4 @@ motivo na leitura. OPs antigas sem motivo aparecem no gráfico como
 - Largura padrão da navegação lateral (320px): resolver M3 por ela mudaria o
   layout de todas as telas.
 - `prototype/src/data/machines.ts` (compartilhado): nenhuma correção precisou dele.
-- A camada de dados e o banco: nada aqui depende da outra sessão.
+- A camada de dados e o banco: nada mudou lá. Só o motivo do retrabalho espera um campo próprio da outra sessão (recado acima).

@@ -359,7 +359,7 @@ function Shell() {
               notify={notify}
             />
           ) : route === "apontamento" ? (
-            <EntryPage notify={notify} />
+            <EntryPage notify={notify} search={search} onClearSearch={() => setSearch("")} />
           ) : route === "metas" ? (
             <MetasPage notify={notify} />
           ) : route === "calendario" ? (

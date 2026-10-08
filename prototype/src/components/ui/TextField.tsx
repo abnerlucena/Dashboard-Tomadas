@@ -117,7 +117,8 @@ export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(function 
       {...{ id, label, hideLabel, error, warning, isRequired, className }}
       helper={
         helper ??
-        (maxLength ? (
+        // O contador só aparece perto do limite: antes disso é ruído
+        (maxLength && count >= maxLength * 0.8 ? (
           <span className="tabular-nums">
             {count} de {maxLength} caracteres
           </span>

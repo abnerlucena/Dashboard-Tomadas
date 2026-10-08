@@ -163,3 +163,14 @@ test("quantidade acima de 2× a meta pede conferência, sem impedir", async ({ p
   await dialogo.getByRole("button", { name: "Salvar assim" }).click();
   await expect(page.getByText("Apontamento salvo")).toBeVisible();
 });
+
+test("a busca do topo filtra as máquinas do apontamento", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await page.goto("/#/apontamento");
+  await expect(page.getByLabel("Filtrar máquinas")).toHaveCount(0);
+  await page.getByPlaceholder("Buscar máquinas e linhas").fill("Slin");
+  await expect(page.getByRole("heading", { level: 3, name: "Máquina de plugue Slin (Aumaq)" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 3, name: "Máquina de interruptores Composé nº 1" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Limpar busca" }).click();
+  await expect(page.getByRole("heading", { level: 3, name: "Máquina de interruptores Composé nº 1" })).toBeVisible();
+});

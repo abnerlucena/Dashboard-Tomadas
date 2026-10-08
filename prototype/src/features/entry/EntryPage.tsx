@@ -151,9 +151,12 @@ function rowErrors(r: OpRow) {
 
 interface EntryPageProps {
   notify: Notify;
+  /** a busca do topo do Dash filtra as máquinas desta tela (uma busca só) */
+  search: string;
+  onClearSearch: () => void;
 }
 
-export function EntryPage({ notify }: EntryPageProps) {
+export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
   const { client, session } = useAccess();
   // Com o banco, grava de verdade; na demonstração, só simula
   const live = DATA_ORIGIN === "backend";
@@ -171,7 +174,6 @@ export function EntryPage({ notify }: EntryPageProps) {
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [showErrors, setShowErrors] = useState(false);
-  const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [pending, setPending] = useState<{ date: string; shift: Shift; overtime: boolean } | null>(null);
   // "Descartar alterações" apaga o que foi digitado: pede confirmação, como trocar a data ou o turno
@@ -346,7 +348,6 @@ export function EntryPage({ notify }: EntryPageProps) {
       <PageHeader
         title="Apontamento"
         lozenge={status}
-        description="Registre a produção de cada máquina no turno. Uma máquina pode ter várias OPs, e o que você lança soma ao que já foi gravado."
         actions={
           <>
             <Button
@@ -378,8 +379,9 @@ export function EntryPage({ notify }: EntryPageProps) {
             referência.
           </ErrorMessage>
         )}
-        {/* ---------- Contexto: data, turno, busca, progresso ---------- */}
-        <div className="flex flex-wrap items-start gap-x-300 gap-y-200 rounded-large bg-surface-sunken p-200">
+        {/* ---------- Contexto: de qual turno é o apontamento, e quanto já foi preenchido ----------
+            A busca de máquinas é a do topo do Dash (uma busca só no app). */}
+        <div className="flex flex-wrap items-end gap-x-300 gap-y-200 rounded-large bg-surface-sunken p-200">
           <DateField
             label="Data"
             value={date}
@@ -418,20 +420,14 @@ export function EntryPage({ notify }: EntryPageProps) {
               ]}
             />
           </div>
-          <TextField
-            label="Filtrar máquinas"
-            placeholder="Nome da máquina"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            elemAfter={<Search aria-hidden className="size-icon-small" />}
-            className="min-w-column-name flex-1"
-          />
-          <div className="flex min-w-column-name flex-col gap-050" aria-live="polite">
-            <span className="font-body-small font-semibold text-subtle">Máquinas com produção</span>
-            <span className="flex h-control flex-col justify-center gap-050">
-              <span className="font-body-small text-subtle">
+          {/* Progresso do turno, à direita e separado dos campos */}
+          <div className="flex min-w-column-name flex-1 flex-col gap-075 m:ml-auto m:border-l m:pl-300" aria-live="polite">
+            <span className="flex items-baseline justify-between gap-100 font-body-small text-subtle">
+              <span className="font-semibold">Máquinas com produção</span>
+              <span>
                 <span className="font-semibold tabular-nums text-default">{filled}</span> de {listedCount}
               </span>
+            </span>
             <span
               role="progressbar"
               aria-label="Máquinas com produção"
@@ -441,20 +437,28 @@ export function EntryPage({ notify }: EntryPageProps) {
               className="flex h-075 overflow-hidden rounded-full bg-neutral"
             >
               <span className="h-full rounded-full bg-brand-bold" style={{ width: `${(filled / Math.max(listedCount, 1)) * 100}%` }} />
-              </span>
             </span>
           </div>
         </div>
 
         {/* ---------- Máquinas por linha ---------- */}
         <div ref={bodyRef} className="flex flex-col gap-300">
+          {q && groups.length > 0 && (
+            <p className="flex flex-wrap items-center gap-100 font-body-small text-subtle" aria-live="polite">
+              <Search aria-hidden className="size-icon-small text-icon-subtle" />
+              Mostrando as máquinas com “{search.trim()}”, pela busca do topo.
+              <Button appearance="subtle" spacing="compact" onClick={onClearSearch}>
+                Limpar busca
+              </Button>
+            </p>
+          )}
           {groups.length === 0 && (
             <div className="rounded-xlarge border">
               <EmptyState
                 icon={Search}
                 title="Nenhuma máquina encontrada"
                 hint={`Nada corresponde a "${search}".`}
-                action={{ label: "Limpar filtro", onClick: () => setSearch("") }}
+                action={{ label: "Limpar busca", onClick: onClearSearch }}
               />
             </div>
           )}
@@ -612,41 +616,26 @@ function MachineEntryRow({
           <TagGroup items={m.lines} accentFor={(l) => LINE_ACCENT[l] ?? "gray"} />
           {existing && <Lozenge appearance="information">Já apontado</Lozenge>}
         </div>
-        {existing && (
-          <p className="font-body-small text-subtle">
-            Gravado: <span className="font-semibold tabular-nums text-default">{formatNumber(existing.good)}</span> peças
-            {existing.rework > 0 && <> + {formatNumber(existing.rework)} de retrabalho</>}
-            {existing.ops.length > 0 && (
-              <>
-                {" "}
-                em {existing.ops.length === 1 ? "OP" : "OPs"} <span className="font-code">{existing.ops.join(", ")}</span>
-              </>
-            )}
-            .{" "}
-            <a href={`#/historico/${encodeURIComponent(m.id)}`} className="inline-flex items-center gap-025 text-link hover:underline">
-              <History aria-hidden className="size-icon-small" />
-              Corrigir no Histórico
-            </a>
-          </p>
-        )}
         {entry.error && <p className="font-body-small text-danger" role="alert">Não salvou: {entry.error}</p>}
+        {/* Resultado do turno: barra e conta primeiro, como no Dashboard */}
         {hasMeta ? (
-          <>
-            <div className="mt-050 flex flex-wrap items-center gap-100">
+          <div className="mt-050 flex flex-col gap-050">
+            <div className="flex flex-wrap items-center gap-100">
               <SegmentedBar percent={percent} status={status} label={`${m.name}: ${percent}% da meta do turno`} />
               <span className="font-medium tabular-nums text-default">{percent}%</span>
               {total > 0 && <Lozenge appearance={STATUS_META[status].appearance}>{STATUS_META[status].label}</Lozenge>}
             </div>
-            <p className="font-body-small text-subtlest">
+            <p className="font-body-small text-subtle">
               <span className="font-semibold tabular-nums text-default">{formatNumber(total)}</span> de{" "}
-              <span className="tabular-nums">{formatNumber(meta)}</span> (meta do turno
-              {turn.dependeDaLotacao && ` · ${baseLabel(base).toLowerCase()}, ${turn.pessoas} ${turn.pessoas === 1 ? "pessoa" : "pessoas"}`}
-              {base === "per_shift_prorated" && crew && turn.pessoas > crew && `, conta até ${crew}`})
+              <span className="tabular-nums">{formatNumber(meta)}</span> peças · meta do turno
+              {turn.dependeDaLotacao && ` (${baseLabel(base).toLowerCase()}, ${turn.pessoas} ${turn.pessoas === 1 ? "pessoa" : "pessoas"}`}
+              {turn.dependeDaLotacao && base === "per_shift_prorated" && crew && turn.pessoas > crew && `, conta até ${crew}`}
+              {turn.dependeDaLotacao && ")"}
             </p>
             {turn.estimada && <p className="font-body-small text-warning">Informe o nº de operadores: a meta deste posto depende dele.</p>}
-          </>
+          </div>
         ) : (
-          <p className="mt-050 font-body-small text-subtlest">
+          <p className="mt-050 font-body-small text-subtle">
             <span className="font-semibold tabular-nums text-default">{formatNumber(total)}</span> peças no turno ·{" "}
             {!m.hasTarget
               ? "centro por demanda, sem meta"
@@ -657,18 +646,47 @@ function MachineEntryRow({
                   : "carregando a meta do dia…"}
           </p>
         )}
-        {openOps.length > 0 && (
-          <p className="font-body-small text-subtle">
-            {openOps.length === 1 ? "OP liberada: " : "OPs liberadas: "}
-            {openOps.map((op, i) => (
-              <span key={op.id}>
-                {i > 0 && ", "}
-                <a href={`#/feedbacks/${op.id.replace("OP ", "")}`} className="font-code text-link hover:underline">
-                  {op.id.replace("OP ", "")}
-                </a>
-              </span>
-            ))}
-          </p>
+        {/* O que já está gravado e as OPs liberadas, em rótulo e valor */}
+        {(existing || openOps.length > 0) && (
+          <dl className="flex flex-col gap-100 font-body-small">
+            {existing && (
+              <div>
+                <dt className="text-subtlest">Já gravado neste turno</dt>
+                <dd className="min-w-0 text-subtle">
+                  <span className="font-semibold tabular-nums text-default">{formatNumber(existing.good)}</span> peças
+                  {existing.rework > 0 && <> + {formatNumber(existing.rework)} retrabalho</>}
+                  {existing.ops.length > 0 && (
+                    <>
+                      {" "}
+                      · <span className="font-code">{existing.ops.join(", ")}</span>
+                    </>
+                  )}
+                  <a
+                    href={`#/historico/${encodeURIComponent(m.id)}`}
+                    className="mt-025 flex w-fit items-center gap-025 text-link hover:underline"
+                  >
+                    <History aria-hidden className="size-icon-small" />
+                    Corrigir no Histórico
+                  </a>
+                </dd>
+              </div>
+            )}
+            {openOps.length > 0 && (
+              <div>
+                <dt className="text-subtlest">{openOps.length === 1 ? "OP liberada" : "OPs liberadas"}</dt>
+                <dd className="min-w-0">
+                  {openOps.map((op, i) => (
+                    <span key={op.id}>
+                      {i > 0 && ", "}
+                      <a href={`#/feedbacks/${op.id.replace("OP ", "")}`} className="font-code text-link hover:underline">
+                        {op.id.replace("OP ", "")}
+                      </a>
+                    </span>
+                  ))}
+                </dd>
+              </div>
+            )}
+          </dl>
         )}
         <datalist id={listId}>
           {openOps.map((op) => (
@@ -692,14 +710,14 @@ function MachineEntryRow({
       </div>
 
       {/* OPs */}
-      <div className="flex min-w-0 flex-1 flex-col gap-100">
+      <div className="flex min-w-0 flex-1 flex-col gap-150">
         {entry.rows.map((r, i) => {
           const errors = showErrors || r.op || r.qty ? rowErrors(r) : {};
           return (
-            <div key={r.key} className="flex flex-wrap items-start gap-100">
+            // Cada OP num bloco próprio, com linha entre uma e outra: o motivo do retrabalho fica claramente com a sua OP
+            <div key={r.key} className={cn("flex flex-wrap items-start gap-100", i > 0 && "border-t pt-150")}>
               <TextField
-                label="Nº da OP"
-                hideLabel={i > 0}
+                label={entry.rows.length > 1 ? `Nº da OP ${i + 1}` : "Nº da OP"}
                 aria-label={`Nº da OP, linha ${i + 1}, ${m.name}`}
                 inputMode="numeric"
                 placeholder="Ex.: 4501234"
@@ -714,7 +732,6 @@ function MachineEntryRow({
               />
               <TextField
                 label="Quantidade"
-                hideLabel={i > 0}
                 aria-label={`Quantidade, linha ${i + 1}, ${m.name}`}
                 inputMode="numeric"
                 placeholder="0"
@@ -725,7 +742,7 @@ function MachineEntryRow({
                 inputClassName="text-right tabular-nums"
                 className="w-field-quantity flex-1 basis-field-quantity s:flex-none"
               />
-              <label className={cn("flex h-control items-center gap-075 font-body text-subtle", i === 0 && "s:mt-250")}>
+              <label className="flex h-control items-center gap-075 font-body text-subtle s:mt-250">
                 <Checkbox
                   label={`Retrabalho, linha ${i + 1}, ${m.name}`}
                   checked={r.rework}
@@ -740,7 +757,7 @@ function MachineEntryRow({
                 onClick={() =>
                   entry.rows.length > 1 && onChange((e) => ({ ...e, rows: e.rows.filter((x) => x.key !== r.key) }))
                 }
-                className={cn(i === 0 && "s:mt-250")}
+                className="s:mt-250"
               />
               {r.rework && (
                 <ReworkReason

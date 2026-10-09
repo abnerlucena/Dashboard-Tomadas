@@ -74,6 +74,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D65 | Produção começa no Supabase da nuvem e passa depois para um servidor da WEG | Aprovada | 05/10/2026 |
 | D66 | O motivo do retrabalho é um campo próprio da OP, em texto livre | Aprovada | 08/10/2026 |
 | D67 | "Não produziu": motivo da parada no apontamento; só a parada planejada sai da meta | Aprovada | 09/10/2026 |
+| D68 | A cópia vai para um PostgreSQL comum, sem Docker, feita pelo pgAdmin | Aprovada | 09/10/2026 |
 
 ---
 
@@ -1413,3 +1414,61 @@ máquina**.
     ser corrigida sozinha.
 - **Dados:** não havia nada a migrar. Conferido em 09/10: nenhum apontamento
   sem peças, e nenhum com "Não produziu" na observação.
+
+### D68 — A cópia vai para um PostgreSQL comum, sem Docker, feita pelo pgAdmin
+- **Status:** Aprovada (09/10/2026), a pedido do usuário. Complementa a D65
+  (a nuvem continua sendo a produção até a troca) e muda **como** o banco sai
+  dela: o destino deixa de ser o Supabase em Docker de `infra/servidor-interno/`
+  e passa a ser um **PostgreSQL instalado direto no servidor**, administrado
+  pelo **pgAdmin**. Guia: `supabase/copia-para-postgres/README.md`.
+- **Como copiar.** Três caminhos:
+  - **um Backup só, com os schemas `public` e `auth` inteiros, e Restore
+    (escolhido)**. O schema vem da própria nuvem, então nunca fica atrás dela,
+    e o Restore ordena sozinho o que se cruza entre os dois schemas: a FK de
+    `profiles` para `auth.users` e o gatilho `handle_new_user`, que mora em
+    `auth.users` e chama uma função de `public`;
+  - **dois Backups (`public` e as tabelas de contas) restaurados por partes**:
+    descartado. Exigiria quatro Restores, cada um com seções diferentes ligadas,
+    na ordem certa. Fácil de errar no pgAdmin;
+  - **rodar as migrations no banco novo e trazer só os dados**: descartado.
+    Seria preciso saber até qual migration a nuvem chegou (ela não tem
+    registro, D65), apagar o seed antes de carregar, e desligar os gatilhos
+    na carga. E as contas teriam de casar coluna por coluna com a versão do
+    login da nuvem.
+- **O que um PostgreSQL comum não tem, e o `01_preparar_banco_novo.sql` cria:**
+  - os **papéis do Supabase** (`anon`, `authenticated`, `service_role`,
+    `authenticator`, `supabase_admin`, `supabase_auth_admin`, `dashboard_user`),
+    todos `NOLOGIN`. As regras de acesso e as permissões citam esses papéis, e
+    o Restore falha sem eles;
+  - o schema **`extensions`** (pgcrypto e uuid-ossp), onde o Supabase as guarda;
+  - o **fuso do banco em UTC**, como na nuvem. Assim `current_date` e
+    `now()::date` dão o mesmo resultado nos dois lugares;
+  - e **apaga o `public` vazio**, porque o backup traz o próprio
+    `create schema public`.
+  As funções `auth.uid()` e `auth.jwt()` não precisam ser criadas: vêm no
+  backup, com o schema `auth`.
+- **Tudo ou nada:** o Restore roda com *Single transaction*. Se falhar, o banco
+  fica como estava, e basta corrigir e repetir.
+- **Conferência:** o `02_conferencia.sql` roda igual nos dois lados e mostra,
+  por tabela, as linhas e uma assinatura do conteúdo (md5 das linhas
+  ordenadas com `collate "C"`, para não depender do idioma do servidor).
+- **Ensaio em 09/10/2026**, num PostgreSQL 16 sem nada do Supabase: um banco
+  montado com as 40 migrations, o seed e dados de teste foi copiado pelo
+  `pg_dump`/`pg_restore` que o pgAdmin usa. A conferência saiu idêntica e as
+  16 suítes de `supabase/tests/` deram o mesmo resultado, caso a caso, no
+  original e na cópia. Quatro casos falham **também no original** (02 "op1 vê
+  resumo", 03 nº 9, 11 nº 6 e nº 11), então não vêm da cópia: o banco do
+  ensaio foi montado do zero, sem o histórico que a nuvem tem.
+- **O que a D68 não resolve:** o app não fala direto com o PostgreSQL. Precisa
+  do serviço de login (GoTrue) e da API (PostgREST), que o Supabase traz
+  prontos e o Docker de `infra/servidor-interno/` também. Sem Docker, os dois
+  têm de ser instalados à parte no servidor. **Até lá, a cópia é ensaio,
+  consulta e backup fora do Supabase** (o que a D55.1 pedia), e a produção
+  continua na nuvem.
+- **Consequências:**
+  - sem o `atualizar-banco.sh`, as migrations novas são aplicadas à mão no
+    Query Tool, uma vez cada, nos dois bancos (D65). O registro
+    `supabase_migrations.schema_migrations` **não é criado** neste caminho;
+  - nas funções `security definer`, o dono passa a ser o `postgres` do
+    servidor, que é superusuário (na nuvem não é). As funções fixam o
+    `search_path`, então isso não abre nada para quem usa o app.

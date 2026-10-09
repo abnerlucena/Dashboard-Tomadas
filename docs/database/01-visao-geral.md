@@ -249,6 +249,11 @@ flowchart LR
 - **Onde o sistema roda (D65, 05/10/2026):** a virada acontece no **Supabase da
   nuvem**. Depois, o mesmo banco passa para um **servidor da WEG**, na rede interna,
   quando a TI tiver a máquina pronta. Para quem usa, nada muda além do endereço.
+- **Cópia sem Docker (D68, 09/10/2026):** o banco inteiro (dados, contas e
+  regras) também pode ser copiado para um **PostgreSQL comum**, usando só o
+  **pgAdmin**: um backup na nuvem, um restore no servidor e uma conferência
+  que compara as duas pontas tabela por tabela. Para o app passar a usar essa
+  cópia, ainda faltam o serviço de login e a API no servidor.
 - O que o usuário vai notar quando o app passar a usar o banco:
   - login por **e-mail e senha**, com cadastro que **aguarda aprovação do gestor**;
   - marcação de **hora extra** no apontamento;

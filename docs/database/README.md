@@ -10,6 +10,8 @@ Ela registra **o que existe, como funciona, por que foi decidido assim e o que m
 > extrator de `supabase/import/`. O histórico de cada versão está no `CHANGELOG.md`.
 > **Onde roda (D65):** a produção começa no Supabase da nuvem; depois, o mesmo banco
 > passa para um servidor interno da WEG, sem pressa e com ensaio antes.
+> **Cópia para um PostgreSQL comum (D68):** sem Docker, só com o pgAdmin. Guia em
+> [`supabase/copia-para-postgres/`](../../supabase/copia-para-postgres/README.md).
 
 ## Os documentos
 

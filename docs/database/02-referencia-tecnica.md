@@ -1,6 +1,6 @@
 # Referência Técnica do Schema
 
-> Versão do schema: `v0.30.0` · Última atualização: 09/10/2026 · Status: **implementado no Supabase**, no projeto que virou o de produção (D55), com o histórico da planilha já carregado. A interface oficial é a de `prototype/` (D56). O sistema em uso na fábrica continua sendo o Google Sheets até a virada.
+> Versão do schema: `v0.30.0` · Última atualização: 09/10/2026 (§10.0.1, D68) · Status: **implementado no Supabase**, no projeto que virou o de produção (D55), com o histórico da planilha já carregado. A interface oficial é a de `prototype/` (D56). O sistema em uso na fábrica continua sendo o Google Sheets até a virada.
 > SGBD: PostgreSQL (Supabase) · Schema: `public` (+ `auth`, gerenciado pelo Supabase)
 > Decisões citadas como `[Dxx]` estão em [03-decisoes.md](03-decisoes.md).
 
@@ -501,6 +501,24 @@ Supabase, e quem o cria e preenche é o `infra/servidor-interno/scripts/atualiza
   o banco da nuvem para o servidor, ela tem de ser criada e preenchida com tudo o
   que já está aplicado, ou o script tenta aplicar tudo de novo e falha (D65).
 - Sem RLS e sem acesso pela API: o PostgREST só expõe o `public`.
+- **Na cópia para um PostgreSQL comum, feita pelo pgAdmin (D68), ela não existe.**
+  Lá as migrations novas são aplicadas à mão, uma vez cada.
+
+### 10.0.1 O que um PostgreSQL comum precisa ter para receber a cópia [D68]
+
+Feito pelo `supabase/copia-para-postgres/01_preparar_banco_novo.sql`, antes do
+Restore do backup da nuvem (schemas `public` e `auth`):
+
+| O quê | Por quê |
+|---|---|
+| Papéis `anon`, `authenticated`, `service_role`, `authenticator`, `supabase_admin`, `supabase_auth_admin`, `dashboard_user` (`NOLOGIN`) | as permissões e as regras de acesso do backup citam esses papéis. `service_role` com `BYPASSRLS`; `authenticator` membro dos três da API |
+| Schema `extensions`, com `pgcrypto` e `uuid-ossp` | é onde o Supabase guarda as extensões |
+| `timezone = 'UTC'` no banco | igual à nuvem: `current_date` e `now()::date` dão o mesmo dia nos dois |
+| `public` apagado (vazio) | o backup traz o próprio `create schema public` |
+
+O schema `auth` (contas, `auth.uid()`, `auth.jwt()`) e o gatilho
+`handle_new_user` em `auth.users` vêm no backup. A conferência
+(`02_conferencia.sql`) compara, por tabela, as linhas e um md5 do conteúdo.
 
 ### Autenticação (Supabase Auth)
 

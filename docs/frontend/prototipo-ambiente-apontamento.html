@@ -223,12 +223,6 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
 .kpi:last-child { border-right: 0; }
 .kpi span { display: block; font-size: 13px; color: var(--subtle); }
 .kpi strong { display: block; font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.kpis .kpi-btn { background: transparent; border: 0; border-right: 1px solid var(--border); text-align: left; font: inherit; color: inherit; cursor: pointer; transition: background .15s ease; }
-.kpis .kpi-btn:last-child { border-right: 0; }
-.kpis .kpi-btn:hover, .kpis .kpi-btn:focus-visible { background: var(--selected-bg); }
-.kpi .go { margin-top: 6px; font-size: 13px; font-weight: 600; color: var(--brand); opacity: 0; transform: translateX(-6px); transition: opacity .18s ease, transform .18s ease; }
-.kpi-btn:hover .go, .kpi-btn:focus-visible .go { opacity: 1; transform: none; }
-@media (hover: none) { .kpi .go { opacity: 1; transform: none; } }
 .box { padding: 20px; display: grid; gap: 12px; }
 .box h3 { font-size: 16px; }
 .plain { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
@@ -248,8 +242,7 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
   .split { grid-template-columns: minmax(0, 1fr); }
   .status { display: none; }
   /* No celular o topo rola junto; fica fixa só a barra de progresso */
-  .top { position: relative; }
-  .sp-bar { display: none; }
+  .top { position: static; }
   .mcard, .mdone { scroll-margin-top: 72px; }
   .mobile-bar { display: flex; position: sticky; top: env(safe-area-inset-top, 0px); z-index: 4; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; box-shadow: var(--shadow); }
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -265,27 +258,8 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
   .step1 { padding: 16px; }
 }
 
-/* ---------- Animações de rolagem e de clique ---------- */
+/* Rolagem suave da página (a de ir até a máquina é animada em JS, abaixo) */
 @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
-.top { transition: box-shadow .2s ease; }
-.top.scrolled { box-shadow: 0 6px 16px rgba(0,0,0,.09); }
-.sp-bar { position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; pointer-events: none; }
-.sp-bar span { display: block; height: 100%; width: 0; background: var(--brand); border-radius: 0 3px 3px 0; transition: width .12s linear; }
-.reveal { opacity: 0; transform: translateY(16px); transition: opacity .5s ease, transform .5s ease; }
-.reveal.in { opacity: 1; transform: none; }
-@keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-.step-in { animation: rise .35s ease both; }
-@keyframes flash { 0% { outline: 3px solid transparent; outline-offset: 3px; } 25% { outline: 3px solid var(--brand); outline-offset: 3px; } 100% { outline: 3px solid transparent; outline-offset: 3px; } }
-.flash { animation: flash 1.4s ease-out; }
-@keyframes donep { 0% { background: var(--success-bg); transform: scale(1.012); } 100% { background: var(--surface); transform: none; } }
-.done-flash { animation: donep 1.2s ease-out; }
-.srow.spy { border-color: var(--brand) !important; box-shadow: inset 3px 0 0 var(--brand); }
-.mdone[data-card-edit] { cursor: pointer; transition: background .15s ease; }
-.mdone[data-card-edit]:hover { background: var(--selected-bg); }
-.totop { position: fixed; right: 20px; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); z-index: 20; width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid var(--border-strong); background: var(--surface); color: var(--fg); border-radius: 50%; box-shadow: var(--shadow); cursor: pointer; opacity: 0; transform: translateY(10px); pointer-events: none; transition: opacity .2s ease, transform .2s ease; }
-.totop.show { opacity: 1; transform: none; pointer-events: auto; }
-.totop:hover { background: var(--selected-bg); border-color: var(--brand); }
-@media (prefers-reduced-motion: reduce) { .reveal, .reveal.in { opacity: 1; transform: none; transition: none; } .step-in, .flash, .done-flash { animation: none; } .sp-bar span, .kpi .go { transition: none; } }
 </style>
 
 <div class="shell">
@@ -313,14 +287,12 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
         <div class="ctx" id="ctx"></div>
         <button type="button" class="btn btn-subtle exit" id="exit" aria-label="Sair do apontamento" title="Sair do apontamento" hidden><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>Sair</button>
       </div>
-      <div class="sp-bar" aria-hidden="true"><span id="spfill"></span></div>
     </header>
 
     <main id="app" hidden></main>
     <main id="home" class="home"></main>
   </div>
 </div>
-<button type="button" class="totop" id="totop" aria-label="Voltar ao topo" tabindex="-1"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
 <div id="layer"></div>
 
 <script>
@@ -401,15 +373,15 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
     const label = NAV.find((n) => n[0] === V.view)[1];
     const resumed = resolved().length;
     document.getElementById("home").innerHTML = `
-      ${V.view === "dashboard" ? `<section class="card kpis" aria-label="Indicadores do Dash (exemplo)">
-        <button type="button" class="kpi kpi-btn" data-nav="historico"><span>Produção</span><strong>3.798.315</strong><span class="go">Ver no Histórico →</span></button>
-        <button type="button" class="kpi kpi-btn" data-nav="metas"><span>Atingimento da meta</span><strong>76%</strong><span class="go">Ver as Metas →</span></button>
-        <button type="button" class="kpi kpi-btn" data-nav="apontamento" data-then="next"><span>Taxa de apontamento</span><strong>88%</strong><span class="go">Continuar apontando →</span></button>
-        <button type="button" class="kpi kpi-btn" data-nav="apontamento" data-then="next"><span>Máquinas ativas</span><strong>12 de 12</strong><span class="go">Apontar agora →</span></button>
+      ${V.view === "dashboard" ? `<section class="card ghost-kpis" aria-hidden="true">
+        <div class="kpi"><span>Produção</span><strong>3.798.315</strong></div>
+        <div class="kpi"><span>Atingimento da meta</span><strong>76%</strong></div>
+        <div class="kpi"><span>Taxa de apontamento</span><strong>88%</strong></div>
+        <div class="kpi"><span>Máquinas ativas</span><strong>12 de 12</strong></div>
       </section>` : ""}
       <section class="card cta">
         <h2>${label}</h2>
-        <p>${V.view === "apontamento" ? "" : "Esta seção não faz parte do protótipo. Clique num cartão acima, ou em Apontamento na bandeja lateral, para entrar no ambiente de apontamento: a bandeja recolhe e o fluxo em três passos ocupa a tela."}</p>
+        <p>${V.view === "apontamento" ? "" : "Esta seção não faz parte do protótipo. Clique em Apontamento, na bandeja lateral, para entrar no ambiente de apontamento: a bandeja recolhe e o fluxo em três passos ocupa a tela."}</p>
         <button type="button" class="btn btn-primary btn-lg" data-nav="apontamento">${resumed ? "Voltar ao apontamento" : "Entrar no apontamento"}</button>
       </section>`;
   }
@@ -420,75 +392,15 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
     if (open) document.querySelector("#nav button")?.focus();
     else document.getElementById("menu").focus();
   }
-  function go(view) { V.view = view; V.tray = false; render(); jumpTop(); }
+  function go(view) { V.view = view; V.tray = false; render(); window.scrollTo({ top: 0, behavior: "instant" }); }
   const anyInput = () => M.some((m) => S.drafts[m.id].orders.some((o) => o.op || o.qty) || S.drafts[m.id].note || S.drafts[m.id].stop);
-  function navTo(view, then) {
+  function navTo(view) {
     if (view === V.view) { if (V.tray) setTray(false); return; }
     if (V.view === "apontamento" && anyInput()) {
       modal("Sair do apontamento?", "O que você digitou e ainda não concluiu será perdido. As máquinas já concluídas continuam gravadas, e ao voltar o apontamento retoma de onde parou.", "Sair", () => { for (const m of M) S.drafts[m.id] = blankDraft(); S.editing = {}; go(view); }, "Continuar apontando");
       return;
     }
     go(view);
-    if (then === "next" && view === "apontamento" && S.step === 2) { const n = nextPending(null); if (n) setTimeout(() => scrollToCard(n.id, false), 80); }
-  }
-
-  // ---------- Animações de rolagem e redirecionamentos ----------
-  const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const jumpTop = () => window.scrollTo({ top: 0, behavior: "instant" });
-  function flash(el, cls) {
-    if (!el) return;
-    el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls);
-    setTimeout(() => el.classList.remove(cls), 1500);
-  }
-  /** A tela que aparece entra com um leve deslize, uma vez por troca de seção ou de passo */
-  function enter() {
-    const imm = V.view === "apontamento";
-    const key = V.view + ":" + (imm ? S.step : "");
-    if (key === V.key) return;
-    V.key = key;
-    const el = document.getElementById(imm ? "app" : "home");
-    el.classList.remove("step-in"); void el.offsetWidth; el.classList.add("step-in");
-  }
-  let io = null;
-  /** Cartões abaixo da dobra entram ao rolar; os que já estão à vista não escondem (a primeira tela vem completa) */
-  function setupReveal() {
-    io?.disconnect();
-    if (reduced() || !("IntersectionObserver" in window) || V.view !== "apontamento" || S.step !== 2) return;
-    io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }), { rootMargin: "0px 0px -6% 0px" });
-    document.querySelectorAll("#app .mcard, #app .mdone").forEach((c) => {
-      if (c.getBoundingClientRect().top > innerHeight) { c.classList.add("reveal"); io.observe(c); }
-    });
-  }
-  /** A lista de situação acompanha a rolagem: destaca a máquina que está no topo da tela */
-  function applySpy() {
-    const imm = V.view === "apontamento" && S.step === 2;
-    let cur = null;
-    if (imm) for (const c of document.querySelectorAll('#app [id^="card-"]')) { if (c.getBoundingClientRect().bottom > 150) { cur = c.id.slice(5); break; } }
-    let row = null;
-    document.querySelectorAll(".srow").forEach((b) => { const on = b.dataset.goto === cur; b.classList.toggle("spy", on); if (on) row = b; });
-    const aside = document.querySelector(".status");
-    if (row && aside) {
-      const ar = aside.getBoundingClientRect(), rr = row.getBoundingClientRect();
-      if (rr.top < ar.top + 90) aside.scrollTop -= ar.top + 90 - rr.top;
-      else if (rr.bottom > ar.bottom - 20) aside.scrollTop += rr.bottom - ar.bottom + 20;
-    }
-  }
-  let ticking = false;
-  function updateScroll() {
-    const imm = V.view === "apontamento";
-    const y = window.scrollY, max = document.documentElement.scrollHeight - innerHeight;
-    document.querySelector(".top").classList.toggle("scrolled", y > 8);
-    document.getElementById("spfill").style.width = imm && max > 0 ? (y / max) * 100 + "%" : "0";
-    const tt = document.getElementById("totop"), show = imm && y > 600;
-    tt.classList.toggle("show", show); tt.tabIndex = show ? 0 : -1;
-    applySpy();
-  }
-  /** Clique num cartão de resumo leva à primeira máquina daquela situação */
-  function jump(kind) {
-    const list = kind === "ok" ? M.filter((m) => S.status[m.id]?.kind === "ok") : kind === "off" ? M.filter((m) => S.status[m.id]?.kind === "off") : pending();
-    if (!list.length) { toast("Nenhuma máquina nessa situação"); return; }
-    S.step = 2; render();
-    scrollToCard(list[0].id, kind === "pend");
   }
 
   // ---------- Estado ----------
@@ -580,7 +492,7 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
     const sum = st.kind === "ok"
       ? `${fmt(goodOf(st.orders))} peças${reworkOf(st.orders) ? ` + ${fmt(reworkOf(st.orders))} retrabalho` : ""} · OP ${st.orders.map((o) => o.op).join(", ")}`
       : `Não produziu: ${st.reason}`;
-    return `<article class="card mdone" id="card-${m.id}" data-card-edit="${m.id}" aria-label="${esc(m.name)}">
+    return `<article class="card mdone" id="card-${m.id}" aria-label="${esc(m.name)}">
       ${st.kind === "ok" ? '<span class="loz loz-ok">Apontada</span>' : '<span class="loz loz-off">Parada</span>'}
       <h3>${esc(m.name)}</h3>
       <span class="sum">${esc(sum)}</span>
@@ -698,9 +610,9 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
     for (const [op, ms] of Object.entries(seen)) if (new Set(ms).size > 1) warns.push([ms[1], `OP ${op} também apontada em ${ms[0].name}`]);
     return `<div class="step3">
       <section class="card kpis" aria-label="Resumo do turno">
-        <button type="button" class="kpi kpi-btn" data-jump="ok"><span>Apontadas</span><strong>${oks.length}</strong><span class="go">Ver na lista →</span></button>
-        <button type="button" class="kpi kpi-btn" data-jump="off"><span>Não produziram</span><strong>${offs.length}</strong><span class="go">Ver na lista →</span></button>
-        <button type="button" class="kpi kpi-btn" data-jump="pend"><span>Pendentes</span><strong style="color:${pend.length ? "var(--warning)" : "inherit"}">${pend.length}</strong><span class="go">Apontar a primeira →</span></button>
+        <div class="kpi"><span>Apontadas</span><strong>${oks.length}</strong></div>
+        <div class="kpi"><span>Não produziram</span><strong>${offs.length}</strong></div>
+        <div class="kpi"><span>Pendentes</span><strong style="color:${pend.length ? "var(--warning)" : "inherit"}">${pend.length}</strong></div>
         <div class="kpi"><span>Peças boas</span><strong>${fmt(total)}</strong>${rework ? `<span>+ ${fmt(rework)} retrabalho</span>` : ""}</div>
       </section>
       ${warns.length ? `<section class="card box"><h3>Vale conferir</h3><ul class="plain">${warns.map(([m, t]) => `<li><span><b>${esc(m.name)}</b>: ${esc(t)}</span><button type="button" class="btn-link" data-edit="${m.id}">Abrir</button></li>`).join("")}</ul><p class="hint">Os avisos não impedem de terminar.</p></section>` : ""}
@@ -717,25 +629,42 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
   function render() {
     renderShell();
     renderTop();
-    enter();
-    if (V.view !== "apontamento") { updateScroll(); return; }
+    if (V.view !== "apontamento") return;
     document.getElementById("app").innerHTML = S.step === 1 ? renderStep1() : S.step === 2 ? renderStep2() : renderStep3();
     if (lastFocus) {
       const el = document.getElementById(lastFocus.id);
       if (el) { el.focus({ preventScroll: true }); if (lastFocus.sel != null && el.setSelectionRange) try { el.setSelectionRange(lastFocus.sel, lastFocus.sel); } catch (_) {} }
       lastFocus = null;
     }
-    setupReveal();
-    updateScroll();
   }
   const keepFocus = (el) => { let sel = null; try { sel = el.selectionStart; } catch (_) {} lastFocus = { id: el.id, sel }; };
+  // Rolagem animada até a máquina: ease-in-out, 0,45 a 0,9 s conforme a distância; qualquer gesto do usuário cancela
+  let scrollRun = 0;
+  const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const cancelScroll = () => { scrollRun++; };
+  function glideTo(y, onEnd) {
+    const from = window.scrollY, dist = y - from, run = ++scrollRun;
+    if (reduced() || Math.abs(dist) < 4) { window.scrollTo({ top: y, behavior: "instant" }); onEnd?.(); return; }
+    const dur = Math.min(900, Math.max(450, Math.abs(dist) * 0.45));
+    const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    const t0 = performance.now();
+    const step = (now) => {
+      if (run !== scrollRun) return;
+      const p = Math.min(1, (now - t0) / dur);
+      window.scrollTo({ top: from + dist * ease(p), behavior: "instant" });
+      if (p < 1) requestAnimationFrame(step); else onEnd?.();
+    };
+    requestAnimationFrame(step);
+  }
   const scrollToCard = (id, focus = true) => {
     const card = document.getElementById(`card-${id}`);
     if (!card) return;
-    card.scrollIntoView({ block: "start", behavior: reduced() ? "auto" : "smooth" });
-    setTimeout(() => flash(document.getElementById(`card-${id}`), "flash"), 350);
-    if (focus) setTimeout(() => card.querySelector("input")?.focus({ preventScroll: true }), 300);
+    const top = document.querySelector(".top"), bar = document.querySelector(".mobile-bar");
+    const offset = (getComputedStyle(top).position === "sticky" ? top.offsetHeight : 0) + (bar && bar.offsetParent ? bar.offsetHeight + 8 : 0) + 16;
+    const y = Math.max(0, card.getBoundingClientRect().top + window.scrollY - offset);
+    glideTo(y, () => { if (focus) card.querySelector("input")?.focus({ preventScroll: true }); });
   };
+
 
   let toastT;
   function toast(msg) {
@@ -779,29 +708,20 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
     d.showErrors = false;
     const nxt = nextPending(id);
     render();
-    flash(document.getElementById(`card-${id}`), "done-flash");
     if (nxt) { toast(`${m.name}: gravada`); scrollToCard(nxt.id); }
     else toast("Todas as máquinas concluídas. Confira e termine o turno.");
   }
 
   function goStep(n) {
     if (n > 1 && !turnReady()) { S.showTurnErrors = true; S.step = 1; render(); return; }
-    S.step = n; render(); jumpTop();
+    S.step = n; render(); window.scrollTo({ top: 0, behavior: "instant" });
   }
 
   document.addEventListener("click", (ev) => {
     const t = ev.target.closest("button");
-    if (!t) {
-      // clicar em qualquer ponto da linha recolhida abre a máquina para editar
-      const row = ev.target.closest("[data-card-edit]");
-      if (row && !ev.target.closest("a, input, textarea")) { startEdit(row.dataset.cardEdit); showMachine(row.dataset.cardEdit); }
-      return;
-    }
-    if (t.closest(".modal-bg")) return;
+    if (!t || t.closest(".modal-bg")) return;
     const ds = t.dataset;
-    if (t.id === "totop") return window.scrollTo({ top: 0, behavior: reduced() ? "auto" : "smooth" });
-    if (ds.jump) return jump(ds.jump);
-    if (ds.nav) return navTo(ds.nav, ds.then);
+    if (ds.nav) return navTo(ds.nav);
     if (t.id === "menu") return setTray(!V.tray);
     if (t.id === "exit") return navTo("dashboard");
     if (ds.go) return goStep(Number(ds.go));
@@ -814,7 +734,7 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
     if (ds.regime) { S.turn.regime = ds.regime; return render(); }
     if (t.id === "toStep2") {
       if (!turnReady()) { S.showTurnErrors = true; render(); return; }
-      S.showTurnErrors = false; S.step = 2; render(); jumpTop(); return;
+      S.showTurnErrors = false; S.step = 2; render(); window.scrollTo({ top: 0, behavior: "instant" }); return;
     }
     if (ds.goto) {
       // máquina concluída abre para editar; pendente só recebe o foco
@@ -839,7 +759,7 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
       else doClose();
       return;
     }
-    if (t.id === "reset" || t.id === "reset2") { S = fresh(); render(); jumpTop(); return; }
+    if (t.id === "reset" || t.id === "reset2") { S = fresh(); render(); window.scrollTo({ top: 0, behavior: "instant" }); return; }
     if (t.id === "sample") { loadSample(); return; }
   });
 
@@ -881,8 +801,7 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
   });
 
   document.getElementById("scrim").addEventListener("click", () => setTray(false));
-  window.addEventListener("scroll", () => { if (ticking) return; ticking = true; requestAnimationFrame(() => { ticking = false; updateScroll(); }); }, { passive: true });
-  window.addEventListener("resize", updateScroll);
+  for (const ev of ["wheel", "touchstart"]) window.addEventListener(ev, cancelScroll, { passive: true });
   matchMedia("(min-width: 861px)").addEventListener("change", renderShell);
 
   function loadSample() {

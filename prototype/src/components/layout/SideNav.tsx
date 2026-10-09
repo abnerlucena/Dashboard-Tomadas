@@ -71,7 +71,11 @@ export function SideNav({ header, children }: SideNavProps) {
           aria-hidden
           data-state={presence.state}
           onClick={() => L.closeTransientSideNav({ restoreFocus: true })}
-          className="fixed inset-0 z-sidenav-overlay bg-blanket data-[state=closed]:animate-fade-out data-[state=open]:animate-fade-in m:hidden"
+          className={cn(
+            "fixed inset-0 z-sidenav-overlay bg-blanket data-[state=closed]:animate-fade-out data-[state=open]:animate-fade-in",
+            // No ambiente imersivo a gaveta também escurece o fundo em telas grandes: clicar fora fecha
+            !L.immersive && "m:hidden",
+          )}
         />
       )}
       <nav
@@ -91,13 +95,13 @@ export function SideNav({ header, children }: SideNavProps) {
         className={cn(
           "fixed inset-y-0 left-0 z-sidenav-overlay flex flex-col bg-surface-overlay shadow-overlay outline-none",
           "w-sidenav-overlay s:w-sidenav s:max-w-sidenav-max",
-          "m:absolute",
+          !L.immersive && "m:absolute",
           "data-[state=closed]:pointer-events-none data-[state=closed]:animate-flyout-out data-[state=open]:animate-flyout-in",
         )}
       >
         <div className="flex h-topnav shrink-0 items-center gap-100 px-150">
           <div className="min-w-0 flex-1">{header}</div>
-          {!L.isLarge && (
+          {(!L.isLarge || L.immersive) && (
             <IconButton
               icon={X}
               label="Fechar navegação"

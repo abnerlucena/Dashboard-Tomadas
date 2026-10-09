@@ -1,9 +1,9 @@
-<title>Apontamento em três passos</title>
+<title>Ambiente de Apontamento</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: barra de passos no topo; passo 2 = lista de status fixa à esquerda + todas as máquinas em sequência à direita,
+/* Layout: bandeja lateral (recolhe no ambiente de apontamento) + barra de passos no topo; passo 2 = lista de status fixa à esquerda + todas as máquinas em sequência à direita,
    cada uma com "Concluir" (o distribuidor aponta as 22 em sequência, sem abrir e fechar telas).
    Cores e tipos copiados do Dash de Produção (tokens.css), para o protótipo parecer a tela real. */
 :root {
@@ -14,6 +14,7 @@
   --subtle: #434F60;
   --subtlest: #5D6979;
   --border: #D9DEE5;
+  --border-strong: #AEB7C2;
   --brand: #0062B2;
   --brand-hover: #00508F;
   --on-brand: #FFFFFF;
@@ -32,7 +33,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #101722; --surface: #18212E; --sunken: #121A25; --fg: #E6EAF0; --subtle: #B4BDC9; --subtlest: #96A1AF;
-    --border: #2F3B4B; --brand: #4C9EEB; --brand-hover: #74B5F2; --on-brand: #0B1420;
+    --border: #2F3B4B; --border-strong: #4A5A70; --brand: #4C9EEB; --brand-hover: #74B5F2; --on-brand: #0B1420;
     --selected-bg: #11304D; --selected-fg: #9CCBF7;
     --success: #6FD39A; --success-bg: #12301F; --warning: #F5B25C; --warning-bg: #3A2A10; --danger: #F38B8B; --danger-bg: #3D1717;
     --neutral-bg: #222D3B; --banner: #050A12; --on-banner: #E6EAF0;
@@ -41,12 +42,13 @@
 }
 :root[data-theme="dark"] {
   --bg: #101722; --surface: #18212E; --sunken: #121A25; --fg: #E6EAF0; --subtle: #B4BDC9; --subtlest: #96A1AF;
-  --border: #2F3B4B; --brand: #4C9EEB; --brand-hover: #74B5F2; --on-brand: #0B1420;
+  --border: #2F3B4B; --border-strong: #4A5A70; --brand: #4C9EEB; --brand-hover: #74B5F2; --on-brand: #0B1420;
   --selected-bg: #11304D; --selected-fg: #9CCBF7;
   --success: #6FD39A; --success-bg: #12301F; --warning: #F5B25C; --warning-bg: #3A2A10; --danger: #F38B8B; --danger-bg: #3D1717;
   --neutral-bg: #222D3B; --banner: #050A12; --on-banner: #E6EAF0;
   --shadow: 0 0 0 1px #2F3B4B; --overlay: rgba(0,0,0,.6); color-scheme: dark;
 }
+[hidden] { display: none !important; }
 * { box-sizing: border-box; }
 body { background: var(--bg); color: var(--fg); font: 400 15px/1.45 var(--font); margin: 0; }
 button, input, textarea { font: inherit; color: inherit; }
@@ -74,6 +76,44 @@ input[list]::-webkit-calendar-picker-indicator { display: none !important; }
 .ctx { margin-left: auto; font-size: 13px; color: var(--subtle); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .ctx .chip { background: var(--sunken); border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; }
 
+/* ---------- Casca: bandeja lateral e ambiente de apontamento ---------- */
+.tray { position: fixed; inset: 0 auto 0 0; width: 240px; z-index: 30; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; gap: 14px; padding: 12px; overflow-y: auto; transition: transform .25s ease, box-shadow .25s ease; }
+.content { margin-left: 240px; min-width: 0; transition: margin-left .25s ease; }
+.scrim { position: fixed; inset: 0; background: var(--overlay); z-index: 25; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 4px 6px 8px; }
+.tile { width: 32px; height: 32px; border-radius: 8px; background: var(--brand); color: var(--on-brand); display: grid; place-items: center; font-weight: 700; font-size: 13px; flex: none; }
+.brand b { display: block; font-size: 14px; line-height: 1.2; }
+.brand small { display: block; font-size: 12px; color: var(--subtle); line-height: 1.2; }
+.nav { display: grid; gap: 2px; }
+.nav button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 36px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; cursor: pointer; color: var(--subtle); font-size: 14px; text-align: left; }
+.nav button:hover { background: var(--sunken); color: var(--fg); }
+.nav button[aria-current="page"] { background: var(--neutral-bg); color: var(--fg); font-weight: 600; }
+.nav svg, .ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.who { margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-top: 1px solid var(--border); font-size: 13px; }
+.who .av { width: 28px; height: 28px; border-radius: 50%; background: var(--selected-bg); color: var(--selected-fg); display: grid; place-items: center; font-weight: 700; font-size: 12px; }
+.who small { display: block; color: var(--subtle); }
+body.immersive .tray { transform: translateX(-100%); }
+body.immersive .content { margin-left: 0; }
+.tray.open, body.immersive .tray.open { transform: none; box-shadow: 10px 0 30px rgba(0,0,0,.22); }
+.menu-btn { display: none; align-items: center; justify-content: center; width: 40px; height: 40px; border: 1px solid var(--border-strong); background: var(--surface); border-radius: 8px; cursor: pointer; color: var(--fg); }
+.menu-btn:hover { background: var(--sunken); }
+body.immersive .menu-btn { display: inline-flex; }
+.mode { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--selected-bg); color: var(--selected-fg); white-space: nowrap; }
+body.immersive .top { border-top: 3px solid var(--brand); }
+.top-in .exit { margin-left: 4px; }
+.home { max-width: 1240px; margin: 0 auto; padding-block: 24px 48px; padding-inline: 16px; display: grid; gap: 20px; }
+.home h2 { font-size: 22px; }
+.home .cta { padding: 24px; display: grid; gap: 12px; justify-items: start; }
+.home .cta p { margin: 0; color: var(--subtle); max-width: 60ch; }
+.ghost-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); opacity: .55; }
+@media (prefers-reduced-motion: reduce) { .tray, .content { transition: none; } }
+@media (max-width: 860px) {
+  .content { margin-left: 0; }
+  .tray { transform: translateX(-100%); }
+  .menu-btn { display: inline-flex; }
+  .ghost-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 main { max-width: 1240px; margin: 0 auto; padding-block: 24px 48px; padding-inline: 16px; }
 
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 0 16px; border-radius: 6px; border: 1px solid transparent; font-weight: 600; cursor: pointer; font-size: 14px; }
@@ -81,9 +121,12 @@ main { max-width: 1240px; margin: 0 auto; padding-block: 24px 48px; padding-inli
 .btn-primary:hover { background: var(--brand-hover); }
 .btn-default { background: var(--neutral-bg); color: var(--fg); }
 .btn-default:hover { filter: brightness(.96); }
-.btn-subtle { background: transparent; color: var(--subtle); }
-.btn-subtle:hover { background: var(--neutral-bg); }
-.btn-link { background: none; border: 0; color: var(--brand); padding: 0; cursor: pointer; font-weight: 500; min-height: 32px; }
+.btn-subtle { background: var(--surface); color: var(--subtle); border-color: var(--border-strong); }
+.btn-subtle:hover { background: var(--neutral-bg); color: var(--fg); }
+.btn-link { background: var(--surface); border: 1px solid var(--border-strong); color: var(--brand); padding: 0 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px; min-height: 36px; display: inline-flex; align-items: center; gap: 6px; }
+.btn-link:hover { background: var(--selected-bg); border-color: var(--brand); }
+.btn-danger-o { color: var(--danger); border-color: var(--danger); }
+.btn-danger-o:hover { background: var(--danger-bg); border-color: var(--danger); }
 .btn-lg { min-height: 48px; font-size: 15px; padding: 0 20px; }
 
 .card { background: var(--surface); border-radius: 12px; box-shadow: var(--shadow); }
@@ -99,6 +142,12 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
 .seg button[aria-pressed="true"] { background: var(--surface); color: var(--selected-fg); box-shadow: var(--shadow); }
 .seg.invalid { border-color: var(--danger); }
 
+.opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.opt { position: relative; min-height: 56px; padding: 10px 14px; text-align: left; font-weight: 600; font-size: 15px; background: var(--surface); border: 1.5px solid var(--border-strong); border-radius: 10px; cursor: pointer; }
+.opt:hover { border-color: var(--brand); }
+.opt[aria-pressed="true"] { background: var(--selected-bg); border-color: var(--brand); color: var(--selected-fg); box-shadow: 0 0 0 1px var(--brand); }
+.opt[aria-pressed="true"]::after { content: "✓"; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-weight: 700; }
+.opts.invalid { outline: 2px solid var(--danger); outline-offset: 3px; border-radius: 10px; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chips button { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 6px 12px; cursor: pointer; font-size: 14px; min-height: 36px; }
 .chips button[aria-pressed="true"] { background: var(--selected-bg); border-color: var(--brand); color: var(--selected-fg); font-weight: 600; }
@@ -125,14 +174,14 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
 .legend .sw { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
 .group-t { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--subtlest); margin: 0 0 4px; }
 .srows { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
-.srow { width: 100%; display: grid; grid-template-columns: 10px minmax(0, 1fr); gap: 10px; align-items: center; text-align: left; background: transparent; border: 0; border-radius: 6px; padding: 6px 8px; cursor: pointer; font-size: 13.5px; min-height: 34px; }
-.srow:hover { background: var(--sunken); }
+.srow { border: 1px solid var(--border) !important; background: var(--surface) !important; margin-bottom: 3px; width: 100%; display: grid; grid-template-columns: 10px minmax(0, 1fr); gap: 10px; align-items: center; text-align: left; background: transparent; border: 0; border-radius: 6px; padding: 6px 8px; cursor: pointer; font-size: 13.5px; min-height: 34px; }
+.srow:hover { background: var(--sunken) !important; }
 .srow .st { width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--subtlest); }
 .srow.ok .st { background: var(--success); border-color: var(--success); }
 .srow.off .st { background: var(--subtlest); border-color: var(--subtlest); }
 .srow .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .srow.ok .nm, .srow.off .nm { color: var(--subtle); }
-.srow.next { background: var(--selected-bg); color: var(--selected-fg); font-weight: 600; }
+.srow.next { background: var(--selected-bg) !important; border-color: var(--brand) !important; color: var(--selected-fg); font-weight: 600; }
 
 .machines { display: grid; gap: 28px; min-width: 0; }
 .mgroup { display: grid; gap: 10px; }
@@ -149,7 +198,8 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
 .op .reason { grid-column: 1 / -1; max-width: 460px; }
 .qty { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
 .op-tools { display: flex; align-items: center; gap: 12px; padding-top: 26px; flex-wrap: wrap; }
-.check { display: inline-flex; gap: 8px; align-items: center; cursor: pointer; min-height: 40px; }
+.check { display: inline-flex; gap: 8px; align-items: center; cursor: pointer; min-height: 40px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--surface); }
+.check:has(input:checked) { background: var(--selected-bg); border-color: var(--brand); color: var(--selected-fg); font-weight: 600; }
 .check input { width: 18px; height: 18px; accent-color: var(--brand); }
 .warn { background: var(--warning-bg); color: var(--warning); border-radius: 8px; padding: 10px 12px; font-size: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .warn b { font-weight: 600; }
@@ -207,24 +257,42 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
   .mdone { padding: 12px 16px; }
   .step1 { padding: 16px; }
 }
+
+/* Rolagem suave da página (a de ir até a máquina é animada em JS, abaixo) */
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
 </style>
 
-<div class="banner" role="note">
-  <b>Protótipo</b> <span>Dados fictícios, nada é gravado. Serve só para testar o fluxo.</span>
-  <span class="sp"></span>
-  <button type="button" id="sample">Carregar exemplo (turno pela metade)</button>
-  <button type="button" id="reset">Recomeçar</button>
-</div>
+<div class="shell">
+  <aside class="tray" id="tray" aria-label="Navegação">
+    <div class="brand"><span class="tile" aria-hidden="true">DP</span><span><b>Dash de Produção</b><small>Tomadas &amp; Interruptores · Itajaí</small></span></div>
+    <nav class="nav" id="nav" aria-label="Seções"></nav>
+    <div class="who"><span class="av" aria-hidden="true">RS</span><span>Rafael Souza<small>Distribuidor</small></span></div>
+  </aside>
+  <div class="scrim" id="scrim" hidden></div>
 
-<header class="top">
-  <div class="top-in">
-    <h1>Apontamento</h1>
-    <ol class="steps" id="steps"></ol>
-    <div class="ctx" id="ctx"></div>
+  <div class="content">
+    <div class="banner" role="note">
+      <b>Protótipo</b> <span>Dados fictícios, nada é gravado. Serve só para testar o fluxo.</span>
+      <span class="sp"></span>
+      <button type="button" id="sample">Carregar exemplo (turno pela metade)</button>
+      <button type="button" id="reset">Recomeçar</button>
+    </div>
+
+    <header class="top">
+      <div class="top-in">
+        <button type="button" class="menu-btn" id="menu" aria-label="Abrir a navegação" aria-expanded="false"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <h1 id="ptitle">Dashboard</h1>
+        <span class="mode" id="mode" hidden>Ambiente de apontamento</span>
+        <ol class="steps" id="steps"></ol>
+        <div class="ctx" id="ctx"></div>
+        <button type="button" class="btn btn-subtle exit" id="exit" aria-label="Sair do apontamento" title="Sair do apontamento" hidden><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>Sair</button>
+      </div>
+    </header>
+
+    <main id="app" hidden></main>
+    <main id="home" class="home"></main>
   </div>
-</header>
-
-<main id="app"></main>
+</div>
 <div id="layer"></div>
 
 <script>
@@ -269,6 +337,71 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const byId = (id) => M.find((m) => m.id === id);
   const dateLabel = (iso) => new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" }).format(new Date(iso + "T12:00:00"));
+
+  // ---------- Casca: seção aberta e bandeja lateral ----------
+  const V = { view: "dashboard", tray: false };
+  const NAV = [["dashboard", "Dashboard", "dash"], ["apontamento", "Apontamento", "clip"], ["ops", "OPs", "file"], ["historico", "Histórico", "hist"], ["metas", "Metas", "target"], ["calendario", "Calendário", "cal"], ["feedbacks", "Feedbacks", "msg"], ["relatorios", "Relatórios", "chart"]];
+  const ICON = {
+    dash: '<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',
+    clip: '<rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4M12 16h4M8 11h.01M8 16h.01"/>',
+    file: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/>',
+    hist: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/>',
+    target: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+    cal: '<rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+    msg: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+    chart: '<path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/>',
+  };
+  const wide = () => matchMedia("(min-width: 861px)").matches;
+
+  function renderShell() {
+    const imm = V.view === "apontamento";
+    document.body.classList.toggle("immersive", imm);
+    const tray = document.getElementById("tray");
+    tray.classList.toggle("open", V.tray);
+    tray.inert = !(V.tray || (wide() && !imm));
+    document.getElementById("scrim").hidden = !V.tray;
+    document.getElementById("menu").setAttribute("aria-expanded", String(V.tray));
+    document.getElementById("nav").innerHTML = NAV.map(([id, label, ic]) => `<button type="button" data-nav="${id}" ${V.view === id ? 'aria-current="page"' : ""}><svg viewBox="0 0 24 24" aria-hidden="true">${ICON[ic]}</svg>${label}</button>`).join("");
+    document.getElementById("ptitle").textContent = NAV.find((n) => n[0] === V.view)[1];
+    document.getElementById("app").hidden = !imm;
+    document.getElementById("home").hidden = imm;
+    for (const id of ["steps", "ctx", "exit", "mode"]) document.getElementById(id).hidden = !imm;
+    if (!imm) renderHome();
+  }
+
+  function renderHome() {
+    const label = NAV.find((n) => n[0] === V.view)[1];
+    const resumed = resolved().length;
+    document.getElementById("home").innerHTML = `
+      ${V.view === "dashboard" ? `<section class="card ghost-kpis" aria-hidden="true">
+        <div class="kpi"><span>Produção</span><strong>3.798.315</strong></div>
+        <div class="kpi"><span>Atingimento da meta</span><strong>76%</strong></div>
+        <div class="kpi"><span>Taxa de apontamento</span><strong>88%</strong></div>
+        <div class="kpi"><span>Máquinas ativas</span><strong>12 de 12</strong></div>
+      </section>` : ""}
+      <section class="card cta">
+        <h2>${label}</h2>
+        <p>${V.view === "apontamento" ? "" : "Esta seção não faz parte do protótipo. Clique em Apontamento, na bandeja lateral, para entrar no ambiente de apontamento: a bandeja recolhe e o fluxo em três passos ocupa a tela."}</p>
+        <button type="button" class="btn btn-primary btn-lg" data-nav="apontamento">${resumed ? "Voltar ao apontamento" : "Entrar no apontamento"}</button>
+      </section>`;
+  }
+
+  function setTray(open) {
+    V.tray = open;
+    renderShell();
+    if (open) document.querySelector("#nav button")?.focus();
+    else document.getElementById("menu").focus();
+  }
+  function go(view) { V.view = view; V.tray = false; render(); window.scrollTo({ top: 0, behavior: "instant" }); }
+  const anyInput = () => M.some((m) => S.drafts[m.id].orders.some((o) => o.op || o.qty) || S.drafts[m.id].note || S.drafts[m.id].stop);
+  function navTo(view) {
+    if (view === V.view) { if (V.tray) setTray(false); return; }
+    if (V.view === "apontamento" && anyInput()) {
+      modal("Sair do apontamento?", "O que você digitou e ainda não concluiu será perdido. As máquinas já concluídas continuam gravadas, e ao voltar o apontamento retoma de onde parou.", "Sair", () => { for (const m of M) S.drafts[m.id] = blankDraft(); S.editing = {}; go(view); }, "Continuar apontando");
+      return;
+    }
+    go(view);
+  }
 
   // ---------- Estado ----------
   const blankOrder = () => ({ op: "", qty: "", rework: false, reason: "" });
@@ -319,13 +452,13 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
         <input type="date" id="date" value="${S.turn.date}" max="2026-12-31" class="${e && !S.turn.date ? "invalid" : ""}">
         ${e && !S.turn.date ? '<p class="err">Escolha a data.</p>' : ""}</div>
       <div><span class="lbl" id="shl">Turno</span>
-        <div class="seg ${e && !S.turn.shift ? "invalid" : ""}" role="group" aria-labelledby="shl">
-          ${SHIFTS.map((s) => `<button type="button" data-shift="${s.v}" aria-pressed="${S.turn.shift === s.v}">${s.label}</button>`).join("")}
+        <div class="opts ${e && !S.turn.shift ? "invalid" : ""}" role="group" aria-labelledby="shl">
+          ${SHIFTS.map((s) => `<button type="button" class="opt" data-shift="${s.v}" aria-pressed="${S.turn.shift === s.v}">${s.label}</button>`).join("")}
         </div>${e && !S.turn.shift ? '<p class="err">Escolha o turno.</p>' : ""}</div>
       <div><span class="lbl" id="rgl">Regime</span>
-        <div class="seg ${e && !S.turn.regime ? "invalid" : ""}" role="group" aria-labelledby="rgl">
-          <button type="button" data-regime="normal" aria-pressed="${S.turn.regime === "normal"}">Normal</button>
-          <button type="button" data-regime="extra" aria-pressed="${S.turn.regime === "extra"}">Hora extra</button>
+        <div class="opts ${e && !S.turn.regime ? "invalid" : ""}" role="group" aria-labelledby="rgl">
+          <button type="button" class="opt" data-regime="normal" aria-pressed="${S.turn.regime === "normal"}">Normal</button>
+          <button type="button" class="opt" data-regime="extra" aria-pressed="${S.turn.regime === "extra"}">Hora extra</button>
         </div>${e && !S.turn.regime ? '<p class="err">Escolha o regime.</p>' : ""}</div>
       <div><button type="button" class="btn btn-primary btn-lg" id="toStep2">Continuar para as máquinas</button></div>
     </section>`;
@@ -413,7 +546,7 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
           ${qtyErr ? '<p class="err">Informe a quantidade.</p>' : ""}</div>
         <div class="op-tools">
           <label class="check"><input type="checkbox" data-rework="${id}" ${o.rework ? "checked" : ""}> Retrabalho</label>
-          ${many ? `<button type="button" class="btn-link" data-remove="${id}" style="color:var(--danger)">Tirar</button>` : ""}
+          ${many ? `<button type="button" class="btn-link btn-danger-o" data-remove="${id}">Tirar</button>` : ""}
         </div>
         ${o.rework ? `<div class="reason"><label class="lbl" for="r-${id}">Motivo do retrabalho</label>
           <input type="text" id="r-${id}" data-reason="${id}" value="${esc(o.reason)}" list="motivos" placeholder="Ex.: rebarba na peça" maxlength="80" class="${e && !o.reason.trim() ? "invalid" : ""}">
@@ -494,7 +627,9 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
   // ---------- Desenho ----------
   let lastFocus = null;
   function render() {
+    renderShell();
     renderTop();
+    if (V.view !== "apontamento") return;
     document.getElementById("app").innerHTML = S.step === 1 ? renderStep1() : S.step === 2 ? renderStep2() : renderStep3();
     if (lastFocus) {
       const el = document.getElementById(lastFocus.id);
@@ -503,12 +638,33 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
     }
   }
   const keepFocus = (el) => { let sel = null; try { sel = el.selectionStart; } catch (_) {} lastFocus = { id: el.id, sel }; };
+  // Rolagem animada até a máquina: ease-in-out, 0,45 a 0,9 s conforme a distância; qualquer gesto do usuário cancela
+  let scrollRun = 0;
+  const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const cancelScroll = () => { scrollRun++; };
+  function glideTo(y, onEnd) {
+    const from = window.scrollY, dist = y - from, run = ++scrollRun;
+    if (reduced() || Math.abs(dist) < 4) { window.scrollTo({ top: y, behavior: "instant" }); onEnd?.(); return; }
+    const dur = Math.min(900, Math.max(450, Math.abs(dist) * 0.45));
+    const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    const t0 = performance.now();
+    const step = (now) => {
+      if (run !== scrollRun) return;
+      const p = Math.min(1, (now - t0) / dur);
+      window.scrollTo({ top: from + dist * ease(p), behavior: "instant" });
+      if (p < 1) requestAnimationFrame(step); else onEnd?.();
+    };
+    requestAnimationFrame(step);
+  }
   const scrollToCard = (id, focus = true) => {
     const card = document.getElementById(`card-${id}`);
     if (!card) return;
-    card.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-    if (focus) setTimeout(() => card.querySelector("input")?.focus({ preventScroll: true }), 300);
+    const top = document.querySelector(".top"), bar = document.querySelector(".mobile-bar");
+    const offset = (getComputedStyle(top).position === "sticky" ? top.offsetHeight : 0) + (bar && bar.offsetParent ? bar.offsetHeight + 8 : 0) + 16;
+    const y = Math.max(0, card.getBoundingClientRect().top + window.scrollY - offset);
+    glideTo(y, () => { if (focus) card.querySelector("input")?.focus({ preventScroll: true }); });
   };
+
 
   let toastT;
   function toast(msg) {
@@ -558,13 +714,16 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
 
   function goStep(n) {
     if (n > 1 && !turnReady()) { S.showTurnErrors = true; S.step = 1; render(); return; }
-    S.step = n; render(); window.scrollTo(0, 0);
+    S.step = n; render(); window.scrollTo({ top: 0, behavior: "instant" });
   }
 
   document.addEventListener("click", (ev) => {
     const t = ev.target.closest("button");
     if (!t || t.closest(".modal-bg")) return;
     const ds = t.dataset;
+    if (ds.nav) return navTo(ds.nav);
+    if (t.id === "menu") return setTray(!V.tray);
+    if (t.id === "exit") return navTo("dashboard");
     if (ds.go) return goStep(Number(ds.go));
     if (ds.shift) {
       const set = () => { S.turn.shift = ds.shift; render(); };
@@ -575,7 +734,7 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
     if (ds.regime) { S.turn.regime = ds.regime; return render(); }
     if (t.id === "toStep2") {
       if (!turnReady()) { S.showTurnErrors = true; render(); return; }
-      S.showTurnErrors = false; S.step = 2; render(); window.scrollTo(0, 0); return;
+      S.showTurnErrors = false; S.step = 2; render(); window.scrollTo({ top: 0, behavior: "instant" }); return;
     }
     if (ds.goto) {
       // máquina concluída abre para editar; pendente só recebe o foco
@@ -600,7 +759,7 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
       else doClose();
       return;
     }
-    if (t.id === "reset" || t.id === "reset2") { S = fresh(); render(); window.scrollTo(0, 0); return; }
+    if (t.id === "reset" || t.id === "reset2") { S = fresh(); render(); window.scrollTo({ top: 0, behavior: "instant" }); return; }
     if (t.id === "sample") { loadSample(); return; }
   });
 
@@ -637,10 +796,16 @@ input.invalid { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger)
   });
   // Enter na quantidade conclui a máquina e leva à próxima
   document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && V.tray && !document.querySelector(".modal-bg")) setTray(false);
     if (ev.key === "Enter" && ev.target.matches && ev.target.matches("[data-qty]")) { ev.preventDefault(); finish(split(ev.target.dataset.qty)[0]); }
   });
 
+  document.getElementById("scrim").addEventListener("click", () => setTray(false));
+  for (const ev of ["wheel", "touchstart"]) window.addEventListener(ev, cancelScroll, { passive: true });
+  matchMedia("(min-width: 861px)").addEventListener("change", renderShell);
+
   function loadSample() {
+    V.view = "apontamento"; V.tray = false;
     S = fresh();
     S.turn = { date: "2026-10-08", shift: "1", regime: "normal" };
     S.step = 2;

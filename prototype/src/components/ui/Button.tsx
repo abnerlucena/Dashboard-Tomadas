@@ -4,12 +4,14 @@ import { cn } from "@/lib/utils";
 import { Spinner } from "./Spinner";
 import { Tooltip } from "./Tooltip";
 
-export type ButtonAppearance = "primary" | "default" | "subtle" | "danger";
+export type ButtonAppearance = "primary" | "default" | "subtle" | "outline" | "danger";
 
 const APPEARANCE: Record<ButtonAppearance, string> = {
   // Único botão "bold" da página: color.background.brand.bold
   primary: "bg-brand-bold text-inverse hover:bg-brand-bold-hovered active:bg-brand-bold-pressed",
   default: "bg-neutral text-subtle hover:bg-neutral-hovered active:bg-neutral-pressed",
+  // Caixa visível, sem preenchimento: ações secundárias que precisam parecer botões (ex.: Adicionar OP)
+  outline: "border border-input bg-surface text-subtle hover:bg-neutral-subtle-hovered active:bg-neutral-subtle-pressed",
   subtle: "bg-neutral-subtle text-subtle hover:bg-neutral-subtle-hovered active:bg-neutral-subtle-pressed",
   // Ações destrutivas (excluir): só em confirmações
   danger: "bg-danger-bold text-inverse hover:bg-danger-bold-hovered active:bg-danger-bold-pressed",

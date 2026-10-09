@@ -15,6 +15,8 @@ export const MAIN_ID = "main-content";
  * < 1024px: a página rola no body; a TopNav fica grudada no topo.
  */
 interface AppRootProps {
+  /** Ambiente imersivo (Apontamento): navegação lateral recolhida, aberta só sob demanda */
+  immersive?: boolean;
   banner?: ReactNode;
   topNav: ReactNode;
   sideNav: ReactNode;
@@ -23,7 +25,7 @@ interface AppRootProps {
 
 export function AppRoot(props: AppRootProps) {
   return (
-    <LayoutProvider>
+    <LayoutProvider immersive={props.immersive}>
       <AppRootInner {...props} />
     </LayoutProvider>
   );

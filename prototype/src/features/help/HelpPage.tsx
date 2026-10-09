@@ -21,7 +21,7 @@ const SHORTCUTS: Array<[string[], string]> = [
 const FAQ: Array<{ q: string; a: string }> = [
   {
     q: "Como faço um apontamento?",
-    a: "Abra Apontamento, escolha a data e o turno e preencha, para cada máquina, o número da OP (só números) e a quantidade. Uma máquina pode ter várias OPs. Salve com o botão ou Ctrl+S.",
+    a: "Abra Apontamento: a navegação lateral recolhe e você entra no ambiente de apontamento, em três passos. 1) Escolha a data, o turno e o regime. 2) Em cada máquina, preencha o número da OP (só números) e a quantidade, e clique em Concluir (ou tecle Enter na quantidade) para gravá-la e ir para a próxima; a lista ao lado mostra o que falta, e clicar numa máquina da lista leva até ela. Salvar tudo (Ctrl+S) grava todas de uma vez. 3) Em Conferir e terminar, veja o resumo e os avisos e termine o turno. Para voltar ao Dash, use Sair; o botão do topo, à esquerda, abre a navegação sem sair.",
   },
   {
     q: "Posso corrigir um apontamento já salvo?",

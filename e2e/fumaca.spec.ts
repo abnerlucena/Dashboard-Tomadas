@@ -213,6 +213,26 @@ test("concluir grava só a máquina, recolhe e leva à próxima pendente", async
   await expect(page.locator(":focus")).toHaveAttribute("aria-label", /^Nº da OP, linha 1, /);
 });
 
+test("não produziu: pede o motivo, grava sem peças e aparece na conferência", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await iniciarTurno(page);
+  const maquina = "Máquina de plugue Slin (Aumaq)";
+  await page.getByRole("button", { name: `Marcar que ${maquina} não produziu` }).click();
+  // sem motivo, não conclui
+  await page.getByRole("button", { name: `Concluir ${maquina}` }).click();
+  await expect(page.getByText("Escolha o motivo", { exact: true })).toBeVisible();
+  await page.getByRole("radio", { name: "Manutenção" }).click();
+  await page.getByRole("button", { name: `Concluir ${maquina}` }).click();
+  await expect(page.getByText(`${maquina}: gravada`)).toBeVisible();
+  // recolhida, com o motivo
+  await expect(page.getByText("Não produziu · Manutenção")).toBeVisible();
+  // conferência: conta à parte, e não vira aviso de "menos de 30% da meta"
+  await page.getByRole("button", { name: /Conferir e terminar/ }).first().click();
+  const resumo = page.getByRole("region", { name: "Resumo do turno" });
+  await expect(resumo.getByText("Não produziram")).toBeVisible();
+  await expect(page.getByText(`${maquina}: 0 peças`)).toHaveCount(0);
+});
+
 test("o apontamento é um ambiente: navegação recolhida e turno escolhido por quem aponta", async ({ page }) => {
   await entrar(page, "gestor@demo.weg");
   // No Dashboard a navegação lateral está aberta

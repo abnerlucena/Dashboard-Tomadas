@@ -15,6 +15,19 @@ import type { Shift } from "@/data/machines";
  */
 export const operatorCountFor = (people: string): number => (people.trim() === "" ? 0 : Number(people));
 
+/* ---------- Máquina que não produziu ---------- */
+
+/**
+ * "Não produziu" ainda não tem campo no banco: vai como apontamento SEM peça e
+ * com a observação "Não produziu: <motivo>" (recado em
+ * docs/database/notas/2026-10-09-maquina-que-nao-produziu.md). Quando o banco
+ * criar o campo, só estas duas funções mudam.
+ */
+export const STOP_PREFIX = "Não produziu: ";
+export const stopNote = (reason: string) => `${STOP_PREFIX}${reason.trim()}`;
+/** O motivo, se a observação gravada for de uma máquina que não produziu */
+export const parseStop = (notes: string): string | null => (notes.startsWith(STOP_PREFIX) ? notes.slice(STOP_PREFIX.length).trim() || null : null);
+
 /* ---------- O que a tela manda ao salvar ---------- */
 
 /** O que já está gravado para a máquina neste dia, turno e regime */
@@ -23,6 +36,8 @@ export interface ExistingRecord {
   /** null = não informado */
   operatorCount: number | null;
   notes: string;
+  /** motivo, quando o apontamento é de uma máquina que não produziu */
+  stopped?: string | null;
 }
 
 export interface FormRow {
@@ -38,6 +53,8 @@ export interface FormEntry {
   rows: FormRow[];
   note: string;
   people: string;
+  /** motivo de a máquina não ter produzido no turno; vazio = produziu */
+  stop?: string;
 }
 
 export interface EntryContext {
@@ -83,7 +100,9 @@ export function planSaves(
     const entry = form[m.id];
     if (!entry) continue;
     const ex = existing[m.id];
-    const orders = entry.rows
+    const stop = entry.stop?.trim() ?? "";
+    // Máquina que não produziu: nenhuma OP vai, só o motivo
+    const orders = (stop ? [] : entry.rows)
       .filter((r) => qtyOf(r) > 0)
       // Motivo do retrabalho no campo próprio da OP (D66)
       .map((r) => ({
@@ -91,9 +110,11 @@ export function planSaves(
         quantidade: qtyOf(r),
         ...(r.rework ? { retrabalho: true, ...(r.reason?.trim() ? { motivoRetrabalho: r.reason.trim() } : {}) } : {}),
       }));
-    const note = entry.note.trim();
+    const note = stop ? stopNote(stop) : entry.note.trim();
     const people = operatorCountFor(entry.people);
-    const noteChanged = ex ? note !== ex.notes : note !== "";
+    // A observação de "não produziu" não aparece no campo: o que se compara é só a observação escrita à mão
+    const exNote = ex?.stopped ? "" : (ex?.notes ?? "");
+    const noteChanged = ex ? note !== exNote : note !== "";
     const peopleChanged = ex ? (people || null) !== ex.operatorCount : false;
 
     if (!orders.length && !noteChanged && !peopleChanged) continue;
@@ -118,7 +139,8 @@ export function planSaves(
         // Num apontamento que já existe, sem mudança, não manda: o banco mantém
         ...(sendsPeople ? { operatorCount: people } : {}),
       },
-      ...(ex && noteChanged && !note ? { clearNoteOf: ex.id } : {}),
+      // Lançar peça numa máquina que constava como "não produziu": a observação antiga sai
+      ...(ex && ((noteChanged && !note) || (ex.stopped && orders.length && !note)) ? { clearNoteOf: ex.id } : {}),
     });
   }
   return plan;

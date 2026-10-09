@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  buildProdRecords, shiftIdFromTurno, toOrdersJson, toMachine, toHoliday, holidayTypeToEventType,
+  buildProdRecords, shiftIdFromTurno, toOrdersJson, toMachine, toHoliday, holidayTypeToEventType, toUpdateEntryArgs,
   type SummaryRow, type OrderRow,
 } from "@/lib/repositories/supabase/adapters";
 
@@ -11,7 +11,7 @@ const baseRow: SummaryRow = {
   created_at: "2026-09-19T12:00:00Z", updated_at: "2026-09-19T12:00:00Z",
   good_quantity: 400, rework_quantity: 100, total_quantity: 500, order_count: 2,
   staffing_ratio: 1, adjusted_target: 500, is_excluded_day: false, counts_toward_target: true,
-  effective_target: 500, target_basis: "per_shift",
+  effective_target: 500, target_basis: "per_shift", stop_reason: null, stop_planned: false,
 };
 const orders: OrderRow[] = [
   { production_record_id: "r1", order_number: "000001004521", quantity: 400, is_rework: false, notes: null, rework_reason: null },
@@ -30,6 +30,22 @@ describe("adaptadores Supabase → formato das telas", () => {
       { ordemId: "000001004521", quantidade: 400 },
       { ordemId: "000001004522", quantidade: 100, obs: "refeito", retrabalho: true, motivoRetrabalho: "Rebarba na peça" },
     ]);
+  });
+
+  it("lê a parada: motivo e se é planejada; sem parada, os campos não aparecem (D67)", () => {
+    const [parada, normal] = buildProdRecords([
+      { ...baseRow, id: "r4", stop_reason: "Manutenção", stop_planned: true, counts_toward_target: false },
+      { ...baseRow, id: "r5" },
+    ], [], names);
+    expect(parada.motivoParada).toBe("Manutenção");
+    expect(parada.paradaPlanejada).toBe(true);
+    expect(parada.meta).toBe(0);
+    expect(normal).not.toHaveProperty("motivoParada");
+  });
+
+  it("corrigir a parada: motivo vazio tira, e a marcação vai sozinha (D67)", () => {
+    expect(toUpdateEntryArgs("r1", { motivoParada: "" })).toEqual({ p_id: "r1", p_stop_reason: "" });
+    expect(toUpdateEntryArgs("r1", { paradaPlanejada: false })).toEqual({ p_id: "r1", p_stop_planned: false });
   });
 
   it("zera a meta da hora extra e do dia anulado, sem perder a produção (D27, D16)", () => {

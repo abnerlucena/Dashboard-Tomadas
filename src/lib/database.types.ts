@@ -576,6 +576,8 @@ export type Database = {
           production_date: string
           shift_id: number
           source_ref: string | null
+          stop_planned: boolean
+          stop_reason: string | null
           target_basis: string
           target_quantity: number
           updated_at: string
@@ -593,6 +595,8 @@ export type Database = {
           production_date: string
           shift_id: number
           source_ref?: string | null
+          stop_planned?: boolean
+          stop_reason?: string | null
           target_basis?: string
           target_quantity: number
           updated_at?: string
@@ -610,6 +614,8 @@ export type Database = {
           production_date?: string
           shift_id?: number
           source_ref?: string | null
+          stop_planned?: boolean
+          stop_reason?: string | null
           target_basis?: string
           target_quantity?: number
           updated_at?: string
@@ -1042,6 +1048,8 @@ export type Database = {
           shift_id: number | null
           shift_name: string | null
           staffing_ratio: number | null
+          stop_planned: boolean | null
+          stop_reason: string | null
           target_basis: string | null
           target_quantity: number | null
           total_quantity: number | null
@@ -1265,6 +1273,8 @@ export type Database = {
           p_operator_count?: number
           p_work_mode?: string
           p_replace_orders?: boolean
+          p_stop_reason?: string
+          p_stop_planned?: boolean
         }
         Returns: string
       }
@@ -1281,6 +1291,8 @@ export type Database = {
           p_production_date?: string
           p_shift_id?: number
           p_work_mode?: string
+          p_stop_reason?: string
+          p_stop_planned?: boolean
         }
         Returns: string
       }

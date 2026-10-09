@@ -55,6 +55,13 @@ export interface ProductionEntryPayload {
   obs: string;
   /** Só modo Supabase: nº de operadores do turno (D12). Vazio = lotação padrão. */
   operatorCount?: number;
+  /**
+   * "Não produziu" (D67): o motivo, em texto livre. Só em apontamento SEM peças
+   * (`ordensProducao: []`); com peças, o banco recusa. Ausente = mantém.
+   */
+  motivoParada?: string;
+  /** A parada é planejada (manutenção, setup): o turno sai da meta (D67). Só com `motivoParada`. */
+  paradaPlanejada?: boolean;
 }
 
 /**
@@ -82,6 +89,10 @@ export interface UpdateEntryChanges {
   workMode?: "regular" | "overtime";
   obs?: string;
   operatorCount?: number;
+  /** "Não produziu" (D67). `""` tira a parada. Para marcar a parada, mande também `ordensProducao: []` se houver peças. */
+  motivoParada?: string;
+  /** Troca só a marcação de planejada, ou vai junto com `motivoParada`. */
+  paradaPlanejada?: boolean;
 }
 
 /**

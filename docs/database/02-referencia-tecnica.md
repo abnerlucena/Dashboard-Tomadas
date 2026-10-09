@@ -1,6 +1,6 @@
 # Referência Técnica do Schema
 
-> Versão do schema: `v0.29.0` · Última atualização: 08/10/2026 · Status: **implementado no Supabase**, no projeto que virou o de produção (D55), com o histórico da planilha já carregado. A interface oficial é a de `prototype/` (D56). O sistema em uso na fábrica continua sendo o Google Sheets até a virada.
+> Versão do schema: `v0.30.0` · Última atualização: 09/10/2026 · Status: **implementado no Supabase**, no projeto que virou o de produção (D55), com o histórico da planilha já carregado. A interface oficial é a de `prototype/` (D56). O sistema em uso na fábrica continua sendo o Google Sheets até a virada.
 > SGBD: PostgreSQL (Supabase) · Schema: `public` (+ `auth`, gerenciado pelo Supabase)
 > Decisões citadas como `[Dxx]` estão em [03-decisoes.md](03-decisoes.md).
 
@@ -92,10 +92,13 @@ Exclusão física bloqueada por FK quando houver produção; desativar via `stat
 | `created_at`, `updated_at` | `timestamptz` | NN, default `now()` | |
 | `import_batch_id` | `uuid` | FK `import_batches` | Lote que criou o apontamento. **Nulo = apontado por uma pessoa** [D35] |
 | `source_ref` | `text` | | Origem na planilha, ex.: `JUN 26!F12` [D35] |
+| `stop_reason` | `text` | CHECK `production_records_stop_check` | "Não produziu": motivo da parada, texto livre. Só em apontamento **sem peças**; lançar peças tira a parada (gatilho) [D67] |
+| `stop_planned` | `boolean` | NN, default `false`; só `true` com `stop_reason` | Parada planejada (manutenção, setup): o turno **sai da meta**, como o dia anulado. Marcada pela tela [D67] |
 
 - UQ `production_records_unique_entry (machine_id, production_date, shift_id, work_mode)` [D10, D27]
 - Índices: `(production_date)`, `(shift_id)`, `(created_by)` e o parcial `(import_batch_id) where import_batch_id is not null`, que só cobre o que veio de importação. A busca por `(machine_id, production_date)` usa o índice da UQ (mesmo prefixo), por isso não há índice separado. Gatilho `set_updated_at`.
 - `UPDATE`/`DELETE` diretos negados por RLS; somente via funções (seção 6).
+- Gatilho `tira_parada_ao_lancar_pecas` (em `production_orders`, `after insert`): OP gravada num apontamento parado limpa `stop_reason` e `stop_planned` [D67].
 
 ### 3.4 `production_orders` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições | Descrição |
@@ -315,7 +318,7 @@ PK `(user_id, permission_code)` · Índice `(permission_code)`. Permissões efet
 
 | View | Retorna |
 |---|---|
-| `production_summary` | Colunas de `production_records` + `shift_name`, `machine_name`, `good_quantity` (ordens sem retrabalho), `rework_quantity`, `total_quantity`, `order_count`, `staffing_ratio` (= `operator_count / standard_operator_count`), `adjusted_target` (meta corrigida pela lotação, calculada para toda máquina como informação), **`effective_target`** (a meta com que comparar a produção, resolvida conforme a base — ver abaixo), `target_basis`, `is_excluded_day` (existe `excluded_day` na data, para o dia inteiro ou para o turno) e `counts_toward_target` (= `work_mode = 'regular'` **e** não anulado) [D11, D12, D16, D27, D39, D46, D47, D48] |
+| `production_summary` | Colunas de `production_records` + `shift_name`, `machine_name`, `good_quantity` (ordens sem retrabalho), `rework_quantity`, `total_quantity`, `order_count`, `staffing_ratio` (= `operator_count / standard_operator_count`), `adjusted_target` (meta corrigida pela lotação, calculada para toda máquina como informação), **`effective_target`** (a meta com que comparar a produção, resolvida conforme a base — ver abaixo), `target_basis`, `is_excluded_day` (existe `excluded_day` na data, para o dia inteiro ou para o turno), `counts_toward_target` (= `work_mode = 'regular'` **e** não anulado **e** sem parada planejada), `stop_reason` e `stop_planned` [D11, D12, D16, D27, D39, D46, D47, D48, D67] |
 | `current_machine_targets` | `machine_id`, `target_id`, `quantity_per_shift`, `valid_from`, `created_by`, `created_at`, `basis` — meta vigente hoje (SP) por máquina: maior `valid_from <= hoje` |
 
 Ambas criadas com `security_invoker = true`: respeitam o RLS de quem consulta.
@@ -383,8 +386,8 @@ Ambas criadas com `security_invoker = true`: respeitam o RLS de quem consulta.
 
 | Função | Permissão exigida | Observação |
 |---|---|---|
-| `save_production_record(p_production_date, p_shift_id, p_machine_id, p_orders jsonb = null, p_notes = null, p_operator_count = null, p_work_mode = 'regular', p_replace_orders = false) → uuid` | `production.create` para criar; regra de edição (D24) se já existir | Cria ou **completa** o apontamento; ordens enviadas são acrescentadas (D30), ou substituídas com `p_replace_orders`. Meta copiada de `machine_target_on` (D08); operadores = lotação padrão se não informados. `p_notes`: null mantém, `''` apaga |
-| `update_production_record(p_id, p_notes, p_operator_count, p_orders, p_production_date, p_shift_id, p_work_mode) → uuid` | `production.edit`, ou `edit_own` se autor e `created_at > now() - 24h` | null = manter; `p_orders` substitui [D24] |
+| `save_production_record(p_production_date, p_shift_id, p_machine_id, p_orders jsonb = null, p_notes = null, p_operator_count = null, p_work_mode = 'regular', p_replace_orders = false, p_stop_reason = null, p_stop_planned = null) → uuid` | `production.create` para criar; regra de edição (D24) se já existir | Cria ou **completa** o apontamento; ordens enviadas são acrescentadas (D30), ou substituídas com `p_replace_orders`. Meta copiada de `machine_target_on` (D08); operadores = lotação padrão se não informados. `p_notes`: null mantém, `''` apaga. **Parada (D67):** `p_stop_reason` null mantém, `''` tira; recusada junto com peças; máquina parada não exige nº de operadores (D54) |
+| `update_production_record(p_id, p_notes, p_operator_count, p_orders, p_production_date, p_shift_id, p_work_mode, p_stop_reason, p_stop_planned) → uuid` | `production.edit`, ou `edit_own` se autor e `created_at > now() - 24h` | null = manter; `p_orders` substitui [D24]. Parada como no `save_production_record`; `p_stop_planned` sozinho troca só a marcação [D67] |
 | `delete_production_record(p_id)` | `production.delete`, ou `edit_own` na janela | Ordens apagadas em cascata |
 | `bulk_update_production_records(p_ids uuid[], p_new_date = null, p_new_shift_id = null) → integer` | `production.bulk_edit` | Até 200; colisão com apontamento existente → nada é alterado |
 | `bulk_delete_production_records(p_ids uuid[]) → integer` | `production.bulk_delete` | Até 200 |

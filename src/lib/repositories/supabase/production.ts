@@ -36,6 +36,9 @@ export const supabaseProduction: DataSource["production"] = {
         p_notes: e.obs?.trim() ? e.obs.trim() : undefined,
         p_work_mode: workMode,
         p_operator_count: e.operatorCount ?? undefined,
+        // D67: "Não produziu". Ausente = mantém a parada que já estava.
+        p_stop_reason: e.motivoParada ?? undefined,
+        p_stop_planned: e.motivoParada !== undefined ? e.paradaPlanejada === true : undefined,
       });
       if (error) throw toError(error);
     }

@@ -17,6 +17,38 @@ Formato de cada entrada:
 
 ---
 
+## [0.30.0] — 09/10/2026 — "Não produziu": motivo da parada no apontamento
+- Status: **Implementado** — aplicada no Supabase em 09/10/2026
+- Migration: `20261009100000_maquina_que_nao_produziu.sql` (0040)
+- Decisões: D67 (nova), D16, D27, D54, D66
+
+### Adicionado
+- **`production_records.stop_reason`** (texto livre) e **`stop_planned`** (`boolean`):
+  a máquina não produziu no turno, e por quê. `CHECK`: planejada só com motivo, e
+  motivo nunca vazio.
+- Gatilho **`tira_parada_ao_lancar_pecas`** em `production_orders`: lançar peças num
+  apontamento parado tira a parada.
+- Função interna `confere_parada`: recusa parada junto com peças.
+
+### Alterado
+- **`production_summary`**: `counts_toward_target` também é falso com parada
+  planejada. Colunas `stop_reason` e `stop_planned` no fim.
+- **`save_production_record`** e **`update_production_record`** ganham
+  `p_stop_reason` e `p_stop_planned`. As antigas foram derrubadas (D53.1), e as
+  permissões, refeitas. Máquina parada não exige o nº de operadores (D54).
+- Suíte `15_maquina_que_nao_produziu.sql` (11 casos). Total: **227 casos**, todos passando.
+
+### Contrato
+- `ProductionEntryPayload` e `UpdateEntryChanges`: `motivoParada?` e `paradaPlanejada?`.
+- `ProdRecord`: `motivoParada?` e `paradaPlanejada?` na leitura.
+
+### Impacto no frontend
+- A interface troca `stopNote`/`parseStop` pelos campos novos. Não precisa mais
+  apagar a observação ao lançar peças: o banco tira a parada sozinho. Nota:
+  `2026-10-09-resposta-do-banco-maquina-que-nao-produziu.md`.
+
+---
+
 ## [0.29.0] — 08/10/2026 — Motivo do retrabalho: campo próprio na OP
 - Status: **Implementado** — aplicada no Supabase em 08/10/2026
 - Migration: `20261008100000_motivo_do_retrabalho.sql` (0039)

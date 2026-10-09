@@ -23,7 +23,7 @@ import {
   type Shift,
 } from "@/data/machines";
 import { reloadBackendData } from "@/data/fromBackend";
-import { cn, formatNumber, readToken, type Notify } from "@/lib/utils";
+import { cn, formatNumber, readToken, storageGet, storageSet, type Notify } from "@/lib/utils";
 import { useAccess } from "@/features/access/AccessContext";
 import { useOps } from "@/features/ops/OpsStore";
 import { opHint, releasedFor } from "./opHint";
@@ -32,6 +32,7 @@ import { PAGE_GUTTER, PageBody } from "@/components/layout/PageHeader";
 import { MAIN_ID } from "@/components/layout/AppRoot";
 import { OptionCards } from "@/components/ui/OptionCards";
 import { glideTo, scrollParent } from "@/lib/glide";
+import { Splitter } from "@/components/layout/Splitter";
 import { SegmentedBar } from "@/components/data/SegmentedBar";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
@@ -44,6 +45,8 @@ import { DateField } from "@/components/ui/DateField";
 import { baseLabel } from "@/features/metas/metaBase";
 import { useDayTargets, type DayTarget } from "./dayTargets";
 import { planSaves, type ExistingRecord } from "./payload";
+
+const KEY_STATUS_WIDTH = "dash-proto.entry-status.width";
 
 /** 1 Turno · 2 Máquinas · 3 Conferir e terminar */
 type Step = 1 | 2 | 3;
@@ -191,6 +194,18 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
   // Máquinas já apontadas neste turno ficam recolhidas numa linha; "Lançar mais" reabre
   const [reopened, setReopened] = useState<Set<string>>(new Set());
   const bodyRef = useRef<HTMLDivElement>(null);
+  // Largura da lista de situação (arrastável pela borda esquerda); fica guardada neste navegador
+  const [statusWidth, setStatusWidthState] = useState<number>(() => storageGet(KEY_STATUS_WIDTH, readToken("--dash-size-entry-status")));
+  const statusBounds = useCallback(() => ({ min: readToken("--dash-size-entry-status-min"), max: readToken("--dash-size-entry-status-max") }), []);
+  const setStatusWidth = useCallback(
+    (px: number) => {
+      const { min, max } = statusBounds();
+      const next = Math.round(Math.min(max, Math.max(min, px)));
+      setStatusWidthState(next);
+      storageSet(KEY_STATUS_WIDTH, next);
+    },
+    [statusBounds],
+  );
 
   /*
    * Três passos: 1 Turno (quem aponta escolhe data, turno e regime; nada vem
@@ -707,6 +722,9 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
           done={apontadas}
           total={listedIds.length}
           onGo={focusMachine}
+          width={statusWidth}
+          bounds={statusBounds}
+          onResize={setStatusWidth}
         />
         </div>
           </>
@@ -856,7 +874,7 @@ function MachineEntryRow({
   // Máquina apontada: uma linha com o resumo, "Lançar mais" e "Corrigir no Histórico"
   if (collapsed && existing)
     return (
-      <li id={`maq-${m.id}`} className="flex scroll-mt-[10rem] m:scroll-mt-1000 flex-wrap items-center gap-x-200 gap-y-100 border-t px-200 py-150 first:border-t-0">
+      <li id={`maq-${m.id}`} className="flex scroll-mt-[10rem] flex-wrap items-center gap-x-200 gap-y-050 border-t px-200 py-100 first:border-t-0 m:scroll-mt-1000">
         <CircleCheck aria-hidden className="size-icon-small shrink-0 text-icon-success" />
         <h3 className="font-heading-xsmall text-default">{m.name}</h3>
         <span className="min-w-0 flex-1 basis-column-name font-body-small text-subtle">
@@ -886,7 +904,7 @@ function MachineEntryRow({
     );
 
   return (
-    <li id={`maq-${m.id}`} className="flex scroll-mt-[10rem] flex-col gap-200 border-t p-250 first:border-t-0 m:scroll-mt-1000">
+    <li id={`maq-${m.id}`} className="flex scroll-mt-[10rem] flex-col gap-100 border-t px-200 py-150 first:border-t-0 m:scroll-mt-1000">
       {/* Cabeçalho: nome, a linha da máquina (Montagem, Embalagem…) e a situação */}
       <div className="flex flex-wrap items-center gap-x-100 gap-y-050">
         <h3 className="font-heading-xsmall text-default">{m.name}</h3>
@@ -973,7 +991,7 @@ function MachineEntryRow({
       </datalist>
 
       {/* OPs */}
-      <div className="flex min-w-0 flex-col gap-150">
+      <div className="flex min-w-0 flex-col gap-100">
       {entry.rows.map((r, i) => {
         const errors = showErrors || r.op || r.qty ? rowErrors(r) : {};
         return (
@@ -990,7 +1008,7 @@ function MachineEntryRow({
               error={showErrors || (r.qty && !r.op) ? errors.op : null}
               warning={errors.op ? null : hintFor(r.op)}
               helper={releasedNumbers.includes(r.op) ? "OP liberada desta máquina" : undefined}
-              inputClassName="font-code"
+              inputClassName="text-right font-code tabular-nums"
               className="w-field-op flex-1 basis-field-op s:flex-none"
             />
             <TextField
@@ -1102,7 +1120,7 @@ function MachineEntryRow({
       </div>
 
       {/* Concluir grava só esta máquina; as outras continuam como estão */}
-      <div className="flex flex-wrap items-center gap-100 border-t pt-150">
+      <div className="flex flex-wrap items-center gap-100 border-t pt-100">
         {existing && (
           <Button appearance="outline" iconBefore={ChevronUp} onClick={onClose} isDisabled={hasInput(entry, existing)}>
             Recolher
@@ -1215,7 +1233,13 @@ function EntryStatusList({
   done,
   total,
   onGo,
+  width,
+  bounds,
+  onResize,
 }: {
+  width: number;
+  bounds: () => { min: number; max: number };
+  onResize: (px: number) => void;
   groups: Array<{ id: string; label: string; ids: string[] }>;
   state: (id: string) => "done" | "typing" | "pending";
   nextId: string | null;
@@ -1226,9 +1250,13 @@ function EntryStatusList({
   const DOT = { done: "bg-icon-success border-transparent", typing: "bg-icon-warning border-transparent", pending: "border-input" } as const;
   const LABEL = { done: "apontada", typing: "digitando, não gravada", pending: "pendente" } as const;
   return (
+    <div className="relative hidden shrink-0 self-stretch m:block" style={{ width }}>
+      {/* Arrastar a borda esquerda muda a largura; setas do teclado ajustam, Home/End vão ao mínimo/máximo */}
+      <Splitter edge="start" label="Redimensionar a lista de situação das máquinas" controls="entry-status" value={width} bounds={bounds} onResize={onResize} />
     <aside
+      id="entry-status"
       aria-label="Situação das máquinas no turno"
-      className="scrollbar-thin hidden w-entry-status shrink-0 flex-col gap-200 rounded-large bg-surface-raised p-200 shadow-raised m:sticky m:top-1000 m:flex m:max-h-[calc(100dvh-7.5rem)] m:overflow-y-auto"
+      className="scrollbar-thin flex w-full flex-col gap-200 rounded-large bg-surface-raised p-200 shadow-raised m:sticky m:top-1000 m:max-h-[calc(100dvh-7.5rem)] m:overflow-y-auto"
     >
       <div className="flex flex-col gap-075" aria-live="polite">
         <span className="font-body-small text-subtle">
@@ -1271,6 +1299,7 @@ function EntryStatusList({
           </div>
         ))}
     </aside>
+    </div>
   );
 }
 

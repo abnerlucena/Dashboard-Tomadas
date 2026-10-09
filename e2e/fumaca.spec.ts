@@ -262,3 +262,17 @@ test("conferir e terminar mostra o resumo e encerra o turno", async ({ page }) =
   await page.getByRole("dialog").getByRole("button", { name: "Terminar assim" }).click();
   await expect(page.getByRole("heading", { name: "Turno encerrado" })).toBeVisible();
 });
+
+test("a lista de situação das máquinas muda de largura pela borda", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await entrar(page, "gestor@demo.weg");
+  await iniciarTurno(page);
+  const lista = page.locator("#entry-status");
+  const borda = page.getByRole("separator", { name: /Redimensionar a lista de situação/ });
+  const inicial = (await lista.boundingBox())!.width;
+  await borda.focus();
+  await page.keyboard.press("End");
+  expect((await lista.boundingBox())!.width).toBeGreaterThan(inicial);
+  await page.keyboard.press("Home");
+  expect((await lista.boundingBox())!.width).toBeLessThan(inicial);
+});

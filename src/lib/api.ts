@@ -95,4 +95,8 @@ export interface ProdRecord {
   countsTowardTarget?: boolean;
   isExcludedDay?: boolean;
   operatorCount?: number | null;
+  /** "Não produziu": o motivo da parada (D67). Ausente = a máquina não parou. */
+  motivoParada?: string;
+  /** Parada planejada: o turno não conta para a meta (`countsTowardTarget` falso). */
+  paradaPlanejada?: boolean;
 }

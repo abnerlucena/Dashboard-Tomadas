@@ -73,6 +73,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D64 | O Google Apps Script e o Dash antigo saem do repositório | Aprovada | 05/10/2026 |
 | D65 | Produção começa no Supabase da nuvem e passa depois para um servidor da WEG | Aprovada | 05/10/2026 |
 | D66 | O motivo do retrabalho é um campo próprio da OP, em texto livre | Aprovada | 08/10/2026 |
+| D67 | "Não produziu": motivo da parada no apontamento; só a parada planejada sai da meta | Aprovada | 09/10/2026 |
 
 ---
 
@@ -1379,3 +1380,36 @@ máquina**.
   partir de 08/10 foi copiado para o campo novo. Conferido em 08/10: não havia
   nenhuma OP de retrabalho nessa situação (as 2 que existem são do histórico
   importado). A observação não é apagada.
+
+### D67 — "Não produziu": motivo da parada no apontamento; só a parada planejada sai da meta
+- **Status:** Aprovada (09/10/2026), pelo gestor.
+- **Contexto:** o Apontamento ganhou o botão "Não produziu", com o motivo. Sem
+  campo no banco, a tela gravava um apontamento sem peças com a observação
+  "Não produziu: <motivo>", que aparecia em Feedbacks como observação comum, não
+  somava por motivo e deixava a meta valendo.
+- **Onde guardar.** Duas opções:
+  - **no próprio apontamento (escolhida)**: `production_records.stop_reason` e
+    `stop_planned`. A parada é de um turno, e o turno já é o apontamento;
+  - **na tabela `machine_downtimes`**, que já existe para a integração com o
+    SFM. Descartada: ela registra por horário de início e fim, só aceita
+    manutenção e preventiva, e misturaria o que o operador declara com o que o
+    SFM vai medir.
+- **Motivo em texto livre**, como o do retrabalho (D66). A tela sugere os
+  motivos.
+- **Só a parada planejada sai da meta.** Manutenção e setup saem, como o dia
+  anulado (D16). Sem OP, sem operador, falta de material e máquina parada
+  **continuam contando**: são problemas que a gestão precisa ver no
+  atingimento.
+  - Com texto livre, o banco não tem como saber pelo motivo se a parada é
+    planejada. **A tela manda a marcação** (`stop_planned`) e o banco usa a
+    marcação, não o texto. Quais motivos a tela marca como planejados é regra
+    combinada com o gestor (hoje: Manutenção e Setup / troca).
+- **Regras:**
+  - parada só em apontamento **sem peças**. Motivo junto com peças é recusado;
+    lançar peças depois tira a parada sozinho (gatilho);
+  - máquina parada **não exige o nº de operadores** (D54): exigir gente de quem
+    ficou "sem operador" não faz sentido;
+  - nas funções, motivo nulo mantém e vazio tira; a marcação de planejada pode
+    ser corrigida sozinha.
+- **Dados:** não havia nada a migrar. Conferido em 09/10: nenhum apontamento
+  sem peças, e nenhum com "Não produziu" na observação.

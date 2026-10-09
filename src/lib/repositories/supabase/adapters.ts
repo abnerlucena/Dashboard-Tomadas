@@ -85,6 +85,10 @@ export function toProdRecord(row: SummaryRow, orders: OrderRow[], names: Map<str
     isExcludedDay: row.is_excluded_day === true,
     operatorCount: row.operator_count,
   };
+  if (row.stop_reason) {
+    rec.motivoParada = row.stop_reason;
+    rec.paradaPlanejada = row.stop_planned === true;
+  }
   if (row.updated_by) {
     rec.editUser = names.get(row.updated_by) || "";
     rec.editTime = toLegacyDateTime(row.updated_at);
@@ -116,6 +120,8 @@ export function toUpdateEntryArgs(id: string, c: UpdateEntryChanges) {
     p_work_mode?: "regular" | "overtime";
     p_notes?: string;
     p_operator_count?: number;
+    p_stop_reason?: string;
+    p_stop_planned?: boolean;
   } = { p_id: id };
 
   // Lista vazia vale: o apontamento fica sem peça (máquina parada), como o
@@ -126,6 +132,8 @@ export function toUpdateEntryArgs(id: string, c: UpdateEntryChanges) {
   if (c.workMode !== undefined) args.p_work_mode = c.workMode;
   if (c.obs !== undefined) args.p_notes = c.obs;              // "" apaga
   if (c.operatorCount !== undefined) args.p_operator_count = c.operatorCount;  // 0 apaga (D52)
+  if (c.motivoParada !== undefined) args.p_stop_reason = c.motivoParada;      // "" tira a parada (D67)
+  if (c.paradaPlanejada !== undefined) args.p_stop_planned = c.paradaPlanejada;
 
   if (Object.keys(args).length === 1) throw new Error("Nada para corrigir.");
   return args;

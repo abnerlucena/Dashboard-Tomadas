@@ -157,6 +157,10 @@ turno.
 
 - Um evento pode afetar **o dia inteiro** ou **só alguns turnos** (ex: jogo às 16h afeta só o 2º turno).
 - Pode haver **vários eventos no mesmo dia**. Se um deles for "dia anulado", ele prevalece.
+- Fora do calendário, uma **máquina só** pode ficar parada num turno: o operador marca **"Não produziu"**
+  e escreve o motivo. Se a parada for **planejada** (manutenção, setup), o turno sai da meta daquela
+  máquina, como num dia anulado. As outras (sem OP, sem operador, falta de material) **continuam
+  contando**: são problemas que precisam aparecer no atingimento.
 - Os **feriados nacionais** serão importados automaticamente todo ano; estaduais, municipais e da
   empresa são cadastrados pelo gestor.
 

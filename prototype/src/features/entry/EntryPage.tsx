@@ -871,7 +871,7 @@ function MachineEntryRow({
           {hasMeta && <> · {percent}% da meta do turno</>}
         </span>
         <span className="ml-auto flex flex-wrap items-center gap-100">
-          <Button appearance="default" spacing="compact" iconBefore={Plus} onClick={onReopen} aria-label={`Lançar mais em ${m.name}`}>
+          <Button appearance="outline" spacing="compact" iconBefore={Plus} onClick={onReopen} aria-label={`Lançar mais em ${m.name}`}>
             Lançar mais
           </Button>
           <a
@@ -886,211 +886,210 @@ function MachineEntryRow({
     );
 
   return (
-    <li id={`maq-${m.id}`} className="flex scroll-mt-[10rem] m:scroll-mt-1000 flex-col gap-200 border-t p-200 first:border-t-0 l:flex-row l:items-start">
-      {/* Identificação e resultado */}
-      <div className="flex min-w-0 flex-col gap-100 l:w-column-name l:shrink-0">
+    <li id={`maq-${m.id}`} className="flex scroll-mt-[10rem] flex-col gap-200 border-t p-250 first:border-t-0 m:scroll-mt-1000">
+      {/* Cabeçalho: nome, a linha da máquina (Montagem, Embalagem…) e a situação */}
+      <div className="flex flex-wrap items-center gap-x-100 gap-y-050">
         <h3 className="font-heading-xsmall text-default">{m.name}</h3>
-        {/* Linha e situação numa fileira só, como na tabela do Dashboard */}
-        <div className="flex flex-wrap items-center gap-075">
-          <TagGroup items={m.lines} accentFor={(l) => LINE_ACCENT[l] ?? "gray"} />
-          {existing && <Lozenge appearance="information">Já apontado</Lozenge>}
+        <TagGroup items={m.lines} accentFor={(l) => LINE_ACCENT[l] ?? "gray"} />
+        <span className="ml-auto flex items-center gap-050">
           {isNext && <Lozenge appearance="discovery">Próxima</Lozenge>}
-        </div>
-        {entry.error && <p className="font-body-small text-danger" role="alert">Não salvou: {entry.error}</p>}
-        {/* Resultado do turno: barra e conta primeiro, como no Dashboard */}
-        {hasMeta ? (
-          <div className="mt-050 flex flex-col gap-050">
-            <div className="flex flex-wrap items-center gap-100">
-              <SegmentedBar percent={percent} status={status} label={`${m.name}: ${percent}% da meta do turno`} />
-              <span className="font-medium tabular-nums text-default">{percent}%</span>
-              {total > 0 && <Lozenge appearance={STATUS_META[status].appearance}>{STATUS_META[status].label}</Lozenge>}
-            </div>
-            <p className="font-body-small text-subtle">
-              <span className="font-semibold tabular-nums text-default">{formatNumber(total)}</span> de{" "}
-              <span className="tabular-nums">{formatNumber(meta)}</span> peças · meta do turno
+          <Lozenge appearance={existing ? "information" : "neutral"}>{existing ? "Já apontado" : "Pendente"}</Lozenge>
+        </span>
+      </div>
+      {entry.error && (
+        <p className="font-body-small text-danger" role="alert">
+          Não salvou: {entry.error}
+        </p>
+      )}
+
+      {/* Meta do turno e OP liberada, numa linha */}
+      <div className="flex flex-wrap items-center gap-x-250 gap-y-050 font-body-small text-subtle">
+        <span>
+          {hasMeta ? (
+            <>
+              Meta do turno <span className="font-semibold tabular-nums text-default">{formatNumber(meta)}</span>
               {turn.dependeDaLotacao && ` (${baseLabel(base).toLowerCase()}, ${turn.pessoas} ${turn.pessoas === 1 ? "pessoa" : "pessoas"}`}
               {turn.dependeDaLotacao && base === "per_shift_prorated" && crew && turn.pessoas > crew && `, conta até ${crew}`}
               {turn.dependeDaLotacao && ")"}
-            </p>
-            {turn.estimada && <p className="font-body-small text-warning">Informe o nº de operadores: a meta deste posto depende dele.</p>}
-          </div>
-        ) : (
-          <p className="mt-050 font-body-small text-subtle">
-            <span className="font-semibold tabular-nums text-default">{formatNumber(total)}</span> peças no turno ·{" "}
-            {!m.hasTarget
-              ? "centro por demanda, sem meta"
-              : overtime
-                ? "hora extra, fora da meta"
-                : target
-                  ? "sem meta cadastrada nesta data"
-                  : "carregando a meta do dia…"}
-          </p>
+            </>
+          ) : !m.hasTarget ? (
+            "Por demanda, sem meta"
+          ) : overtime ? (
+            "Hora extra, fora da meta"
+          ) : target ? (
+            "Sem meta cadastrada nesta data"
+          ) : (
+            "Carregando a meta do dia…"
+          )}
+        </span>
+        {openOps.length > 0 && (
+          <span>
+            {openOps.length === 1 ? "OP liberada" : "OPs liberadas"}{" "}
+            {openOps.map((op, i) => (
+              <span key={op.id}>
+                {i > 0 && ", "}
+                <a href={`#/feedbacks/${op.id.replace("OP ", "")}`} className="font-code font-semibold text-link hover:underline">
+                  {op.id.replace("OP ", "")}
+                </a>
+              </span>
+            ))}
+          </span>
         )}
-        {/* O que já está gravado e as OPs liberadas, em rótulo e valor */}
-        {(existing || openOps.length > 0) && (
-          <dl className="flex flex-col gap-100 font-body-small">
-            {existing && (
-              <div>
-                <dt className="text-subtlest">Já gravado neste turno</dt>
-                <dd className="min-w-0 text-subtle">
-                  <span className="font-semibold tabular-nums text-default">{formatNumber(existing.good)}</span> peças
-                  {existing.rework > 0 && <> + {formatNumber(existing.rework)} retrabalho</>}
-                  {existing.ops.length > 0 && (
-                    <>
-                      {" "}
-                      · <span className="font-code">{existing.ops.join(", ")}</span>
-                    </>
-                  )}
-                  <a
-                    href={`#/historico/${encodeURIComponent(m.id)}`}
-                    className="mt-025 flex w-fit items-center gap-025 text-link hover:underline"
-                  >
-                    <History aria-hidden className="size-icon-small" />
-                    Corrigir no Histórico
-                  </a>
-                </dd>
-              </div>
-            )}
-            {openOps.length > 0 && (
-              <div>
-                <dt className="text-subtlest">{openOps.length === 1 ? "OP liberada" : "OPs liberadas"}</dt>
-                <dd className="min-w-0">
-                  {openOps.map((op, i) => (
-                    <span key={op.id}>
-                      {i > 0 && ", "}
-                      <a href={`#/feedbacks/${op.id.replace("OP ", "")}`} className="font-code text-link hover:underline">
-                        {op.id.replace("OP ", "")}
-                      </a>
-                    </span>
-                  ))}
-                </dd>
-              </div>
-            )}
-          </dl>
-        )}
-        <datalist id={listId}>
-          {openOps.map((op) => (
-            <option key={op.id} value={op.id.replace("OP ", "")}>
-              {`Material ${op.material} · ${op.product}`}
-            </option>
-          ))}
-        </datalist>
-        <TextField
-          label="Nº de operadores"
-          inputMode="numeric"
-          placeholder={turn.dependeDaLotacao && crew ? String(crew) : "–"}
-          value={entry.people}
-          onChange={(e) => onChange((x) => ({ ...x, people: e.target.value.replace(/\D/g, "").slice(0, 2) }))}
-          // Ajuda só quando o número muda a meta; nos outros postos o campo fala por si
-          helper={peopleRequired ? `Obrigatório. ${peopleHelp}` : turn.dependeDaLotacao && hasMeta ? peopleHelp : undefined}
-          error={peopleRequired && showErrors && !entry.people.trim() && (total > 0 || !!existing) ? "Informe quantas pessoas trabalharam" : null}
-          // Um quarto da largura: o número tem 1 ou 2 dígitos; a ajuda embaixo continua na largura toda
-          inputClassName="max-w-[25%] text-right tabular-nums"
-          className="mt-050"
-        />
       </div>
+      {hasMeta && total > 0 && (
+        <div className="flex flex-wrap items-center gap-100">
+          <SegmentedBar percent={percent} status={status} label={`${m.name}: ${percent}% da meta do turno`} />
+          <span className="font-medium tabular-nums text-default">{percent}%</span>
+          <Lozenge appearance={STATUS_META[status].appearance}>{STATUS_META[status].label}</Lozenge>
+          <span className="font-body-small text-subtle">
+            <span className="font-semibold tabular-nums text-default">{formatNumber(total)}</span> de {formatNumber(meta)} peças
+          </span>
+        </div>
+      )}
+      {turn.estimada && <p className="font-body-small text-warning">Informe o nº de operadores: a meta deste posto depende dele.</p>}
+      {existing && (
+        <p className="font-body-small text-subtle">
+          Já gravado neste turno: <span className="font-semibold tabular-nums text-default">{formatNumber(existing.good)}</span> peças
+          {existing.rework > 0 && <> + {formatNumber(existing.rework)} retrabalho</>}
+          {existing.ops.length > 0 && (
+            <>
+              {" "}
+              · <span className="font-code">{existing.ops.join(", ")}</span>
+            </>
+          )}
+          {" · "}
+          <a href={`#/historico/${encodeURIComponent(m.id)}`} className="inline-flex items-center gap-025 text-link hover:underline">
+            <History aria-hidden className="size-icon-small" />
+            Corrigir no Histórico
+          </a>
+        </p>
+      )}
+      <datalist id={listId}>
+        {openOps.map((op) => (
+          <option key={op.id} value={op.id.replace("OP ", "")}>
+            {`Material ${op.material} · ${op.product}`}
+          </option>
+        ))}
+      </datalist>
 
       {/* OPs */}
-      <div className="flex min-w-0 flex-1 flex-col gap-150">
-        {entry.rows.map((r, i) => {
-          const errors = showErrors || r.op || r.qty ? rowErrors(r) : {};
-          return (
-            // Cada OP num bloco próprio, com linha entre uma e outra: o motivo do retrabalho fica claramente com a sua OP
-            <div key={r.key} className={cn("flex flex-wrap items-start gap-100", i > 0 && "border-t pt-150")}>
-              <TextField
-                label={entry.rows.length > 1 ? `Nº da OP ${i + 1}` : "Nº da OP"}
-                aria-label={`Nº da OP, linha ${i + 1}, ${m.name}`}
-                inputMode="numeric"
-                placeholder="Ex.: 4501234"
-                list={listId}
-                value={r.op}
-                onChange={(e) => setRow(r.key, { op: e.target.value.replace(/\D/g, "").slice(0, 15) })}
-                error={showErrors || (r.qty && !r.op) ? errors.op : null}
-                warning={errors.op ? null : hintFor(r.op)}
-                helper={releasedNumbers.includes(r.op) ? "OP liberada desta máquina" : undefined}
-                inputClassName="font-code"
-                className="w-field-op flex-1 basis-field-op s:flex-none"
-              />
-              <TextField
-                label="Quantidade"
-                aria-label={`Quantidade, linha ${i + 1}, ${m.name}`}
-                inputMode="numeric"
-                placeholder="0"
-                value={r.qty}
-                onChange={(e) => setRow(r.key, { qty: e.target.value.replace(/[^\d]/g, "") })}
-                // Enter na quantidade conclui a máquina e leva à próxima
-                onKeyDown={(e) => {
-                  if (e.key !== "Enter") return;
-                  e.preventDefault();
-                  onConclude();
-                }}
-                error={errors.qty}
-                elemAfter="un."
-                inputClassName="text-right tabular-nums"
-                className="w-field-quantity flex-1 basis-field-quantity s:flex-none"
-              />
-              <label
-                className={cn(
-                  "flex h-control items-center gap-075 rounded-medium border px-100 font-body s:mt-250",
-                  r.rework ? "border-selected bg-selected text-selected" : "border-input bg-surface text-subtle",
-                )}
-              >
-                <Checkbox
-                  label={`Retrabalho, linha ${i + 1}, ${m.name}`}
-                  checked={r.rework}
-                  onChange={(e) => setRow(r.key, { rework: e.target.checked, ...(e.target.checked ? {} : { reason: "" }) })}
-                />
-                <span aria-hidden>Retrabalho</span>
-              </label>
-              <IconButton
-                icon={Trash2}
-                label={`Remover OP da linha ${i + 1}, ${m.name}`}
-                isDisabled={entry.rows.length === 1}
-                onClick={() =>
-                  entry.rows.length > 1 && onChange((e) => ({ ...e, rows: e.rows.filter((x) => x.key !== r.key) }))
-                }
-                className="s:mt-250"
-              />
-              {r.rework && (
-                <ReworkReason
-                  row={r}
-                  context={`linha ${i + 1}, ${m.name}`}
-                  error={showErrors ? errors.reason : undefined}
-                  onChange={(patch) => setRow(r.key, patch)}
-                />
+      <div className="flex min-w-0 flex-col gap-150">
+      {entry.rows.map((r, i) => {
+        const errors = showErrors || r.op || r.qty ? rowErrors(r) : {};
+        return (
+          // Cada OP num bloco próprio, com linha entre uma e outra: o motivo do retrabalho fica claramente com a sua OP
+          <div key={r.key} className={cn("flex flex-wrap items-start gap-100", i > 0 && "border-t pt-150")}>
+            <TextField
+              label={entry.rows.length > 1 ? `Nº da OP ${i + 1}` : "Nº da OP"}
+              aria-label={`Nº da OP, linha ${i + 1}, ${m.name}`}
+              inputMode="numeric"
+              placeholder="Ex.: 4501234"
+              list={listId}
+              value={r.op}
+              onChange={(e) => setRow(r.key, { op: e.target.value.replace(/\D/g, "").slice(0, 15) })}
+              error={showErrors || (r.qty && !r.op) ? errors.op : null}
+              warning={errors.op ? null : hintFor(r.op)}
+              helper={releasedNumbers.includes(r.op) ? "OP liberada desta máquina" : undefined}
+              inputClassName="font-code"
+              className="w-field-op flex-1 basis-field-op s:flex-none"
+            />
+            <TextField
+              label="Quantidade"
+              aria-label={`Quantidade, linha ${i + 1}, ${m.name}`}
+              inputMode="numeric"
+              placeholder="0"
+              value={r.qty}
+              onChange={(e) => setRow(r.key, { qty: e.target.value.replace(/[^\d]/g, "") })}
+              // Enter na quantidade conclui a máquina e leva à próxima
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                e.preventDefault();
+                onConclude();
+              }}
+              error={errors.qty}
+              elemAfter="un."
+              inputClassName="text-right tabular-nums"
+              className="w-field-quantity flex-1 basis-field-quantity s:flex-none"
+            />
+            <label
+              className={cn(
+                "flex h-control items-center gap-075 rounded-medium border px-100 font-body s:mt-250",
+                r.rework ? "border-selected bg-selected text-selected" : "border-input bg-surface text-subtle",
               )}
-            </div>
-          );
-        })}
-        {tooHigh && (
-          <p role="status" className="flex items-start gap-050 rounded-medium bg-warning px-150 py-100 font-body-small text-warning">
-            <CircleAlert aria-hidden className="mt-025 size-icon-small shrink-0" />
-            <span>
-              <span className="font-semibold">Confere {formatNumber(total)} peças?</span> A meta do turno é {formatNumber(meta)}. Se for um zero a
-              mais, corrija a quantidade.
-            </span>
-          </p>
-        )}
-        <div className="flex flex-wrap gap-100">
+            >
+              <Checkbox
+                label={`Retrabalho, linha ${i + 1}, ${m.name}`}
+                checked={r.rework}
+                onChange={(e) => setRow(r.key, { rework: e.target.checked, ...(e.target.checked ? {} : { reason: "" }) })}
+              />
+              <span aria-hidden>Retrabalho</span>
+            </label>
+            <IconButton
+              icon={Trash2}
+              label={`Remover OP da linha ${i + 1}, ${m.name}`}
+              isDisabled={entry.rows.length === 1}
+              onClick={() =>
+                entry.rows.length > 1 && onChange((e) => ({ ...e, rows: e.rows.filter((x) => x.key !== r.key) }))
+              }
+              className="s:mt-250"
+            />
+            {r.rework && (
+              <ReworkReason
+                row={r}
+                context={`linha ${i + 1}, ${m.name}`}
+                error={showErrors ? errors.reason : undefined}
+                onChange={(patch) => setRow(r.key, patch)}
+              />
+            )}
+          </div>
+        );
+      })}
+      {tooHigh && (
+        <p role="status" className="flex items-start gap-050 rounded-medium bg-warning px-150 py-100 font-body-small text-warning">
+          <CircleAlert aria-hidden className="mt-025 size-icon-small shrink-0" />
+          <span>
+            <span className="font-semibold">Confere {formatNumber(total)} peças?</span> A meta do turno é {formatNumber(meta)}. Se for um zero a
+            mais, corrija a quantidade.
+          </span>
+        </p>
+      )}
+
+        {/* Nº de operadores (em toda máquina) e o que se pode acrescentar */}
+        <div className="flex flex-wrap items-start gap-100">
+          <TextField
+            label="Nº de operadores"
+            aria-label={`Nº de operadores, ${m.name}`}
+            inputMode="numeric"
+            placeholder={turn.dependeDaLotacao && crew ? String(crew) : "–"}
+            value={entry.people}
+            onChange={(e) => onChange((x) => ({ ...x, people: e.target.value.replace(/\D/g, "").slice(0, 2) }))}
+            error={peopleRequired && showErrors && !entry.people.trim() && (total > 0 || !!existing) ? "Informe quantas pessoas trabalharam" : null}
+            inputClassName="text-right tabular-nums"
+            className="w-field-quantity"
+          />
           <Button
-            appearance="default"
-            spacing="compact"
+            appearance="outline"
             iconBefore={Plus}
             onClick={() => onChange((e) => ({ ...e, rows: [...e.rows, newRow()] }))}
+            className="!text-link s:mt-250"
           >
             Adicionar OP
           </Button>
           {!entry.noteOpen && (
             <Button
-              appearance="default"
-              spacing="compact"
+              appearance="outline"
               iconBefore={MessageSquarePlus}
               onClick={() => onChange((e) => ({ ...e, noteOpen: true }))}
+              className="!text-link s:mt-250"
             >
               Adicionar observação
             </Button>
           )}
         </div>
+        {/* A ajuda do campo só aparece quando o número muda a meta; nos outros postos ele fala por si */}
+        {(peopleRequired || (turn.dependeDaLotacao && hasMeta)) && (
+          <p className="font-body-small text-subtlest">{peopleRequired ? `Obrigatório. ${peopleHelp}` : peopleHelp}</p>
+        )}
         {entry.noteOpen && (
           <TextArea
             label="Observação do turno"
@@ -1100,17 +1099,18 @@ function MachineEntryRow({
             onChange={(e) => onChange((x) => ({ ...x, note: e.target.value }))}
           />
         )}
-        {/* Concluir grava só esta máquina; as outras continuam como estão */}
-        <div className="flex flex-wrap items-center justify-end gap-100 border-t pt-150">
-          {existing && (
-            <Button appearance="default" iconBefore={ChevronUp} onClick={onClose} isDisabled={hasInput(entry, existing)}>
-              Recolher
-            </Button>
-          )}
-          <Button appearance="primary" iconBefore={Check} isLoading={saving} onClick={onConclude} aria-label={`Concluir ${m.name}`}>
-            Concluir
+      </div>
+
+      {/* Concluir grava só esta máquina; as outras continuam como estão */}
+      <div className="flex flex-wrap items-center gap-100 border-t pt-150">
+        {existing && (
+          <Button appearance="outline" iconBefore={ChevronUp} onClick={onClose} isDisabled={hasInput(entry, existing)}>
+            Recolher
           </Button>
-        </div>
+        )}
+        <Button appearance="primary" iconBefore={Check} isLoading={saving} onClick={onConclude} aria-label={`Concluir ${m.name}`} className="ml-auto">
+          Concluir
+        </Button>
       </div>
     </li>
   );

@@ -24,7 +24,7 @@ const KEY_EXPANDED = "dash-proto.sidenav.expanded";
 const KEY_SIDENAV_WIDTH = "dash-proto.sidenav.width";
 const KEY_PANEL_WIDTH = "dash-proto.panel.width";
 
-export function LayoutProvider({ children }: { children: ReactNode }) {
+export function LayoutProvider({ children, immersive = false }: { children: ReactNode; immersive?: boolean }) {
   const { isLarge, isMedium, canHover } = useBreakpoints();
 
   const [expanded, setExpanded] = useState(() => storageGet(KEY_EXPANDED, true));
@@ -43,7 +43,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
   const menuOpen = useRef(false);
   const pointerInside = useRef(false);
 
-  const isSideNavInline = isLarge && expanded;
+  const isSideNavInline = isLarge && expanded && !immersive;
 
   const sideNavBounds = useCallback(
     () => ({
@@ -100,7 +100,10 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
 
   const toggleSideNav = useCallback(() => {
     clearTimers();
-    if (isLarge) {
+    if (immersive) {
+      // No ambiente imersivo o botão só abre e fecha a gaveta; a preferência de "expandida" não muda
+      setOverlayOpen((o) => !o);
+    } else if (isLarge) {
       if (flyoutOpen) {
         // Clique no toggle com o flyout aberto → fixa a navegação expandida
         setFlyoutOpen(false);
@@ -111,7 +114,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     } else {
       setOverlayOpen((o) => !o);
     }
-  }, [isLarge, flyoutOpen, expanded, setExpandedPersist]);
+  }, [immersive, isLarge, flyoutOpen, expanded, setExpandedPersist]);
 
   const collapseSideNav = useCallback(() => {
     setExpandedPersist(false);
@@ -121,13 +124,13 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
   const openOverlay = useCallback(() => setOverlayOpen(true), []);
 
   const scheduleFlyoutOpen = useCallback(() => {
-    if (isSideNavInline || overlayOpen || !canHover) return;
+    if (isSideNavInline || overlayOpen || !canHover || immersive) return;
     clearTimers();
     openTimer.current = window.setTimeout(
       () => setFlyoutOpen(true),
       readToken("--dash-sidenav-flyout-open-delay"),
     );
-  }, [isSideNavInline, overlayOpen, canHover]);
+  }, [isSideNavInline, overlayOpen, canHover, immersive]);
 
   const scheduleFlyoutClose = useCallback(() => {
     window.clearTimeout(openTimer.current);
@@ -155,12 +158,12 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     [cancelFlyoutClose, scheduleFlyoutClose],
   );
 
-  // Troca de breakpoint descarta estados transitórios
+  // Troca de breakpoint, ou entrar/sair do ambiente imersivo, descarta estados transitórios
   useEffect(() => {
     clearTimers();
     setFlyoutOpen(false);
     setOverlayOpen(false);
-  }, [isLarge]);
+  }, [isLarge, immersive]);
 
   // Janela menor → re-limita larguras
   useEffect(() => {
@@ -188,6 +191,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<LayoutState>(
     () => ({
+      immersive,
       isLarge,
       isMedium,
       canHover,
@@ -213,6 +217,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
       panelBounds,
     }),
     [
+      immersive,
       isLarge,
       isMedium,
       canHover,

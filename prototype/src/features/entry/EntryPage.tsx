@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronUp, CircleAlert, CircleCheck, History, MessageSquarePlus, Plus, RefreshCw, RotateCcw, Save, Search, Trash2 } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, ChevronUp, CircleAlert, CircleCheck, History, LogOut, MessageSquarePlus, Plus, RefreshCw, RotateCcw, Save, Search, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ProdRecord } from "../../../../src/lib/api";
 import { mensagemDeErro } from "../../../../src/lib/erros";
@@ -28,20 +28,25 @@ import { useAccess } from "@/features/access/AccessContext";
 import { useOps } from "@/features/ops/OpsStore";
 import { opHint, releasedFor } from "./opHint";
 import { shiftAt } from "@/features/tv/tvMetrics";
-import { PageBody, PageHeader } from "@/components/layout/PageHeader";
+import { PAGE_GUTTER, PageBody } from "@/components/layout/PageHeader";
+import { MAIN_ID } from "@/components/layout/AppRoot";
+import { OptionCards } from "@/components/ui/OptionCards";
+import { glideTo, scrollParent } from "@/lib/glide";
 import { SegmentedBar } from "@/components/data/SegmentedBar";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { EmptyState, ErrorMessage } from "@/components/ui/Feedback";
 import { Lozenge } from "@/components/ui/Lozenge";
 import { Modal } from "@/components/ui/Modal";
-import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { TagGroup } from "@/components/ui/Tag";
 import { TextArea, TextField } from "@/components/ui/TextField";
 import { DateField } from "@/components/ui/DateField";
 import { baseLabel } from "@/features/metas/metaBase";
 import { useDayTargets, type DayTarget } from "./dayTargets";
 import { planSaves, type ExistingRecord } from "./payload";
+
+/** 1 Turno · 2 Máquinas · 3 Conferir e terminar */
+type Step = 1 | 2 | 3;
 
 /* ---------- Modelo do formulário ---------- */
 interface OpRow {
@@ -176,7 +181,6 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
   const [targetsAttempt, setTargetsAttempt] = useState(0);
   const targets = useDayTargets(date, targetsAttempt);
   const [saving, setSaving] = useState(false);
-  const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [showErrors, setShowErrors] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [pending, setPending] = useState<{ date: string; shift: Shift; overtime: boolean } | null>(null);
@@ -187,6 +191,23 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
   // Máquinas já apontadas neste turno ficam recolhidas numa linha; "Lançar mais" reabre
   const [reopened, setReopened] = useState<Set<string>>(new Set());
   const bodyRef = useRef<HTMLDivElement>(null);
+
+  /*
+   * Três passos: 1 Turno (quem aponta escolhe data, turno e regime; nada vem
+   * preenchido), 2 Máquinas, 3 Conferir e terminar.
+   */
+  const [step, setStep] = useState<Step>(1);
+  const [turnSet, setTurnSet] = useState(false);
+  const [picked, setPicked] = useState<{ date: string; shift: Shift | null; overtime: boolean | null }>({ date: "", shift: null, overtime: null });
+  const [showTurnErrors, setShowTurnErrors] = useState(false);
+  const [finished, setFinished] = useState(false);
+  const [confirmFinish, setConfirmFinish] = useState(false);
+  // Destino (#/rota) de uma saída que ainda espera a confirmação de quem tem algo digitado
+  const [confirmExit, setConfirmExit] = useState<string | null>(null);
+  const toTop = () => {
+    document.getElementById(MAIN_ID)?.scrollTo({ top: 0, behavior: "instant" });
+    window.scrollTo({ top: 0, behavior: "instant" });
+  };
 
   type Context = { date: string; shift: Shift; overtime: boolean };
   const switchContext = (next: Context) => {
@@ -200,14 +221,40 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
     setOvertime(next.overtime);
     setLoaded(loadForm(next.date, next.shift, next.overtime));
     setReopened(new Set());
-    setSavedAt(null);
     setShowErrors(false);
     setPending(null);
+    setTurnSet(true);
+    setFinished(false);
+    setStep(2);
+    toTop();
+  };
+
+  const goStep = (n: Step) => {
+    if (n > 1 && !turnSet) {
+      setShowTurnErrors(true);
+      setStep(1);
+      return;
+    }
+    setStep(n);
+    toTop();
+  };
+  /** "Trocar" no topo: volta ao passo 1 já com o turno atual escolhido */
+  const changeTurn = () => {
+    setPicked({ date, shift, overtime });
+    setShowTurnErrors(false);
+    setStep(1);
+    toTop();
+  };
+  const continueToMachines = () => {
+    setShowTurnErrors(true);
+    if (!picked.date || picked.shift == null || picked.overtime == null) return;
+    const next = { date: picked.date, shift: picked.shift, overtime: picked.overtime };
+    if (turnSet && next.date === date && next.shift === shift && next.overtime === overtime) return goStep(2);
+    switchContext(next);
   };
 
   const update = (machineId: string, fn: (e: MachineEntry) => MachineEntry) => {
     setForm((f) => ({ ...f, [machineId]: { ...fn(f[machineId]), error: undefined } }));
-    setSavedAt(null);
   };
 
   // Produção boa do turno: o que já está gravado + o que está sendo lançado (retrabalho fica fora, D11)
@@ -237,9 +284,20 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
     if (group) setCollapsed((c) => (c.has(group.id) ? new Set([...c].filter((x) => x !== group.id)) : c));
     window.setTimeout(() => {
       const el = document.getElementById(`maq-${id}`);
-      el?.scrollIntoView({ block: "start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-      // cursor no Nº da OP (é o que se digita primeiro); na linha recolhida, no "Lançar mais"
-      el?.querySelector<HTMLElement>('input[aria-label^="Nº da OP"], button')?.focus({ preventScroll: true });
+      if (!el) return;
+      // A máquina para logo abaixo do que fica fixo no topo (barra do ambiente e, no celular, a barra de progresso)
+      let offset = 16;
+      for (const sel of ["[data-entry-bar]", "[data-entry-progress]"]) {
+        const bar = document.querySelector<HTMLElement>(sel);
+        if (bar && bar.offsetParent && getComputedStyle(bar).position === "sticky") offset += bar.offsetHeight;
+      }
+      // Sem área de rolagem própria (celular), a página rola e a barra do topo do Dash fica fixa por cima
+      if (!scrollParent(el)) offset += readToken("--dash-topnav-height");
+      glideTo(el, {
+        offset,
+        // cursor no Nº da OP (é o que se digita primeiro); na linha recolhida, no "Lançar mais"
+        onEnd: () => el.querySelector<HTMLElement>('input[aria-label^="Nº da OP"], button')?.focus({ preventScroll: true }),
+      });
     }, 0);
   };
 
@@ -248,9 +306,9 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
    * Enter na quantidade). Cada máquina é um apontamento (D10): gravar uma não
    * mexe no que está digitado nas outras.
    */
-  const save = useCallback(async (opts: { checked?: boolean; only?: string } = {}) => {
-    if (saving) return;
-    if (live && targets.status === "loading") return;
+  const save = useCallback(async (opts: { checked?: boolean; only?: string } = {}): Promise<boolean> => {
+    if (saving) return false;
+    if (live && targets.status === "loading") return false;
     const scopeIds = opts.only ? [opts.only] : Object.keys(form);
     const scope: Form = Object.fromEntries(scopeIds.map((id) => [id, form[id]]));
     const errorCount = scopeIds.flatMap((id) => form[id].rows).reduce((n, r) => n + Object.keys(rowErrors(r)).length, 0);
@@ -263,7 +321,7 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
       );
       // leva o foco ao primeiro campo inválido
       window.setTimeout(() => bodyRef.current?.querySelector<HTMLElement>("[aria-invalid=true]")?.focus(), 0);
-      return;
+      return false;
     }
     const [y, mo, d] = date.split("-");
     const when = `${SHIFT_META[shift].label}${overtime ? " · hora extra" : ""} · ${d}/${mo}/${y}`;
@@ -276,7 +334,7 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
       setShowErrors(true);
       notify("Informe o nº de operadores", `${missingPeople.join(", ")}: a meta é por pessoa, e o número é obrigatório.`, "error");
       window.setTimeout(() => bodyRef.current?.querySelector<HTMLElement>("[aria-invalid=true]")?.focus(), 0);
-      return;
+      return false;
     }
     if (!plan.length) {
       notify(
@@ -286,7 +344,7 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
           : "Lance a quantidade de pelo menos uma OP, ou mude a observação ou o nº de operadores.",
         "error",
       );
-      return;
+      return false;
     }
     if (!opts.checked) {
       const high = plan
@@ -296,7 +354,10 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
           return g.hasMeta && totals[m.id] > g.meta * TOO_HIGH;
         })
         .map((m) => m.name);
-      if (high.length) return setConfirmHigh({ names: high, only: opts.only });
+      if (high.length) {
+        setConfirmHigh({ names: high, only: opts.only });
+        return false;
+      }
     }
     setConfirmHigh(null);
     setSaving(true);
@@ -309,7 +370,8 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
 
     // Demonstração: simula o banco (o que foi gravado passa a "já apontado" e os campos da máquina esvaziam)
     if (!live || !client.reads) {
-      window.setTimeout(() => {
+      await new Promise<void>((resolve) => window.setTimeout(resolve, readToken("--ds-motion-duration-skeleton") / 2));
+      {
         setLoaded((l) => {
           const nextForm = { ...l.form };
           const nextExisting = { ...l.existing };
@@ -331,14 +393,13 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
         });
         setSaving(false);
         setShowErrors(false);
-        setSavedAt(new Date());
         notify(
           opts.only ? `${machineById(opts.only).name}: gravada` : "Apontamento salvo",
           opts.only ? when : `${plan.length} ${plan.length === 1 ? "máquina" : "máquinas"} · ${when}`,
         );
         done(savedIds);
-      }, readToken("--ds-motion-duration-skeleton") / 2);
-      return;
+      }
+      return true;
     }
 
     // Com o banco: uma máquina por vez. Se uma falhar, as outras seguem, e o que
@@ -369,7 +430,6 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
     const ok = plan.length - Object.keys(failed).length;
     const failedCount = Object.keys(failed).length;
     setShowErrors(false);
-    setSavedAt(ok > 0 && !failedCount ? new Date() : null);
     done(savedIds.filter((id) => !failed[id]));
     if (!failedCount)
       notify(
@@ -379,6 +439,7 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
     else if (ok) notify(`${ok} salvas, ${failedCount} com erro`, "As máquinas com erro continuam no formulário, com o motivo ao lado.", "error");
     else notify("Nada foi salvo", failed[plan[0].machineId], "error");
     if (!refreshed) notify("Salvo, mas a tela não atualizou", "Recarregue a página para ver os números novos.", "error");
+    return failedCount === 0;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- focusMachine/nextPendingAfter só leem a ordem das máquinas e o DOM
   }, [saving, live, targets, notify, date, shift, overtime, form, existing, session, client, totals]);
 
@@ -387,12 +448,12 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
-        void save();
+        if (step === 2) void save();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [save]);
+  }, [save, step]);
 
   // Apontar atrasado é permitido (D10): de 31 dias atrás (ou do primeiro dado) até hoje
   const todayIso = toIsoDate(new Date());
@@ -411,38 +472,91 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
   const apontadas = listedIds.filter((id) => existing[id]).length;
   const nextId = nextPendingAfter(null);
 
-  const status = savedAt ? (
-    <Lozenge appearance="success">
-      Salvo às {savedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-    </Lozenge>
-  ) : dirty ? (
-    <Lozenge appearance="warning">Alterações não salvas</Lozenge>
-  ) : null;
+
+  /* ---------- Passo 3: o que o turno tem até agora ---------- */
+  const unsavedIds = listedIds.filter((id) => hasInput(form[id], existing[id]));
+  const pendingIds = listedIds.filter((id) => !existing[id] && !unsavedIds.includes(id));
+  const goodSum = listedIds.reduce((n, id) => n + (existing[id]?.good ?? 0), 0);
+  const reworkSum = listedIds.reduce((n, id) => n + (existing[id]?.rework ?? 0), 0);
+  const warns: Array<{ id: string; text: string }> = [];
+  const opsSeen: Record<string, string[]> = {};
+  for (const id of listedIds) {
+    const ex = existing[id];
+    if (!ex) continue;
+    const g = shiftGoal(machineById(id), targets.status === "ready" ? targets.byMachine[id] : undefined, ex.operatorCount ? String(ex.operatorCount) : "", overtime);
+    if (g.hasMeta && ex.good > g.meta * TOO_HIGH) warns.push({ id, text: `${formatNumber(ex.good)} peças, mais que o dobro da meta (${formatNumber(g.meta)})` });
+    else if (g.hasMeta && ex.good < g.meta * 0.3) warns.push({ id, text: `${formatNumber(ex.good)} peças, menos de 30% da meta (${formatNumber(g.meta)})` });
+    for (const op of ex.ops) if (/^\d+$/.test(op)) (opsSeen[op] ??= []).push(id);
+  }
+  for (const [op, ids] of Object.entries(opsSeen))
+    if (ids.length > 1) warns.push({ id: ids[1], text: `OP ${op} também apontada em ${machineById(ids[0]).name}` });
+
+  /** Do passo 3 para uma máquina: volta às máquinas, reabre a já apontada e rola até ela */
+  const openMachine = (id: string) => {
+    setStep(2);
+    if (existing[id]) setReopened((r) => new Set(r).add(id));
+    window.setTimeout(() => focusMachine(id), 60);
+  };
+  const finishShift = async () => {
+    // O que está digitado e não foi concluído é gravado junto; se algo impedir, o turno não termina
+    if (unsavedIds.length && !(await save())) {
+      setStep(2);
+      return;
+    }
+    setFinished(true);
+    toTop();
+  };
+  const askFinish = () => (pendingIds.length ? setConfirmFinish(true) : void finishShift());
+
+  /* ---------- Sair do ambiente: pede confirmação se há algo digitado e não concluído ---------- */
+  const dirtyRef = useRef(false);
+  dirtyRef.current = dirty;
+  const leave = (hash: string) => {
+    window.location.hash = hash.replace(/^#/, "");
+  };
+  const requestLeave = (hash: string) => (dirtyRef.current ? setConfirmExit(hash) : leave(hash));
+  useEffect(() => {
+    // Links de dentro do Dash (menu lateral, logo, "Corrigir no Histórico"…) passam pela mesma confirmação
+    const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || !dirtyRef.current) return;
+      const a = (e.target as Element | null)?.closest?.("a[href^='#/']");
+      const href = a?.getAttribute("href");
+      if (!href || href.startsWith("#/apontamento")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setConfirmExit(href);
+    };
+    const onUnload = (e: BeforeUnloadEvent) => {
+      if (dirtyRef.current) e.preventDefault();
+    };
+    document.addEventListener("click", onClick, true);
+    window.addEventListener("beforeunload", onUnload);
+    return () => {
+      document.removeEventListener("click", onClick, true);
+      window.removeEventListener("beforeunload", onUnload);
+    };
+  }, []);
+
+  const turnText = `${date.split("-").reverse().join("/")} · ${SHIFT_META[shift].label} · ${overtime ? "Hora extra" : "Normal"}`;
 
   return (
     <>
-      <PageHeader
-        title="Apontamento"
-        lozenge={status}
-        actions={
-          <>
-            <Button
-              appearance="subtle"
-              iconBefore={RotateCcw}
-              isDisabled={!dirty}
-              onClick={() => setConfirmDiscard(true)}
-            >
-              Descartar alterações
-            </Button>
-            <Button appearance="primary" iconBefore={Save} isLoading={saving} onClick={() => void save()} title="Ctrl+S">
-              Salvar apontamento
-            </Button>
-          </>
-        }
+      <EntryBar
+        step={step}
+        turnSet={turnSet}
+        finished={finished}
+        turnText={turnText}
+        dirty={dirty}
+        saving={saving}
+        onStep={goStep}
+        onChangeTurn={changeTurn}
+        onDiscard={() => setConfirmDiscard(true)}
+        onSave={() => void save()}
+        onExit={() => requestLeave("#/dashboard")}
       />
 
       <PageBody>
-        {targets.status === "error" && (
+        {targets.status === "error" && step === 2 && (
           <ErrorMessage
             title="Não foi possível carregar as metas deste dia"
             actions={
@@ -455,49 +569,46 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
             referência.
           </ErrorMessage>
         )}
-        {/* ---------- Contexto: de qual turno é o apontamento ----------
-            A busca de máquinas é a do topo do Dash (uma busca só no app); o progresso fica na lista de situação. */}
-        <div className="flex flex-wrap items-end gap-x-300 gap-y-200 rounded-large bg-surface-sunken p-200">
-          <DateField
-            label="Data"
-            value={date}
+
+        {finished ? (
+          <FinishedCard
+            apontadas={apontadas}
+            total={listedIds.length}
+            good={goodSum}
+            onNew={() => {
+              setFinished(false);
+              setTurnSet(false);
+              setPicked({ date: "", shift: null, overtime: null });
+              setShowTurnErrors(false);
+              setStep(1);
+              toTop();
+            }}
+          />
+        ) : step === 1 ? (
+          <TurnStep
+            picked={picked}
+            onPick={(p) => setPicked((x) => ({ ...x, ...p }))}
+            showErrors={showTurnErrors}
             min={toIsoDate(minDate)}
             max={live ? todayIso : toIsoDate(endOfMonth(DATA_END))}
             today={live ? todayIso : toIsoDate(DATA_END)}
-            onChange={(d) => switchContext({ date: d, shift, overtime })}
-            className="w-1000 min-w-column-name"
+            onContinue={continueToMachines}
           />
-          <div className="flex flex-col gap-050">
-            <span id="entry-shift" className="font-body-small font-semibold text-subtle">
-              Turno <span className="font-normal text-subtlest">· {SHIFT_META[shift].hours}</span>
-            </span>
-            <SegmentedControl
-              label="Turno"
-              size="control"
-              iconOnly={false}
-              value={String(shift)}
-              onChange={(v) => switchContext({ date, shift: Number(v) as Shift, overtime })}
-              options={SHIFTS.map((s) => ({ value: String(s), label: SHIFT_META[s].label }))}
-            />
-          </div>
-          <div className="flex flex-col gap-050">
-            <span id="entry-mode" className="font-body-small font-semibold text-subtle">
-              Regime <span className="font-normal text-subtlest">· hora extra fica fora da meta</span>
-            </span>
-            <SegmentedControl
-              label="Regime"
-              size="control"
-              iconOnly={false}
-              value={overtime ? "overtime" : "regular"}
-              onChange={(v) => switchContext({ date, shift, overtime: v === "overtime" })}
-              options={[
-                { value: "regular", label: "Normal" },
-                { value: "overtime", label: "Hora extra" },
-              ]}
-            />
-          </div>
-        </div>
-
+        ) : step === 3 ? (
+          <ReviewStep
+            apontadas={apontadas}
+            pendentes={pendingIds}
+            unsaved={unsavedIds.length}
+            good={goodSum}
+            rework={reworkSum}
+            warns={warns}
+            onOpen={openMachine}
+            onBack={() => goStep(2)}
+            onFinish={askFinish}
+            finishing={saving}
+          />
+        ) : (
+          <>
         {/* ---------- Máquinas por linha, com a situação de cada uma ao lado ---------- */}
         <div className="flex items-start gap-300">
         <div ref={bodyRef} className="flex min-w-0 flex-1 flex-col gap-300">
@@ -507,7 +618,7 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
             total={listedIds.length}
             next={nextId ? machineById(nextId).name : null}
             onNext={() => focusMachine(nextId)}
-            className="l:hidden"
+            className="m:hidden"
           />
           {q && groups.length > 0 && (
             <p className="flex flex-wrap items-center gap-100 font-body-small text-subtle" aria-live="polite">
@@ -598,6 +709,8 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
           onGo={focusMachine}
         />
         </div>
+          </>
+        )}
       </PageBody>
 
       <Modal
@@ -627,6 +740,40 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
       >
         {confirmHigh?.names.length === 1 ? "Esta máquina passou" : "Estas máquinas passaram"} de {TOO_HIGH}× a meta do turno: {confirmHigh?.names.join(", ")}.
         Se foi um zero a mais, corrija antes de salvar.
+      </Modal>
+
+      <Modal
+        open={confirmFinish}
+        onOpenChange={setConfirmFinish}
+        title={`Terminar com ${pendingIds.length} ${pendingIds.length === 1 ? "máquina pendente" : "máquinas pendentes"}?`}
+        primary={{
+          label: "Terminar assim",
+          onClick: () => {
+            setConfirmFinish(false);
+            void finishShift();
+          },
+        }}
+        cancelLabel="Voltar"
+      >
+        Elas ficam sem apontamento neste turno. Dá para apontá-las depois, pelo Apontamento ou corrigindo no Histórico.
+      </Modal>
+
+      <Modal
+        open={confirmExit != null}
+        onOpenChange={(o) => !o && setConfirmExit(null)}
+        title="Sair do apontamento?"
+        primary={{
+          label: "Sair",
+          appearance: "danger",
+          onClick: () => {
+            const to = confirmExit;
+            setConfirmExit(null);
+            if (to) leave(to);
+          },
+        }}
+        cancelLabel="Continuar apontando"
+      >
+        O que você digitou e ainda não concluiu será perdido. As máquinas já concluídas continuam gravadas.
       </Modal>
 
       <Modal
@@ -724,7 +871,7 @@ function MachineEntryRow({
           {hasMeta && <> · {percent}% da meta do turno</>}
         </span>
         <span className="ml-auto flex flex-wrap items-center gap-100">
-          <Button appearance="subtle" spacing="compact" iconBefore={Plus} onClick={onReopen} aria-label={`Lançar mais em ${m.name}`}>
+          <Button appearance="default" spacing="compact" iconBefore={Plus} onClick={onReopen} aria-label={`Lançar mais em ${m.name}`}>
             Lançar mais
           </Button>
           <a
@@ -882,7 +1029,12 @@ function MachineEntryRow({
                 inputClassName="text-right tabular-nums"
                 className="w-field-quantity flex-1 basis-field-quantity s:flex-none"
               />
-              <label className="flex h-control items-center gap-075 font-body text-subtle s:mt-250">
+              <label
+                className={cn(
+                  "flex h-control items-center gap-075 rounded-medium border px-100 font-body s:mt-250",
+                  r.rework ? "border-selected bg-selected text-selected" : "border-input bg-surface text-subtle",
+                )}
+              >
                 <Checkbox
                   label={`Retrabalho, linha ${i + 1}, ${m.name}`}
                   checked={r.rework}
@@ -921,7 +1073,7 @@ function MachineEntryRow({
         )}
         <div className="flex flex-wrap gap-100">
           <Button
-            appearance="subtle"
+            appearance="default"
             spacing="compact"
             iconBefore={Plus}
             onClick={() => onChange((e) => ({ ...e, rows: [...e.rows, newRow()] }))}
@@ -930,7 +1082,7 @@ function MachineEntryRow({
           </Button>
           {!entry.noteOpen && (
             <Button
-              appearance="subtle"
+              appearance="default"
               spacing="compact"
               iconBefore={MessageSquarePlus}
               onClick={() => onChange((e) => ({ ...e, noteOpen: true }))}
@@ -951,7 +1103,7 @@ function MachineEntryRow({
         {/* Concluir grava só esta máquina; as outras continuam como estão */}
         <div className="flex flex-wrap items-center justify-end gap-100 border-t pt-150">
           {existing && (
-            <Button appearance="subtle" iconBefore={ChevronUp} onClick={onClose} isDisabled={hasInput(entry, existing)}>
+            <Button appearance="default" iconBefore={ChevronUp} onClick={onClose} isDisabled={hasInput(entry, existing)}>
               Recolher
             </Button>
           )}
@@ -1034,9 +1186,10 @@ function EntryProgressBar({
   return (
     <div
       className={cn(
-        "sticky top-topnav z-sticky flex flex-wrap items-center gap-x-200 gap-y-100 rounded-large border bg-surface-raised px-200 py-100 shadow-raised m:top-0",
+        "sticky top-topnav z-sticky flex flex-wrap items-center gap-x-200 gap-y-100 rounded-large border bg-surface-raised px-200 py-100 shadow-raised",
         className,
       )}
+      data-entry-progress
       aria-live="polite"
     >
       <span className="flex min-w-column-name flex-1 flex-col gap-050">
@@ -1046,7 +1199,7 @@ function EntryProgressBar({
         <ProgressTrack done={done} total={total} />
       </span>
       {next && (
-        <Button appearance="subtle" spacing="compact" onClick={onNext} className="max-w-full">
+        <Button appearance="default" spacing="compact" onClick={onNext} className="max-w-full">
           <span className="truncate">Próxima: {next}</span>
         </Button>
       )}
@@ -1075,7 +1228,7 @@ function EntryStatusList({
   return (
     <aside
       aria-label="Situação das máquinas no turno"
-      className="hidden w-entry-status shrink-0 flex-col gap-200 rounded-large bg-surface-raised p-200 shadow-raised l:sticky l:top-300 l:flex"
+      className="scrollbar-thin hidden w-entry-status shrink-0 flex-col gap-200 rounded-large bg-surface-raised p-200 shadow-raised m:sticky m:top-1000 m:flex m:max-h-[calc(100dvh-7.5rem)] m:overflow-y-auto"
     >
       <div className="flex flex-col gap-075" aria-live="polite">
         <span className="font-body-small text-subtle">
@@ -1100,8 +1253,12 @@ function EntryStatusList({
                       title={name}
                       aria-label={`${name}: ${LABEL[st]}`}
                       className={cn(
-                        "ds-pressable flex w-full items-center gap-100 rounded-medium px-075 py-050 text-left font-body-small",
-                        id === nextId ? "bg-selected font-semibold text-selected" : st === "done" ? "text-subtle hover:bg-neutral-subtle-hovered" : "text-default hover:bg-neutral-subtle-hovered",
+                        "ds-pressable mb-025 flex w-full items-center gap-100 rounded-medium border px-075 py-050 text-left font-body-small",
+                        id === nextId
+                          ? "border-selected bg-selected font-semibold text-selected"
+                          : st === "done"
+                            ? "bg-surface text-subtle hover:bg-neutral-subtle-hovered"
+                            : "bg-surface text-default hover:bg-neutral-subtle-hovered",
                       )}
                     >
                       <span aria-hidden className={cn("size-dot shrink-0 rounded-full border-thick", DOT[st])} />
@@ -1114,5 +1271,308 @@ function EntryStatusList({
           </div>
         ))}
     </aside>
+  );
+}
+
+/* ---------- Ambiente de apontamento: barra do topo, passos 1 e 3 e término ---------- */
+const STEPS: Array<[Step, string]> = [
+  [1, "Turno"],
+  [2, "Máquinas"],
+  [3, "Conferir e terminar"],
+];
+
+/**
+ * Barra fixa do ambiente: nome, passos, o turno escolhido (com "Trocar") e, nas
+ * máquinas, o estado do que está digitado e as ações do turno inteiro.
+ */
+function EntryBar({
+  step,
+  turnSet,
+  finished,
+  turnText,
+  dirty,
+  saving,
+  onStep,
+  onChangeTurn,
+  onDiscard,
+  onSave,
+  onExit,
+}: {
+  step: Step;
+  turnSet: boolean;
+  finished: boolean;
+  turnText: string;
+  dirty: boolean;
+  saving: boolean;
+  onStep: (n: Step) => void;
+  onChangeTurn: () => void;
+  onDiscard: () => void;
+  onSave: () => void;
+  onExit: () => void;
+}) {
+  return (
+    <div data-entry-bar className={cn(PAGE_GUTTER, "z-sticky border-b border-t-thick border-t-brand bg-surface m:sticky m:top-0")}>
+      <div className="flex flex-wrap items-center gap-x-200 gap-y-100 py-150">
+        <div className="flex w-full items-center gap-150 s:w-auto">
+          <h1 className="font-heading-medium text-default">Apontamento</h1>
+          <span className="hidden s:inline-flex">
+            <Lozenge appearance="information">Ambiente de apontamento</Lozenge>
+          </span>
+          {/* No celular o Sair fica na primeira linha, só com o ícone */}
+          <IconButton icon={LogOut} label="Sair do apontamento" appearance="default" onClick={onExit} className="ml-auto s:hidden" />
+        </div>
+        <ol aria-label="Passos do apontamento" className="flex flex-wrap items-center gap-050">
+          {STEPS.map(([n, label]) => {
+            const current = !finished && step === n;
+            const done = finished || step > n;
+            const blocked = n > 1 && !turnSet;
+            return (
+              <li key={n}>
+                <button
+                  type="button"
+                  aria-current={current ? "step" : undefined}
+                  disabled={blocked}
+                  onClick={() => onStep(n)}
+                  className={cn(
+                    "ds-pressable flex h-control items-center gap-075 rounded-full pl-050 pr-150 font-medium",
+                    current ? "bg-selected text-selected" : "text-subtle hover:bg-neutral-subtle-hovered",
+                    blocked && "cursor-not-allowed text-disabled hover:bg-transparent",
+                  )}
+                >
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "flex size-icon-medium items-center justify-center rounded-full font-body-small font-bold",
+                      current ? "bg-brand-bold text-inverse" : done ? "bg-success text-success" : "bg-neutral text-subtle",
+                    )}
+                  >
+                    {done && !current ? <Check className="size-icon-small" /> : n}
+                  </span>
+                  {label}
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+        {turnSet && step > 1 && !finished && (
+          <span className="flex items-center gap-050 font-body-small text-subtle">
+            <span className="rounded-full border bg-surface-sunken px-100 py-025 tabular-nums">{turnText}</span>
+            <Button appearance="default" spacing="compact" onClick={onChangeTurn}>
+              Trocar
+            </Button>
+          </span>
+        )}
+        <span className="ml-auto flex flex-wrap items-center gap-100">
+          {step === 2 && !finished && (
+            <span className="hidden items-center gap-100 s:flex">
+              <IconButton icon={RotateCcw} label="Descartar alterações" isDisabled={!dirty} onClick={onDiscard} appearance="default" />
+              <Button appearance="primary" iconBefore={Save} isLoading={saving} onClick={onSave} title="Ctrl+S">
+                Salvar tudo
+                {/* Ponto de aviso: há o que digitar sem concluir (a lista ao lado mostra quais) */}
+                {dirty && (
+                  <>
+                    <span aria-hidden className="size-status-dot rounded-full bg-icon-warning" />
+                    <span className="sr-only">(há alterações não salvas)</span>
+                  </>
+                )}
+              </Button>
+            </span>
+          )}
+          <span className="hidden s:inline-flex">
+            <Button appearance="default" iconBefore={LogOut} onClick={onExit} aria-label="Sair do apontamento" title="Sair do apontamento">
+              Sair
+            </Button>
+          </span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/** Passo 1: quem aponta escolhe de qual turno é; nada vem preenchido */
+function TurnStep({
+  picked,
+  onPick,
+  showErrors,
+  min,
+  max,
+  today,
+  onContinue,
+}: {
+  picked: { date: string; shift: Shift | null; overtime: boolean | null };
+  onPick: (p: Partial<{ date: string; shift: Shift | null; overtime: boolean | null }>) => void;
+  showErrors: boolean;
+  min: string;
+  max: string;
+  today: string;
+  onContinue: () => void;
+}) {
+  return (
+    <section
+      aria-labelledby="entry-turn-title"
+      className="mx-auto flex w-full max-w-modal flex-col gap-300 rounded-xlarge bg-surface-raised p-300 shadow-raised"
+    >
+      <header>
+        <h2 id="entry-turn-title" className="font-heading-large text-default">
+          De qual turno é este apontamento?
+        </h2>
+        <p className="mt-050 text-subtle">Escolha a data, o turno e o regime. O que você lançar a seguir vai para este turno.</p>
+      </header>
+      <DateField
+        label="Data"
+        value={picked.date}
+        min={min}
+        max={max}
+        today={today}
+        onChange={(d) => onPick({ date: d })}
+        error={showErrors && !picked.date ? "Escolha a data" : undefined}
+      />
+      <OptionCards
+        label="Turno"
+        value={picked.shift == null ? null : (String(picked.shift) as "1" | "2" | "3")}
+        onChange={(v) => onPick({ shift: Number(v) as Shift })}
+        options={SHIFTS.map((sh) => ({ value: String(sh) as "1" | "2" | "3", label: SHIFT_META[sh].label }))}
+        error={showErrors && picked.shift == null ? "Escolha o turno" : null}
+      />
+      <OptionCards
+        label="Regime"
+        value={picked.overtime == null ? null : picked.overtime ? "overtime" : "regular"}
+        onChange={(v) => onPick({ overtime: v === "overtime" })}
+        options={[
+          { value: "regular", label: "Normal" },
+          { value: "overtime", label: "Hora extra" },
+        ]}
+        error={showErrors && picked.overtime == null ? "Escolha o regime" : null}
+      />
+      <div>
+        <Button appearance="primary" iconAfter={ArrowRight} onClick={onContinue}>
+          Continuar para as máquinas
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+/** Passo 3: resumo do turno, avisos de conferência e o botão de terminar */
+function ReviewStep({
+  apontadas,
+  pendentes,
+  unsaved,
+  good,
+  rework,
+  warns,
+  onOpen,
+  onBack,
+  onFinish,
+  finishing,
+}: {
+  apontadas: number;
+  pendentes: string[];
+  unsaved: number;
+  good: number;
+  rework: number;
+  warns: Array<{ id: string; text: string }>;
+  onOpen: (id: string) => void;
+  onBack: () => void;
+  onFinish: () => void;
+  finishing: boolean;
+}) {
+  const kpi = "flex flex-col gap-025 border-r px-250 py-200 last:border-r-0";
+  return (
+    <div className="mx-auto flex w-full max-w-entry-review flex-col gap-200">
+      <section aria-label="Resumo do turno" className="grid grid-cols-1 overflow-hidden rounded-xlarge bg-surface-raised shadow-raised s:grid-cols-3">
+        <div className={kpi}>
+          <span className="font-body-small text-subtle">Apontadas</span>
+          <strong className="font-heading-xlarge tabular-nums text-default">{apontadas}</strong>
+        </div>
+        <div className={kpi}>
+          <span className="font-body-small text-subtle">Pendentes</span>
+          <strong className={cn("font-heading-xlarge tabular-nums", pendentes.length ? "text-warning" : "text-default")}>{pendentes.length}</strong>
+        </div>
+        <div className={kpi}>
+          <span className="font-body-small text-subtle">Peças boas</span>
+          <strong className="font-heading-xlarge tabular-nums text-default">{formatNumber(good)}</strong>
+          {rework > 0 && <span className="font-body-small text-subtle">+ {formatNumber(rework)} de retrabalho</span>}
+        </div>
+      </section>
+
+      {unsaved > 0 && (
+        <p role="status" className="flex items-start gap-100 rounded-large bg-warning px-200 py-150 text-warning">
+          <CircleAlert aria-hidden className="mt-025 size-icon-small shrink-0" />
+          <span>
+            {unsaved === 1 ? "1 máquina tem dados digitados e ainda não concluídos" : `${unsaved} máquinas têm dados digitados e ainda não concluídos`}.
+            Terminar o turno grava {unsaved === 1 ? "essa máquina" : "essas máquinas"} junto.
+          </span>
+        </p>
+      )}
+
+      {warns.length > 0 && (
+        <section className="flex flex-col gap-100 rounded-xlarge bg-surface-raised p-250 shadow-raised">
+          <h2 className="font-heading-small text-default">Vale conferir</h2>
+          <ul className="flex flex-col">
+            {warns.map((w) => (
+              <li key={`${w.id}-${w.text}`} className="flex flex-wrap items-center justify-between gap-100 border-t py-100 first:border-t-0">
+                <span>
+                  <span className="font-semibold text-default">{machineById(w.id).name}</span>: {w.text}
+                </span>
+                <Button appearance="default" spacing="compact" onClick={() => onOpen(w.id)}>
+                  Abrir
+                </Button>
+              </li>
+            ))}
+          </ul>
+          <p className="font-body-small text-subtlest">Os avisos não impedem de terminar.</p>
+        </section>
+      )}
+
+      {pendentes.length > 0 && (
+        <section className="flex flex-col gap-100 rounded-xlarge bg-surface-raised p-250 shadow-raised">
+          <h2 className="font-heading-small text-default">Ainda sem apontamento</h2>
+          <ul className="flex flex-col">
+            {pendentes.map((id) => (
+              <li key={id} className="flex flex-wrap items-center justify-between gap-100 border-t py-100 first:border-t-0">
+                <span>{machineById(id).name}</span>
+                <Button appearance="default" spacing="compact" onClick={() => onOpen(id)}>
+                  Apontar
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <div className="flex flex-wrap items-center justify-end gap-100">
+        <Button appearance="default" onClick={onBack}>
+          Voltar às máquinas
+        </Button>
+        <Button appearance="primary" iconBefore={Check} isLoading={finishing} onClick={onFinish}>
+          Terminar o turno
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** Depois de terminar: o resumo curto e para onde ir */
+function FinishedCard({ apontadas, total, good, onNew }: { apontadas: number; total: number; good: number; onNew: () => void }) {
+  return (
+    <section className="mx-auto flex w-full max-w-modal flex-col items-center gap-200 rounded-xlarge bg-surface-raised p-400 text-center shadow-raised">
+      <CircleCheck aria-hidden className="size-empty-icon text-icon-success" />
+      <h2 className="font-heading-large text-default">Turno encerrado</h2>
+      <p className="text-subtle">
+        {apontadas} de {total} máquinas apontadas e {formatNumber(good)} peças boas. Correções depois disso são feitas no Histórico.
+      </p>
+      <div className="flex flex-wrap items-center justify-center gap-100">
+        <Button appearance="default" onClick={onNew}>
+          Começar outro apontamento
+        </Button>
+        <a
+          href="#/dashboard"
+          className="ds-pressable inline-flex h-control items-center rounded-medium bg-brand-bold px-150 font-medium text-inverse hover:bg-brand-bold-hovered active:bg-brand-bold-pressed"
+        >
+          Ir para o Dashboard
+        </a>
+      </div>
+    </section>
   );
 }

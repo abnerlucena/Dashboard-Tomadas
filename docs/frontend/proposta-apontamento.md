@@ -103,3 +103,14 @@ sendo o lugar de corrigir apontamentos já gravados.
 
 A **A** já está no app. Recomendo testar a **B** com o distribuidor, no
 aparelho que ele usa no fim do turno, antes de trocar a tela de vez.
+
+## Ambiente de apontamento (08/10/2026)
+
+Ao clicar em Apontamento, a navegação lateral **recolhe** e a tela vira um
+ambiente próprio, com os três passos numa barra fixa no topo (nome, passos, o
+turno escolhido com "Trocar", ações do turno e "Sair"). A navegação abre como
+gaveta pelo botão do topo, à esquerda, sem sair do apontamento. "Sair" e
+qualquer link do Dash pedem confirmação se houver algo digitado e não
+concluído. Turno e regime são escolhidos em cartões com borda; botões
+secundários e a lista de situação também têm caixa visível; clicar numa
+máquina da lista rola até ela com animação. **Feito no app.**

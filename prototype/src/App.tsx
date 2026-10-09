@@ -258,6 +258,7 @@ function Shell() {
   return (
     <TooltipProvider>
       <AppRoot
+        immersive={route === "apontamento"}
         banner={
           bannerOpen && (
             <Banner

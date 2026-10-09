@@ -19,6 +19,11 @@ import { readToken } from "@/lib/utils";
 
 
 export interface LayoutState {
+  /**
+   * Tela de ambiente imersivo (Apontamento): a navegação lateral fica recolhida
+   * (sem mexer na preferência salva) e abre como gaveta pelo botão do topo.
+   */
+  immersive: boolean;
   isLarge: boolean;
   isMedium: boolean;
   canHover: boolean;

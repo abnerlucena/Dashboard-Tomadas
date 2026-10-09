@@ -263,16 +263,16 @@ test("conferir e terminar mostra o resumo e encerra o turno", async ({ page }) =
   await expect(page.getByRole("heading", { name: "Turno encerrado" })).toBeVisible();
 });
 
-test("a lista de situação das máquinas muda de largura pela borda", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
+test("a lista de situação tem largura proporcional à tela", async ({ page }) => {
   await entrar(page, "gestor@demo.weg");
+  await page.setViewportSize({ width: 1920, height: 950 });
   await iniciarTurno(page);
   const lista = page.locator("#entry-status");
-  const borda = page.getByRole("separator", { name: /Redimensionar a lista de situação/ });
-  const inicial = (await lista.boundingBox())!.width;
-  await borda.focus();
-  await page.keyboard.press("End");
-  expect((await lista.boundingBox())!.width).toBeGreaterThan(inicial);
-  await page.keyboard.press("Home");
-  expect((await lista.boundingBox())!.width).toBeLessThan(inicial);
+  const larga = (await lista.boundingBox())!.width;
+  expect(larga).toBeGreaterThan(540);
+  expect(larga).toBeLessThanOrEqual(576);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const estreita = (await lista.boundingBox())!.width;
+  expect(estreita).toBeLessThan(larga);
+  expect(estreita).toBeGreaterThanOrEqual(224);
 });

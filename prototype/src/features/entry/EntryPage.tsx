@@ -1,4 +1,4 @@
-import { ArrowRight, Check, ChevronDown, ChevronUp, CircleAlert, CircleCheck, History, LogOut, MessageSquarePlus, Plus, RefreshCw, RotateCcw, Save, Search, Trash2 } from "lucide-react";
+import { ArrowRight, Ban, Check, ChevronDown, ChevronUp, CircleAlert, CircleCheck, History, LogOut, MessageSquarePlus, Plus, RefreshCw, RotateCcw, Save, Search, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ProdRecord } from "../../../../src/lib/api";
 import { mensagemDeErro } from "../../../../src/lib/erros";
@@ -43,7 +43,7 @@ import { TextArea, TextField } from "@/components/ui/TextField";
 import { DateField } from "@/components/ui/DateField";
 import { baseLabel } from "@/features/metas/metaBase";
 import { useDayTargets, type DayTarget } from "./dayTargets";
-import { planSaves, type ExistingRecord } from "./payload";
+import { parseStop, planSaves, stopNote, type ExistingRecord } from "./payload";
 
 /** 1 Turno · 2 Máquinas · 3 Conferir e terminar */
 type Step = 1 | 2 | 3;
@@ -67,10 +67,17 @@ interface MachineEntry {
    * informado; ao salvar vira 0, que é o que apaga um valor gravado antes.
    */
   people: string;
+  /** a máquina não produziu neste turno: o painel do motivo está aberto */
+  stopOpen: boolean;
+  /** motivo escolhido para a máquina não ter produzido; vazio = ainda sem escolha */
+  stop: string;
   /** o banco recusou o último salvar desta máquina (o que foi digitado continua aqui) */
   error?: string;
 }
 type Form = Record<string, MachineEntry>;
+
+/** Motivos rápidos para uma máquina que não produziu no turno */
+const STOP_REASONS = ["Manutenção", "Sem OP", "Sem operador", "Setup / troca", "Falta de material", "Máquina parada"];
 
 /** O que já está gravado para a máquina neste dia, turno e regime: aparece, mas não se edita aqui */
 interface Existing extends ExistingRecord {
@@ -96,20 +103,29 @@ function loadForm(date: string, shift: Shift, overtime: boolean): { form: Form; 
       (o) => toIsoDate(o.date) === date && o.shift === shift && (o.record?.overtime ?? false) === overtime,
     );
     const record = orders.find((o) => o.record)?.record;
-    if (orders.length)
+    if (orders.length) {
+      const notes = record ? record.notes : (orders.find((o) => o.note)?.note?.text ?? "");
+      const produced = orders.reduce((s, o) => s + o.quantity, 0);
       existing[m.id] = {
         id: record?.id ?? "",
         operatorCount: record?.operatorCount ?? null,
-        notes: record ? record.notes : (orders.find((o) => o.note)?.note?.text ?? ""),
+        notes,
+        // Apontamento sem peça e com "Não produziu: <motivo>" na observação
+        stopped: produced === 0 ? parseStop(notes) : null,
         good: orders.reduce((s, o) => s + (o.rework ? 0 : o.quantity), 0),
         rework: orders.reduce((s, o) => s + (o.rework ? o.quantity : 0), 0),
         ops: [...new Set(orders.filter((o) => o.quantity > 0).map(opLabel))],
       };
+    }
     const ex = existing[m.id];
+    // A observação "Não produziu: …" aparece como situação da máquina, não no campo de observação
+    const note = ex?.stopped ? "" : (ex?.notes ?? "");
     form[m.id] = {
       rows: [newRow()],
-      note: ex?.notes ?? "",
-      noteOpen: !!ex?.notes,
+      note,
+      noteOpen: !!note,
+      stopOpen: false,
+      stop: "",
       people: ex?.operatorCount ? String(ex.operatorCount) : "",
     };
   }
@@ -145,7 +161,8 @@ const qtyOf = (r: OpRow) => (r.qty.trim() === "" ? 0 : Number(r.qty));
 /** Há algo digitado e ainda não gravado nesta máquina (OP, quantidade, observação ou nº de pessoas diferentes do gravado) */
 const hasInput = (e: MachineEntry, ex: Existing | undefined) =>
   e.rows.some((r) => r.op.trim() || r.qty.trim()) ||
-  e.note.trim() !== (ex?.notes ?? "").trim() ||
+  !!e.stop ||
+  e.note.trim() !== (ex?.stopped ? "" : (ex?.notes ?? "")).trim() ||
   e.people.trim() !== (ex?.operatorCount ? String(ex.operatorCount) : "");
 
 function rowErrors(r: OpRow) {
@@ -311,11 +328,14 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
     const scopeIds = opts.only ? [opts.only] : Object.keys(form);
     const scope: Form = Object.fromEntries(scopeIds.map((id) => [id, form[id]]));
     const errorCount = scopeIds.flatMap((id) => form[id].rows).reduce((n, r) => n + Object.keys(rowErrors(r)).length, 0);
-    if (errorCount > 0) {
+    const noReason = scopeIds.filter((id) => form[id].stopOpen && !form[id].stop);
+    if (errorCount > 0 || noReason.length > 0) {
       setShowErrors(true);
       notify(
         "Corrija os campos destacados",
-        `${errorCount} ${errorCount === 1 ? "campo precisa" : "campos precisam"} de ajuste antes de salvar.`,
+        noReason.length
+          ? `Escolha o motivo de ${noReason.map((id) => machineById(id).name).join(", ")} não ter produzido, ou volte a apontar peças.`
+          : `${errorCount} ${errorCount === 1 ? "campo precisa" : "campos precisam"} de ajuste antes de salvar.`,
         "error",
       );
       // leva o foco ao primeiro campo inválido
@@ -327,7 +347,7 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
     const plan = planSaves(scope, existing, MACHINES, { date, shift, overtime, savedBy: session?.nome ?? "" });
     // Meta por pessoa sem o nº de operadores: o banco recusaria no fim (D54); avisa antes, com o nome da máquina
     const missingPeople = plan
-      .filter((p) => targets.status === "ready" && exigeOperadores(targets.byMachine[p.machineId]?.base) && !form[p.machineId].people.trim())
+      .filter((p) => targets.status === "ready" && p.payload.ordensProducao.length > 0 && exigeOperadores(targets.byMachine[p.machineId]?.base) && !form[p.machineId].people.trim())
       .map((p) => machineById(p.machineId).name);
     if (missingPeople.length) {
       setShowErrors(true);
@@ -376,17 +396,18 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
           const nextExisting = { ...l.existing };
           for (const id of savedIds) {
             const e = l.form[id];
-            const rows = e.rows.filter((r) => qtyOf(r) > 0);
+            const rows = e.stop ? [] : e.rows.filter((r) => qtyOf(r) > 0);
             const prev = l.existing[id];
             nextExisting[id] = {
               id: prev?.id ?? "",
               operatorCount: e.people.trim() ? Number(e.people) : (prev?.operatorCount ?? null),
-              notes: e.note.trim(),
+              notes: e.stop ? stopNote(e.stop) : e.note.trim(),
+              stopped: e.stop ? e.stop : null,
               good: (prev?.good ?? 0) + rows.reduce((s, r) => s + (r.rework ? 0 : qtyOf(r)), 0),
               rework: (prev?.rework ?? 0) + rows.reduce((s, r) => s + (r.rework ? qtyOf(r) : 0), 0),
               ops: [...new Set([...(prev?.ops ?? []), ...rows.map((r) => r.op.trim())])],
             };
-            nextForm[id] = { ...e, rows: [newRow()], error: undefined };
+            nextForm[id] = { ...e, rows: [newRow()], stopOpen: false, stop: "", error: undefined };
           }
           return { form: nextForm, existing: nextExisting };
         });
@@ -469,6 +490,7 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
   })).filter((g) => g.machines.length > 0);
 
   const apontadas = listedIds.filter((id) => existing[id]).length;
+  const stoppedIds = listedIds.filter((id) => existing[id]?.stopped);
   const nextId = nextPendingAfter(null);
 
 
@@ -481,7 +503,7 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
   const opsSeen: Record<string, string[]> = {};
   for (const id of listedIds) {
     const ex = existing[id];
-    if (!ex) continue;
+    if (!ex || ex.stopped) continue;
     const g = shiftGoal(machineById(id), targets.status === "ready" ? targets.byMachine[id] : undefined, ex.operatorCount ? String(ex.operatorCount) : "", overtime);
     if (g.hasMeta && ex.good > g.meta * TOO_HIGH) warns.push({ id, text: `${formatNumber(ex.good)} peças, mais que o dobro da meta (${formatNumber(g.meta)})` });
     else if (g.hasMeta && ex.good < g.meta * 0.3) warns.push({ id, text: `${formatNumber(ex.good)} peças, menos de 30% da meta (${formatNumber(g.meta)})` });
@@ -572,6 +594,7 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
         {finished ? (
           <FinishedCard
             apontadas={apontadas}
+            naoProduziram={stoppedIds.length}
             total={listedIds.length}
             good={goodSum}
             onNew={() => {
@@ -595,7 +618,8 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
           />
         ) : step === 3 ? (
           <ReviewStep
-            apontadas={apontadas}
+            apontadas={apontadas - stoppedIds.length}
+            naoProduziram={stoppedIds}
             pendentes={pendingIds}
             unsaved={unsavedIds.length}
             good={goodSum}
@@ -701,7 +725,7 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
         </div>
         <EntryStatusList
           groups={MACHINE_GROUPS.map((g) => ({ id: g.id, label: g.label, ids: g.machineIds.filter((id) => listedIds.includes(id)) }))}
-          state={(id) => (existing[id] ? "done" : hasInput(form[id], existing[id]) ? "typing" : "pending")}
+          state={(id) => (existing[id]?.stopped ? "stopped" : existing[id] ? "done" : hasInput(form[id], existing[id]) ? "typing" : "pending")}
           nextId={nextId}
           done={apontadas}
           total={listedIds.length}
@@ -856,18 +880,30 @@ function MachineEntryRow({
   if (collapsed && existing)
     return (
       <li id={`maq-${m.id}`} className="flex scroll-mt-[10rem] flex-wrap items-center gap-x-200 gap-y-050 border-t px-200 py-100 first:border-t-0 m:scroll-mt-1000">
-        <CircleCheck aria-hidden className="size-icon-small shrink-0 text-icon-success" />
+        {existing.stopped ? (
+          <Ban aria-hidden className="size-icon-small shrink-0 text-icon-subtle" />
+        ) : (
+          <CircleCheck aria-hidden className="size-icon-small shrink-0 text-icon-success" />
+        )}
         <h3 className="font-heading-xsmall text-default">{m.name}</h3>
         <span className="min-w-0 flex-1 basis-column-name font-body-small text-subtle">
-          <span className="font-semibold tabular-nums text-default">{formatNumber(existing.good)}</span> peças
-          {existing.rework > 0 && <> + {formatNumber(existing.rework)} retrabalho</>}
-          {existing.ops.length > 0 && (
+          {existing.stopped ? (
             <>
-              {" "}
-              · <span className="font-code">{existing.ops.join(", ")}</span>
+              <span className="font-semibold text-default">Não produziu</span> · {existing.stopped}
+            </>
+          ) : (
+            <>
+              <span className="font-semibold tabular-nums text-default">{formatNumber(existing.good)}</span> peças
+              {existing.rework > 0 && <> + {formatNumber(existing.rework)} retrabalho</>}
+              {existing.ops.length > 0 && (
+                <>
+                  {" "}
+                  · <span className="font-code">{existing.ops.join(", ")}</span>
+                </>
+              )}
+              {hasMeta && <> · {percent}% da meta do turno</>}
             </>
           )}
-          {hasMeta && <> · {percent}% da meta do turno</>}
         </span>
         <span className="ml-auto flex flex-wrap items-center gap-100">
           <Button appearance="outline" spacing="compact" iconBefore={Plus} onClick={onReopen} aria-label={`Lançar mais em ${m.name}`}>
@@ -892,7 +928,7 @@ function MachineEntryRow({
         <TagGroup items={m.lines} accentFor={(l) => LINE_ACCENT[l] ?? "gray"} />
         <span className="ml-auto flex items-center gap-050">
           {isNext && <Lozenge appearance="discovery">Próxima</Lozenge>}
-          <Lozenge appearance={existing ? "information" : "neutral"}>{existing ? "Já apontado" : "Pendente"}</Lozenge>
+          <Lozenge appearance={existing ? "information" : "neutral"}>{existing?.stopped ? "Não produziu" : existing ? "Já apontado" : "Pendente"}</Lozenge>
         </span>
       </div>
       {entry.error && (
@@ -948,12 +984,21 @@ function MachineEntryRow({
       {turn.estimada && <p className="font-body-small text-warning">Informe o nº de operadores: a meta deste posto depende dele.</p>}
       {existing && (
         <p className="font-body-small text-subtle">
-          Já gravado neste turno: <span className="font-semibold tabular-nums text-default">{formatNumber(existing.good)}</span> peças
-          {existing.rework > 0 && <> + {formatNumber(existing.rework)} retrabalho</>}
-          {existing.ops.length > 0 && (
+          Já gravado neste turno:{" "}
+          {existing.stopped ? (
             <>
-              {" "}
-              · <span className="font-code">{existing.ops.join(", ")}</span>
+              <span className="font-semibold text-default">não produziu</span> ({existing.stopped})
+            </>
+          ) : (
+            <>
+              <span className="font-semibold tabular-nums text-default">{formatNumber(existing.good)}</span> peças
+              {existing.rework > 0 && <> + {formatNumber(existing.rework)} retrabalho</>}
+              {existing.ops.length > 0 && (
+                <>
+                  {" "}
+                  · <span className="font-code">{existing.ops.join(", ")}</span>
+                </>
+              )}
             </>
           )}
           {" · "}
@@ -973,7 +1018,21 @@ function MachineEntryRow({
 
       {/* OPs */}
       <div className="flex min-w-0 flex-col gap-100">
-      {entry.rows.map((r, i) => {
+      {entry.stopOpen && (
+        <div className="flex flex-col gap-100 rounded-large border bg-surface-sunken p-150">
+          <OptionCards
+            label="Por que a máquina não produziu neste turno?"
+            value={entry.stop || null}
+            onChange={(v) => onChange((e) => ({ ...e, stop: v }))}
+            options={STOP_REASONS.map((r) => ({ value: r, label: r }))}
+            error={showErrors && !entry.stop ? "Escolha o motivo" : null}
+          />
+          <p className="font-body-small text-subtlest">
+            Fica gravado como apontamento sem peças e aparece nos Feedbacks. O número de operadores abaixo continua valendo.
+          </p>
+        </div>
+      )}
+      {!entry.stopOpen && entry.rows.map((r, i) => {
         const errors = showErrors || r.op || r.qty ? rowErrors(r) : {};
         return (
           // Cada OP num bloco próprio, com linha entre uma e outra: o motivo do retrabalho fica claramente com a sua OP
@@ -1043,7 +1102,7 @@ function MachineEntryRow({
           </div>
         );
       })}
-      {tooHigh && (
+      {tooHigh && !entry.stopOpen && (
         <p role="status" className="flex items-start gap-050 rounded-medium bg-warning px-150 py-100 font-body-small text-warning">
           <CircleAlert aria-hidden className="mt-025 size-icon-small shrink-0" />
           <span>
@@ -1062,19 +1121,21 @@ function MachineEntryRow({
             placeholder={turn.dependeDaLotacao && crew ? String(crew) : "–"}
             value={entry.people}
             onChange={(e) => onChange((x) => ({ ...x, people: e.target.value.replace(/\D/g, "").slice(0, 2) }))}
-            error={peopleRequired && showErrors && !entry.people.trim() && (total > 0 || !!existing) ? "Informe quantas pessoas trabalharam" : null}
+            error={peopleRequired && showErrors && !entry.people.trim() && (total > 0 || (!!existing && !existing.stopped)) && !entry.stopOpen ? "Informe quantas pessoas trabalharam" : null}
             inputClassName="text-right tabular-nums"
             className="w-field-quantity"
           />
-          <Button
-            appearance="outline"
-            iconBefore={Plus}
-            onClick={() => onChange((e) => ({ ...e, rows: [...e.rows, newRow()] }))}
-            className="!text-link s:mt-250"
-          >
-            Adicionar OP
-          </Button>
-          {!entry.noteOpen && (
+          {!entry.stopOpen && (
+            <Button
+              appearance="outline"
+              iconBefore={Plus}
+              onClick={() => onChange((e) => ({ ...e, rows: [...e.rows, newRow()] }))}
+              className="!text-link s:mt-250"
+            >
+              Adicionar OP
+            </Button>
+          )}
+          {!entry.noteOpen && !entry.stopOpen && (
             <Button
               appearance="outline"
               iconBefore={MessageSquarePlus}
@@ -1089,7 +1150,7 @@ function MachineEntryRow({
         {(peopleRequired || (turn.dependeDaLotacao && hasMeta)) && (
           <p className="font-body-small text-subtlest">{peopleRequired ? `Obrigatório. ${peopleHelp}` : peopleHelp}</p>
         )}
-        {entry.noteOpen && (
+        {entry.noteOpen && !entry.stopOpen && (
           <TextArea
             label="Observação do turno"
             placeholder="Paradas, falta de material, ajustes… vira um feedback para a gestão."
@@ -1107,6 +1168,22 @@ function MachineEntryRow({
             Recolher
           </Button>
         )}
+        {/* Máquina sem apontamento: dá para dizer que ela não produziu, com o motivo */}
+        {!existing &&
+          (entry.stopOpen ? (
+            <Button appearance="outline" iconBefore={RotateCcw} onClick={() => onChange((e) => ({ ...e, stopOpen: false, stop: "" }))}>
+              Voltar a apontar peças
+            </Button>
+          ) : (
+            <Button
+              appearance="outline"
+              iconBefore={Ban}
+              onClick={() => onChange((e) => ({ ...e, stopOpen: true }))}
+              aria-label={`Marcar que ${m.name} não produziu`}
+            >
+              Não produziu
+            </Button>
+          ))}
         <Button appearance="primary" iconBefore={Check} isLoading={saving} onClick={onConclude} aria-label={`Concluir ${m.name}`} className="ml-auto">
           Concluir
         </Button>
@@ -1216,14 +1293,14 @@ function EntryStatusList({
   onGo,
 }: {
   groups: Array<{ id: string; label: string; ids: string[] }>;
-  state: (id: string) => "done" | "typing" | "pending";
+  state: (id: string) => "done" | "stopped" | "typing" | "pending";
   nextId: string | null;
   done: number;
   total: number;
   onGo: (id: string) => void;
 }) {
-  const DOT = { done: "bg-icon-success border-transparent", typing: "bg-icon-warning border-transparent", pending: "border-input" } as const;
-  const LABEL = { done: "apontada", typing: "digitando, não gravada", pending: "pendente" } as const;
+  const DOT = { done: "bg-icon-success border-transparent", stopped: "bg-neutral-bold border-transparent", typing: "bg-icon-warning border-transparent", pending: "border-input" } as const;
+  const LABEL = { done: "apontada", stopped: "não produziu", typing: "digitando, não gravada", pending: "pendente" } as const;
   return (
     <aside
       id="entry-status"
@@ -1258,7 +1335,7 @@ function EntryStatusList({
                         "ds-pressable mb-025 flex w-full items-center gap-100 rounded-medium border px-075 py-050 text-left font-body-small",
                         id === nextId
                           ? "border-selected bg-selected font-semibold text-selected"
-                          : st === "done"
+                          : st === "done" || st === "stopped"
                             ? "bg-surface text-subtle hover:bg-neutral-subtle-hovered"
                             : "bg-surface text-default hover:bg-neutral-subtle-hovered",
                       )}
@@ -1458,6 +1535,7 @@ function TurnStep({
 /** Passo 3: resumo do turno, avisos de conferência e o botão de terminar */
 function ReviewStep({
   apontadas,
+  naoProduziram,
   pendentes,
   unsaved,
   good,
@@ -1469,6 +1547,8 @@ function ReviewStep({
   finishing,
 }: {
   apontadas: number;
+  /** máquinas que constam como "não produziu" neste turno */
+  naoProduziram: string[];
   pendentes: string[];
   unsaved: number;
   good: number;
@@ -1482,10 +1562,14 @@ function ReviewStep({
   const kpi = "flex flex-col gap-025 border-r px-250 py-200 last:border-r-0";
   return (
     <div className="mx-auto flex w-full max-w-entry-review flex-col gap-200">
-      <section aria-label="Resumo do turno" className="grid grid-cols-1 overflow-hidden rounded-xlarge bg-surface-raised shadow-raised s:grid-cols-3">
+      <section aria-label="Resumo do turno" className="grid grid-cols-1 overflow-hidden rounded-xlarge bg-surface-raised shadow-raised s:grid-cols-4">
         <div className={kpi}>
           <span className="font-body-small text-subtle">Apontadas</span>
           <strong className="font-heading-xlarge tabular-nums text-default">{apontadas}</strong>
+        </div>
+        <div className={kpi}>
+          <span className="font-body-small text-subtle">Não produziram</span>
+          <strong className="font-heading-xlarge tabular-nums text-default">{naoProduziram.length}</strong>
         </div>
         <div className={kpi}>
           <span className="font-body-small text-subtle">Pendentes</span>
@@ -1556,13 +1640,26 @@ function ReviewStep({
 }
 
 /** Depois de terminar: o resumo curto e para onde ir */
-function FinishedCard({ apontadas, total, good, onNew }: { apontadas: number; total: number; good: number; onNew: () => void }) {
+function FinishedCard({
+  apontadas,
+  naoProduziram,
+  total,
+  good,
+  onNew,
+}: {
+  apontadas: number;
+  naoProduziram: number;
+  total: number;
+  good: number;
+  onNew: () => void;
+}) {
   return (
     <section className="mx-auto flex w-full max-w-modal flex-col items-center gap-200 rounded-xlarge bg-surface-raised p-400 text-center shadow-raised">
       <CircleCheck aria-hidden className="size-empty-icon text-icon-success" />
       <h2 className="font-heading-large text-default">Turno encerrado</h2>
       <p className="text-subtle">
-        {apontadas} de {total} máquinas apontadas e {formatNumber(good)} peças boas. Correções depois disso são feitas no Histórico.
+        {apontadas} de {total} máquinas apontadas{naoProduziram > 0 && ` (${naoProduziram} não ${naoProduziram === 1 ? "produziu" : "produziram"})`} e{" "}
+        {formatNumber(good)} peças boas. Correções depois disso são feitas no Histórico.
       </p>
       <div className="flex flex-wrap items-center justify-center gap-100">
         <Button appearance="default" onClick={onNew}>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { planSaves, type EntryContext, type FormEntry } from "./payload";
+import { parseStop, planSaves, stopNote, type EntryContext, type FormEntry } from "./payload";
 
 const machines = [
   { id: "11", name: "Composé" },
@@ -95,5 +95,39 @@ describe("planSaves", () => {
     expect(plan[0].clearNoteOf).toBe("r1");
     // nada mais mudou: não precisa chamar o salvar, só apagar a observação
     expect(plan[0].needsSave).toBe(false);
+  });
+
+  it("máquina que não produziu: apontamento sem peça, só com o motivo na observação", () => {
+    const plan = planSaves(
+      {
+        // as OPs digitadas ficam de fora: a máquina não produziu
+        "11": entry({ stop: "Manutenção", rows: [{ op: "4510001", qty: "50", rework: false }] }),
+      },
+      {},
+      machines,
+      ctx,
+    );
+    expect(plan).toHaveLength(1);
+    expect(plan[0].needsSave).toBe(true);
+    expect(plan[0].payload).toMatchObject({ producao: 0, ordensProducao: [], obs: "Não produziu: Manutenção" });
+  });
+
+  it("máquina que já constava como 'não produziu' não é regravada sem mudança", () => {
+    const existing = { "11": { id: "r1", operatorCount: null, notes: stopNote("Sem OP"), stopped: "Sem OP" } };
+    expect(planSaves({ "11": entry({}) }, existing, machines, ctx)).toEqual([]);
+  });
+
+  it("lançar peça numa máquina que constava como 'não produziu' tira a observação antiga", () => {
+    const existing = { "11": { id: "r1", operatorCount: null, notes: stopNote("Sem OP"), stopped: "Sem OP" } };
+    const plan = planSaves({ "11": entry({ rows: [{ op: "4510009", qty: "800", rework: false }] }) }, existing, machines, ctx);
+    expect(plan[0].payload.ordensProducao).toHaveLength(1);
+    expect(plan[0].payload.obs).toBe("");
+    expect(plan[0].clearNoteOf).toBe("r1");
+  });
+
+  it("parseStop lê o motivo só quando a observação começa com o prefixo", () => {
+    expect(parseStop("Não produziu: Setup / troca")).toBe("Setup / troca");
+    expect(parseStop("Máquina não produziu: manutenção")).toBeNull();
+    expect(parseStop("Não produziu: ")).toBeNull();
   });
 });

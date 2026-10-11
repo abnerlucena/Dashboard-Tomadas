@@ -100,3 +100,44 @@ describe("validateDraft", () => {
     expect(e.people).toMatch(/1 a 99/);
   });
 });
+
+describe("não produziu (D67)", () => {
+  it("marcar a parada num apontamento com peças manda motivo, marcação e lista vazia", () => {
+    const d = draftOf(original());
+    d.stopOpen = true;
+    d.stop = "Manutenção";
+    d.stopPlanned = true;
+    expect(changesOf(d, original())).toEqual({ ordensProducao: [], motivoParada: "Manutenção", paradaPlanejada: true });
+  });
+
+  it("exige o motivo quando o painel está aberto, e ignora as OPs em branco ou erradas", () => {
+    const d = draftOf(original());
+    d.stopOpen = true;
+    d.rows[0].qty = "0";
+    expect(validateDraft(d, original(), TODAY).stop).toBeTruthy();
+    expect(validateDraft(d, original(), TODAY).rows).toEqual({});
+    d.stop = "Sem OP";
+    expect(validateDraft(d, original(), TODAY).any).toBe(false);
+  });
+
+  it("trocar só a marcação manda os dois campos; sem mudança, nada", () => {
+    const o = original({ orders: [], stopReason: "Setup / troca", stopPlanned: true });
+    const d = draftOf(o);
+    expect(d.stopOpen).toBe(true);
+    expect(changesOf(d, o)).toBeNull();
+    d.stopPlanned = false;
+    expect(changesOf(d, o)).toEqual({ motivoParada: "Setup / troca", paradaPlanejada: false });
+  });
+
+  it("desmarcar a parada manda motivo vazio; com peças novas, manda as OPs também", () => {
+    const o = original({ orders: [], stopReason: "Sem OP", stopPlanned: false });
+    const d = draftOf(o);
+    d.stopOpen = false;
+    d.stop = "";
+    expect(changesOf(d, o)).toEqual({ motivoParada: "" });
+    d.rows[0].op = "4512222";
+    d.rows[0].qty = "900";
+    expect(changesOf(d, o)).toEqual({ motivoParada: "", ordensProducao: [{ ordemId: "4512222", quantidade: 900, retrabalho: false }] });
+  });
+});
+

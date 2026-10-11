@@ -45,6 +45,13 @@ import { baseLabel } from "@/features/metas/metaBase";
 import { useDayTargets, type DayTarget } from "./dayTargets";
 import { STOP_SUGGESTIONS, plannedFor, planSaves, type ExistingRecord } from "./payload";
 
+/**
+ * No ambiente de apontamento os controles têm a área de toque de 44px (a do Dash é 32px):
+ * quem aponta usa tablet, às vezes de luva. Vale só dentro da barra e do corpo da página;
+ * janelas e menus continuam no tamanho do Dash.
+ */
+const TOUCH = "[--dash-size-control:var(--dash-size-touch-target)] [--dash-size-control-compact:var(--dash-size-control)]";
+
 /** 1 Turno · 2 Máquinas · 3 Conferir e terminar */
 type Step = 1 | 2 | 3;
 
@@ -576,7 +583,7 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
         onExit={() => requestLeave("#/dashboard")}
       />
 
-      <PageBody>
+      <PageBody className={TOUCH}>
         {targets.status === "error" && step === 2 && (
           <ErrorMessage
             title="Não foi possível carregar as metas deste dia"
@@ -1424,7 +1431,7 @@ function EntryBar({
   onExit: () => void;
 }) {
   return (
-    <div data-entry-bar className={cn(PAGE_GUTTER, "z-sticky border-b border-t-thick border-t-brand bg-surface m:sticky m:top-0")}>
+    <div data-entry-bar className={cn(PAGE_GUTTER, TOUCH, "z-sticky border-b border-t-thick border-t-brand bg-surface m:sticky m:top-0")}>
       <div className="flex flex-wrap items-center gap-x-200 gap-y-100 py-150">
         <div className="flex w-full items-center gap-150 s:w-auto">
           <h1 className="font-heading-medium text-default">Apontamento</h1>

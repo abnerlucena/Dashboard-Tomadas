@@ -8,7 +8,10 @@ import { toIsoDate, type ProductionOrder, type RecordOrder, type Shift } from "@
  * - campo ausente = não mexer; só vai o que mudou;
  * - `ordensProducao` SUBSTITUI a lista (vazia tira todas as OPs);
  * - `obs: ""` apaga (o contrário do saveEntries, de propósito);
- * - `operatorCount: 0` apaga o nº de pessoas.
+ * - `operatorCount: 0` apaga o nº de pessoas;
+ * - "Não produziu" (D67): `motivoParada` + `paradaPlanejada`, só sem peças (vai
+ *   `ordensProducao: []` junto se o apontamento tinha OPs); `motivoParada: ""` tira
+ *   a parada; lançar peças também a tira.
  * E as do banco: OP só com números, até 15 dígitos (D57); `IMPORTADO` só no
  * apontamento importado, que é como a carga da planilha entrou.
  */
@@ -35,6 +38,11 @@ export interface EditDraft {
   overtime: boolean;
   people: string;
   notes: string;
+  /** a máquina não produziu: motivo (texto livre); vazio = produziu */
+  stop: string;
+  stopPlanned: boolean;
+  /** o painel "Não produziu" está aberto (o motivo ainda pode estar vazio) */
+  stopOpen: boolean;
 }
 
 /** O apontamento como estava, para comparar */
@@ -45,6 +53,8 @@ export interface EditOriginal {
   overtime: boolean;
   operatorCount: number | null;
   notes: string;
+  stopReason?: string;
+  stopPlanned?: boolean;
 }
 
 let seq = 0;
@@ -61,6 +71,7 @@ export function originalOf(order: ProductionOrder): EditOriginal | null {
     overtime: r.overtime,
     operatorCount: r.operatorCount,
     notes: r.notes,
+    ...(r.stopReason ? { stopReason: r.stopReason, stopPlanned: r.stopPlanned === true } : {}),
   };
 }
 
@@ -74,6 +85,9 @@ export function draftOf(o: EditOriginal): EditDraft {
     overtime: o.overtime,
     people: o.operatorCount ? String(o.operatorCount) : "",
     notes: o.notes,
+    stop: o.stopReason ?? "",
+    stopPlanned: o.stopPlanned === true,
+    stopOpen: !!o.stopReason,
   };
 }
 
@@ -86,13 +100,14 @@ export interface DraftErrors {
   rows: Record<string, { op?: string; qty?: string }>;
   people?: string;
   date?: string;
+  stop?: string;
   any: boolean;
 }
 
 export function validateDraft(d: EditDraft, original: EditOriginal, today: string): DraftErrors {
   const rows: DraftErrors["rows"] = {};
   const imported = isImported(original);
-  for (const r of d.rows) {
+  for (const r of d.stopOpen ? [] : d.rows) {
     if (isBlank(r)) continue;
     const e: { op?: string; qty?: string } = {};
     const op = r.op.trim();
@@ -106,7 +121,8 @@ export function validateDraft(d: EditDraft, original: EditOriginal, today: strin
   if (people && (!/^\d+$/.test(people) || Number(people) < 1 || Number(people) > 99)) errors.people = "De 1 a 99 pessoas";
   if (!d.date) errors.date = "Escolha a data";
   else if (d.date > today) errors.date = "Não é possível apontar em datas futuras";
-  errors.any = Object.keys(rows).length > 0 || !!errors.people || !!errors.date;
+  if (d.stopOpen && !d.stop.trim()) errors.stop = "Escolha uma sugestão ou escreva o motivo";
+  errors.any = Object.keys(rows).length > 0 || !!errors.people || !!errors.date || !!errors.stop;
   return errors;
 }
 
@@ -117,7 +133,8 @@ const sameOrders = (a: RecordOrder[], b: RecordOrder[]) =>
 /** Só o que mudou; null = nada a salvar */
 export function changesOf(d: EditDraft, o: EditOriginal): UpdateEntryChanges | null {
   const c: UpdateEntryChanges = {};
-  const orders: RecordOrder[] = d.rows
+  const stop = d.stopOpen ? d.stop.trim() : "";
+  const orders: RecordOrder[] = (stop ? [] : d.rows)
     .filter((r) => !isBlank(r))
     .map((r) => ({ op: r.op.trim(), quantity: Number(r.qty), rework: r.rework, note: r.note, reason: r.reason }));
   if (!sameOrders(orders, o.orders))
@@ -128,6 +145,15 @@ export function changesOf(d: EditDraft, o: EditOriginal): UpdateEntryChanges | n
       ...(x.note ? { obs: x.note } : {}),
       ...(x.rework && x.reason ? { motivoRetrabalho: x.reason } : {}),
     }));
+  // Máquina que não produziu: o motivo e a marcação; sem parada (e com a parada de antes), "" tira
+  const wasStopped = !!o.stopReason;
+  if (stop) {
+    // motivo e marcação vão juntos; as OPs saem pela lista vazia, que já foi calculada acima
+    if (stop !== (o.stopReason ?? "") || d.stopPlanned !== (o.stopPlanned === true)) {
+      c.motivoParada = stop;
+      c.paradaPlanejada = d.stopPlanned;
+    }
+  } else if (wasStopped) c.motivoParada = "";
   if (d.date !== o.date) c.date = d.date;
   if (d.shift !== o.shift) c.turno = `TURNO ${d.shift}`;
   if (d.overtime !== o.overtime) c.workMode = d.overtime ? "overtime" : "regular";

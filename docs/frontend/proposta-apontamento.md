@@ -114,3 +114,5 @@ qualquer link do Dash pedem confirmação se houver algo digitado e não
 concluído. Turno e regime são escolhidos em cartões com borda; botões
 secundários e a lista de situação também têm caixa visível; clicar numa
 máquina da lista rola até ela com animação. **Feito no app.**
+
+**Campos mais altos (11/10/2026).** Dentro do ambiente de apontamento (barra do topo e corpo da página) botões, campos, caixas de seleção e filtros têm 44px de altura, a área de toque para tablet e luva; no resto do Dash seguem com 32px. É um ajuste do tamanho dos controles só nessa tela (`TOUCH` em `EntryPage.tsx`); janelas e menus não mudam.

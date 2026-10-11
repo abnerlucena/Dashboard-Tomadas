@@ -32,6 +32,7 @@ import { PAGE_GUTTER, PageBody } from "@/components/layout/PageHeader";
 import { MAIN_ID } from "@/components/layout/AppRoot";
 import { OptionCards } from "@/components/ui/OptionCards";
 import { glideTo, scrollParent } from "@/lib/glide";
+import { setRouteGuard } from "@/lib/routeGuard";
 import { SegmentedBar } from "@/components/data/SegmentedBar";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
@@ -587,10 +588,23 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
   /* ---------- Sair do ambiente: pede confirmação se há algo digitado e não concluído ---------- */
   const dirtyRef = useRef(false);
   dirtyRef.current = dirty;
+  // "Sair" confirmado: a próxima mudança de rota passa pelo guarda sem perguntar de novo
+  const leaving = useRef(false);
   const leave = (hash: string) => {
+    leaving.current = true;
     window.location.hash = hash.replace(/^#/, "");
   };
   const requestLeave = (hash: string) => (dirtyRef.current ? setConfirmExit(hash) : leave(hash));
+  // Mudanças de rota que não vêm de clique em link (botão Voltar do navegador, atalho de notificação, código) também perguntam
+  useEffect(
+    () =>
+      setRouteGuard((next) => {
+        if (leaving.current || !dirtyRef.current || next.startsWith("#/apontamento")) return true;
+        setConfirmExit(next);
+        return false;
+      }),
+    [],
+  );
   useEffect(() => {
     // Links de dentro do Dash (menu lateral, logo, "Corrigir no Histórico"…) passam pela mesma confirmação
     const onClick = (e: MouseEvent) => {
@@ -1052,11 +1066,14 @@ function MachineEntryRow({
 
   return (
     <li id={`maq-${m.id}`} className="flex scroll-mt-[10rem] flex-col gap-100 border-t px-200 py-150 first:border-t-0 m:scroll-mt-1000">
+      {/* Duas colunas: à esquerda o contexto da máquina (nome, meta, OP liberada, andamento); à direita o que se digita */}
+      <div className="grid grid-cols-1 gap-x-300 gap-y-100 s:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
+        <div className="flex min-w-0 flex-col gap-100 s:self-start">
       {/* Cabeçalho: nome, a linha da máquina (Montagem, Embalagem…) e a situação */}
       <div className="flex flex-wrap items-center gap-x-100 gap-y-050">
-        <h3 className="font-heading-xsmall text-default">{m.name}</h3>
+        <h3 className="basis-full font-heading-xsmall text-default">{m.name}</h3>
         <TagGroup items={m.lines} accentFor={(l) => LINE_ACCENT[l] ?? "gray"} />
-        <span className="ml-auto flex items-center gap-050">
+        <span className="flex items-center gap-050">
           {isNext && <Lozenge appearance="discovery">Próxima</Lozenge>}
           <Lozenge appearance={existing ? "information" : "neutral"}>{existing?.stopped ? "Não produziu" : existing ? "Já apontado" : "Pendente"}</Lozenge>
         </span>
@@ -1068,7 +1085,7 @@ function MachineEntryRow({
       )}
 
       {/* Meta do turno e OP liberada, numa linha */}
-      <div className="flex flex-wrap items-center gap-x-250 gap-y-050 font-body-small text-subtle">
+      <div className="flex flex-col gap-025 font-body-small text-subtle">
         <span>
           {hasMeta ? (
             <>
@@ -1147,6 +1164,8 @@ function MachineEntryRow({
         ))}
       </datalist>
 
+        </div>
+        <div className="min-w-0">
       {/* OPs */}
       <div className="flex min-w-0 flex-col gap-100">
       {entry.stopOpen && (
@@ -1324,6 +1343,8 @@ function MachineEntryRow({
         )}
       </div>
 
+        </div>
+      </div>
       {/* Concluir grava só esta máquina; as outras continuam como estão */}
       <div className="flex flex-wrap items-center gap-100 border-t pt-100">
         {existing && (
@@ -1495,7 +1516,7 @@ function EntryStatusList({
                       title={name}
                       aria-label={`${name}: ${LABEL[st]}`}
                       className={cn(
-                        "ds-pressable mb-025 flex w-full items-center gap-100 rounded-medium border px-075 py-050 text-left font-body-small",
+                        "ds-pressable mb-050 flex min-h-control w-full items-center gap-100 rounded-medium border px-100 py-050 text-left font-body",
                         id === nextId
                           ? "border-selected bg-selected font-semibold text-selected"
                           : st === "done" || st === "stopped"

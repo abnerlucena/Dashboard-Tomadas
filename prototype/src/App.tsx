@@ -1,3 +1,4 @@
+import { routeAllowed } from "@/lib/routeGuard";
 import * as Popover from "@radix-ui/react-popover";
 import {
   Bell,
@@ -167,7 +168,17 @@ function useHashRoute() {
   const read = () => decodeURIComponent(window.location.hash.replace(/^#\/?/, "")) || "dashboard";
   const [path, setPath] = useState(read);
   useEffect(() => {
-    const onHash = () => setPath(read());
+    // Última rota aceita: se uma tela segurar a saída (trabalho não concluído), o endereço volta para ela
+    let accepted = window.location.hash;
+    const onHash = () => {
+      const next = window.location.hash;
+      if (!routeAllowed(next)) {
+        window.history.replaceState(null, "", accepted || "#/");
+        return;
+      }
+      accepted = next;
+      setPath(read());
+    };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);

@@ -320,6 +320,54 @@ test("sair do apontamento pede confirmação se há algo digitado e não conclu�
   await expect(page.getByRole("heading", { name: "Máquinas", level: 1 })).toBeVisible();
 });
 
+test("mudança de rota feita pelo sistema também pergunta antes de sair", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await iniciarTurno(page);
+  const maquina = "Máquina de plugue Slin (Aumaq)";
+  // nada digitado: a rota muda sem perguntar
+  await page.evaluate(() => (window.location.hash = "#/ajuda"));
+  await expect(page.getByRole("heading", { name: "Ajuda", level: 1 })).toBeVisible();
+  await iniciarTurno(page);
+  await page.getByLabel(`Quantidade, linha 1, ${maquina}`).fill("321");
+  // um atalho de notificação muda o hash por código, sem clique em link
+  await page.evaluate(() => (window.location.hash = "#/feedbacks/4514087"));
+  const dialogo = page.getByRole("dialog", { name: "Sair do apontamento?" });
+  await expect(dialogo).toBeVisible();
+  expect(page.url()).toContain("#/apontamento");
+  await dialogo.getByRole("button", { name: "Continuar apontando" }).click();
+  await expect(page.getByLabel(`Quantidade, linha 1, ${maquina}`)).toHaveValue("321");
+  // o botão Voltar do navegador passa pelo mesmo guarda
+  await page.goBack();
+  await expect(page.getByRole("dialog", { name: "Sair do apontamento?" })).toBeVisible();
+  await page.getByRole("dialog", { name: "Sair do apontamento?" }).getByRole("button", { name: "Continuar apontando" }).click();
+  expect(page.url()).toContain("#/apontamento");
+  // confirmando, sai
+  await page.evaluate(() => (window.location.hash = "#/feedbacks/4514087"));
+  await page.getByRole("dialog", { name: "Sair do apontamento?" }).getByRole("button", { name: "Sair", exact: true }).click();
+  await expect(page).toHaveURL(/#\/feedbacks/);
+});
+
+test("cartão em duas colunas e lista de situação com linhas de 44px", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await entrar(page, "gestor@demo.weg");
+  await iniciarTurno(page);
+  const maquina = "Máquina de plugue Slin (Aumaq)";
+  const nome = page.getByRole("heading", { level: 3, name: maquina });
+  const campo = page.getByLabel(`Nº da OP, linha 1, ${maquina}`);
+  const a = await nome.boundingBox();
+  const b = await campo.boundingBox();
+  // contexto à esquerda, campos à direita, na mesma altura do cartão
+  expect(b!.x).toBeGreaterThan(a!.x + 200);
+  expect(Math.abs(b!.y - a!.y)).toBeLessThan(120);
+  const linha = await page.locator("#entry-status").getByRole("button", { name: new RegExp(`^${maquina.replace(/[()]/g, "\\$&")}:`) }).boundingBox();
+  expect(linha!.height).toBeGreaterThanOrEqual(43);
+  // no celular volta a uma coluna
+  await page.setViewportSize({ width: 390, height: 800 });
+  const a2 = await nome.boundingBox();
+  const b2 = await campo.boundingBox();
+  expect(b2!.y).toBeGreaterThan(a2!.y + 20);
+});
+
 test("conferir e terminar mostra o resumo e encerra o turno", async ({ page }) => {
   await entrar(page, "gestor@demo.weg");
   await iniciarTurno(page);

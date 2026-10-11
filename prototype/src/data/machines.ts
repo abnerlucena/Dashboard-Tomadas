@@ -130,6 +130,10 @@ export interface ProductionRecordInfo {
   operatorCount: number | null;
   /** observação do apontamento */
   notes: string;
+  /** "Não produziu": motivo da parada (D67); ausente = a máquina produziu */
+  stopReason?: string;
+  /** parada planejada (manutenção, setup): o turno sai da meta */
+  stopPlanned?: boolean;
   /**
    * As OPs exatamente como o banco guarda (com a observação de cada uma). As
    * linhas da tabela são derivadas e misturam as observações; corrigir parte daqui.

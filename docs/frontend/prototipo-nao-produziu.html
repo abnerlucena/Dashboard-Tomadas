@@ -1,0 +1,269 @@
+<title>Máquina que não produziu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: bandeja lateral (recolhe no ambiente de apontamento) + barra de passos no topo; passo 2 = lista de status fixa à esquerda + todas as máquinas em sequência à direita,
+   cada uma com "Concluir" (o distribuidor aponta as 22 em sequência, sem abrir e fechar telas).
+   Cores e tipos copiados do Dash de Produção (tokens.css), para o protótipo parecer a tela real. */
+:root {
+  --bg: #F7F9FA;
+  --surface: #FFFFFF;
+  --sunken: #EEF1F4;
+  --fg: #161F2D;
+  --subtle: #434F60;
+  --subtlest: #5D6979;
+  --border: #D9DEE5;
+  --border-strong: #AEB7C2;
+  --brand: #0062B2;
+  --brand-hover: #00508F;
+  --on-brand: #FFFFFF;
+  --selected-bg: #E7F3FE;
+  --selected-fg: #105893;
+  --success: #126836; --success-bg: #E7F8ED;
+  --warning: #914808; --warning-bg: #FFF1D1;
+  --danger: #AD1F1F; --danger-bg: #FEE9E9;
+  --neutral-bg: #EEF1F4;
+  --banner: #2C3644; --on-banner: #FFFFFF;
+  --shadow: 0 1px 2px rgba(22,31,45,.08), 0 0 1px rgba(22,31,45,.18);
+  --overlay: rgba(22,31,45,.45);
+  --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101722; --surface: #18212E; --sunken: #121A25; --fg: #E6EAF0; --subtle: #B4BDC9; --subtlest: #96A1AF;
+    --border: #2F3B4B; --border-strong: #4A5A70; --brand: #4C9EEB; --brand-hover: #74B5F2; --on-brand: #0B1420;
+    --selected-bg: #11304D; --selected-fg: #9CCBF7;
+    --success: #6FD39A; --success-bg: #12301F; --warning: #F5B25C; --warning-bg: #3A2A10; --danger: #F38B8B; --danger-bg: #3D1717;
+    --neutral-bg: #222D3B; --banner: #050A12; --on-banner: #E6EAF0;
+    --shadow: 0 0 0 1px #2F3B4B; --overlay: rgba(0,0,0,.6); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101722; --surface: #18212E; --sunken: #121A25; --fg: #E6EAF0; --subtle: #B4BDC9; --subtlest: #96A1AF;
+  --border: #2F3B4B; --border-strong: #4A5A70; --brand: #4C9EEB; --brand-hover: #74B5F2; --on-brand: #0B1420;
+  --selected-bg: #11304D; --selected-fg: #9CCBF7;
+  --success: #6FD39A; --success-bg: #12301F; --warning: #F5B25C; --warning-bg: #3A2A10; --danger: #F38B8B; --danger-bg: #3D1717;
+  --neutral-bg: #222D3B; --banner: #050A12; --on-banner: #E6EAF0;
+  --shadow: 0 0 0 1px #2F3B4B; --overlay: rgba(0,0,0,.6); color-scheme: dark;
+}
+
+[hidden] { display: none !important; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 400 15px/1.45 var(--font); margin: 0; padding-inline: 16px; padding-block: 20px 48px; }
+button, input { font: inherit; color: inherit; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+.num { font-variant-numeric: tabular-nums; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.wrap { max-width: 1080px; margin: 0 auto; display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr) minmax(0, 300px); align-items: start; }
+@media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); } }
+.intro { grid-column: 1 / -1; display: grid; gap: 4px; }
+.intro h1 { font-size: 20px; font-weight: 700; }
+.intro p { margin: 0; color: var(--subtle); max-width: 70ch; }
+.list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); overflow: hidden; min-width: 0; }
+.list > li { border-top: 1px solid var(--border); padding: 12px 16px; display: grid; gap: 10px; }
+.list > li:first-child { border-top: 0; }
+.head { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.head h3 { font-size: 15px; font-weight: 600; }
+.tag { font-size: 12px; font-weight: 500; padding: 1px 8px; border-radius: 6px; background: #FCE4F2; color: #8C1D5E; }
+.pill { margin-left: auto; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: var(--neutral-bg); color: var(--subtle); }
+.pill.done { background: var(--selected-bg); color: var(--selected-fg); }
+.meta { font-size: 13px; color: var(--subtle); }
+.meta b { color: var(--fg); font-weight: 600; }
+.fields { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.field { display: grid; gap: 4px; font-size: 12px; font-weight: 600; color: var(--subtle); }
+.field input[type="text"] { height: 32px; border: 1px solid var(--border-strong); border-radius: 6px; padding: 0 10px; background: var(--surface); font-size: 14px; font-weight: 400; }
+.field input.right { text-align: right; width: 150px; font-variant-numeric: tabular-nums; }
+.field input[readonly] { background: var(--sunken); }
+.btn { height: 32px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--subtle); font-weight: 500; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.btn:hover { background: var(--sunken); }
+.btn.primary { background: var(--brand); border-color: var(--brand); color: var(--on-brand); font-weight: 600; }
+.btn.primary:hover { background: var(--brand-hover); border-color: var(--brand-hover); }
+.btn.link { color: var(--brand); }
+.foot { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-top: 1px solid var(--border); padding-top: 10px; }
+.foot .sp { flex: 1; }
+.panel { display: grid; gap: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--sunken); padding: 12px; }
+.panel h4 { margin: 0; font-size: 12px; font-weight: 600; color: var(--subtle); }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); gap: 8px; }
+.opt { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; padding: 8px 12px; border-radius: 10px; border: 2px solid var(--border-strong); background: var(--surface); text-align: left; font-weight: 500; cursor: pointer; }
+.opt:hover { background: var(--sunken); }
+.opt[aria-checked="true"] { border-color: var(--brand); background: var(--selected-bg); color: var(--selected-fg); }
+.opt small { font-size: 11px; font-weight: 600; color: var(--subtlest); display: block; }
+.opt[aria-checked="true"] small { color: var(--selected-fg); }
+.check { display: flex; align-items: center; gap: 10px; border: 1px solid var(--border-strong); border-radius: 8px; padding: 8px 12px; background: var(--surface); cursor: pointer; }
+.check input { width: 18px; height: 18px; accent-color: var(--brand); }
+.check.on { border-color: var(--brand); background: var(--selected-bg); color: var(--selected-fg); }
+.check span small { display: block; font-size: 12px; font-weight: 400; color: var(--subtle); }
+.check.on span small { color: var(--selected-fg); }
+.hint { font-size: 12px; color: var(--subtlest); margin: 0; }
+.err { color: var(--danger); font-size: 12px; margin: 0; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+.row .txt { flex: 1 1 14rem; min-width: 0; font-size: 13px; color: var(--subtle); }
+.row .txt b { color: var(--fg); font-weight: 600; }
+.ico { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; background: var(--neutral-bg); color: var(--subtle); flex: none; }
+.ico.ok { background: var(--success-bg); color: var(--success); }
+.badge { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 6px; }
+.badge.plan { background: var(--warning-bg); color: var(--warning); }
+.badge.count { background: var(--danger-bg); color: var(--danger); }
+aside { position: sticky; top: 12px; display: grid; gap: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 16px; box-shadow: var(--shadow); }
+aside h2 { font-size: 14px; font-weight: 600; }
+aside dl { margin: 0; display: grid; gap: 8px; }
+aside dl div { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+aside dt { color: var(--subtle); }
+aside dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.bar { height: 8px; border-radius: 999px; background: var(--neutral-bg); overflow: hidden; }
+.bar > span { display: block; height: 100%; background: var(--brand); transition: width .25s; }
+.legend { font-size: 12px; color: var(--subtle); margin: 0; }
+.reset { justify-self: start; }
+@media (prefers-reduced-motion: reduce) { .bar > span { transition: none; } }
+</style>
+
+<div class="wrap">
+  <div class="intro">
+    <h1>Máquina que não produziu</h1>
+    <p>Protótipo só deste fluxo. Em cada máquina, "Não produziu" abre o motivo (sugestões ou texto livre) e a marcação de parada planejada. Parada planejada sai da meta do turno; as outras continuam contando. Dados fictícios, nada é gravado.</p>
+  </div>
+  <ul class="list" id="list"></ul>
+  <aside aria-label="Efeito na meta do turno">
+    <h2>Meta do turno nestas 3 máquinas</h2>
+    <dl>
+      <div><dt>Meta somada</dt><dd id="s-total">0</dd></div>
+      <div><dt>Sai da meta (planejada)</dt><dd id="s-out">0</dd></div>
+      <div><dt>Meta que conta</dt><dd id="s-count">0</dd></div>
+      <div><dt>Peças apontadas</dt><dd id="s-prod">0</dd></div>
+      <div><dt>Atingimento</dt><dd id="s-pct">–</dd></div>
+    </dl>
+    <div class="bar" aria-hidden="true"><span id="s-bar" style="width:0"></span></div>
+    <p class="legend" id="s-note">Aponte as máquinas ao lado para ver o efeito.</p>
+    <button class="btn reset" id="reset" type="button">Recomeçar o exemplo</button>
+  </aside>
+</div>
+
+<script>
+var SUG = [
+  { t: "Manutenção", planned: true }, { t: "Setup / troca", planned: true },
+  { t: "Sem OP", planned: false }, { t: "Sem operador", planned: false },
+  { t: "Falta de material", planned: false }, { t: "Máquina parada", planned: false }
+];
+var MACHINES = [
+  { id: 1, name: "Máquina de plugue Slin (Aumaq)", meta: 5800 },
+  { id: 2, name: "Máquina de tomadas Composé (Aumaq)", meta: 4000 },
+  { id: 3, name: "Embaladora horizontal nº 1", meta: 3200 }
+];
+var state;
+function fresh() {
+  state = {};
+  MACHINES.forEach(function (m) { state[m.id] = { mode: "idle", qty: "", sug: null, reason: "", planned: false, showErr: false, done: null }; });
+}
+fresh();
+var fmt = function (n) { return n.toLocaleString("pt-BR"); };
+var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+
+function card(m) {
+  var s = state[m.id];
+  if (s.done) {
+    var d = s.done;
+    if (d.kind === "stop") {
+      return '<li><div class="row"><span class="ico" aria-hidden="true">–</span><h3 style="font-size:15px;font-weight:600">' + esc(m.name) + '</h3>' +
+        '<span class="txt"><b>Não produziu</b> · ' + esc(d.reason) + '</span>' +
+        '<span class="badge ' + (d.planned ? "plan" : "count") + '">' + (d.planned ? "Parada planejada: fora da meta" : "Continua na meta") + '</span>' +
+        '<button class="btn link" data-act="fix" data-id="' + m.id + '" type="button">Corrigir</button></div></li>';
+    }
+    return '<li><div class="row"><span class="ico ok" aria-hidden="true">✓</span><h3 style="font-size:15px;font-weight:600">' + esc(m.name) + '</h3>' +
+      '<span class="txt"><b class="num">' + fmt(d.qty) + '</b> peças · ' + Math.round(d.qty / m.meta * 100) + '% da meta do turno</span>' +
+      '<button class="btn link" data-act="fix" data-id="' + m.id + '" type="button">Corrigir</button></div></li>';
+  }
+  var stop = s.mode === "stop";
+  var h = '<li><div class="head"><h3>' + esc(m.name) + '</h3><span class="tag">Montagem</span><span class="pill">Pendente</span></div>' +
+    '<div class="meta">Meta do turno <b class="num">' + fmt(m.meta) + '</b></div>';
+  if (!stop) {
+    h += '<div class="fields"><label class="field">Nº da OP<input type="text" class="right" inputmode="numeric" placeholder="Ex.: 4501234" aria-label="Nº da OP, ' + esc(m.name) + '"></label>' +
+      '<label class="field">Quantidade<input type="text" class="right" inputmode="numeric" placeholder="0" data-qty="' + m.id + '" value="' + esc(s.qty) + '" aria-label="Quantidade, ' + esc(m.name) + '"></label></div>';
+  } else {
+    var sel = s.sug;
+    h += '<div class="panel" role="group" aria-label="Motivo de não ter produzido"><h4>Por que a máquina não produziu neste turno?</h4><div class="cards" role="radiogroup" aria-label="Sugestões">';
+    SUG.forEach(function (o, i) {
+      h += '<button type="button" role="radio" class="opt" aria-checked="' + (sel === i) + '" data-act="sug" data-id="' + m.id + '" data-i="' + i + '"><span>' + esc(o.t) + '<small>' + (o.planned ? "planejada" : "conta na meta") + '</small></span>' + (sel === i ? "<span aria-hidden=\"true\">✓</span>" : "") + '</button>';
+    });
+    h += '</div><label class="field" style="max-width:34rem">Motivo (pode escrever outro)<input type="text" data-reason="' + m.id + '" maxlength="120" value="' + esc(s.reason) + '" placeholder="Ex.: Aguardando ferramenta do molde" aria-label="Motivo, ' + esc(m.name) + '"></label>' +
+      (s.showErr && !s.reason.trim() ? '<p class="err" role="alert">Escolha uma sugestão ou escreva o motivo.</p>' : '') +
+      '<label class="check' + (s.planned ? " on" : "") + '"><input type="checkbox" data-planned="' + m.id + '"' + (s.planned ? " checked" : "") + '><span><b>Parada planejada</b><small>' +
+      (s.planned ? "Sai da meta do turno: esta máquina não derruba o atingimento." : "Continua contando na meta: o atingimento cai como num turno sem produção.") + '</small></span></label>' +
+      '<p class="hint">Marcação sugerida pelo motivo escolhido. Dá para mudar. Fica gravado sem peças.</p></div>';
+  }
+  h += '<div class="foot">' +
+    (stop ? '<button class="btn" data-act="back" data-id="' + m.id + '" type="button">↺ Voltar a apontar peças</button>'
+          : '<button class="btn" data-act="stop" data-id="' + m.id + '" type="button" aria-label="Marcar que ' + esc(m.name) + ' não produziu">⊘ Não produziu</button>') +
+    '<span class="sp"></span><button class="btn primary" data-act="done" data-id="' + m.id + '" type="button" aria-label="Concluir ' + esc(m.name) + '">✓ Concluir</button></div></li>';
+  return h;
+}
+function render(keepFocus) {
+  var ae = document.activeElement, key = ae && (ae.getAttribute("data-reason") ? "r" + ae.getAttribute("data-reason") : ae.getAttribute("data-qty") ? "q" + ae.getAttribute("data-qty") : null);
+  var pos = key && ae.selectionStart;
+  document.getElementById("list").innerHTML = MACHINES.map(card).join("");
+  if (key) {
+    var el = document.querySelector(key[0] === "r" ? '[data-reason="' + key.slice(1) + '"]' : '[data-qty="' + key.slice(1) + '"]');
+    if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch (e) {} }
+  }
+  summary();
+}
+function summary() {
+  var total = 0, out = 0, prod = 0, any = false, pend = 0;
+  MACHINES.forEach(function (m) {
+    var d = state[m.id].done; total += m.meta;
+    if (!d) { pend++; return; }
+    any = true;
+    if (d.kind === "stop") { if (d.planned) out += m.meta; } else prod += d.qty;
+  });
+  var counted = total - out;
+  var set = function (id, v) { document.getElementById(id).textContent = v; };
+  set("s-total", fmt(total)); set("s-out", out ? "− " + fmt(out) : "0"); set("s-count", fmt(counted)); set("s-prod", fmt(prod));
+  var pct = any && counted > 0 ? Math.round(prod / counted * 100) : null;
+  set("s-pct", pct == null ? "–" : pct + "%");
+  document.getElementById("s-bar").style.width = Math.min(100, pct || 0) + "%";
+  document.getElementById("s-note").textContent = !any ? "Aponte as máquinas ao lado para ver o efeito." :
+    pend ? pend + (pend === 1 ? " máquina ainda pendente: ela entra na conta quando for apontada." : " máquinas ainda pendentes: elas entram na conta quando forem apontadas.") :
+    out ? "A parada planejada saiu da meta. As demais continuam contando." : "Nenhuma parada planejada: toda a meta do turno conta.";
+}
+document.addEventListener("click", function (e) {
+  var b = e.target.closest("[data-act]"); if (!b) return;
+  var id = +b.getAttribute("data-id"), s = state[id], act = b.getAttribute("data-act");
+  if (act === "stop") s.mode = "stop";
+  else if (act === "back") { s.mode = "idle"; s.sug = null; s.reason = ""; s.planned = false; s.showErr = false; }
+  else if (act === "sug") { var i = +b.getAttribute("data-i"); s.sug = i; s.reason = SUG[i].t; s.planned = SUG[i].planned; s.showErr = false; }
+  else if (act === "fix") { var d = s.done; s.done = null; if (d.kind === "stop") { s.mode = "stop"; s.reason = d.reason; s.planned = d.planned; s.sug = d.sug; } else { s.mode = "idle"; s.qty = String(d.qty); } }
+  else if (act === "done") {
+    if (s.mode === "stop") {
+      if (!s.reason.trim()) { s.showErr = true; render(); var r = document.querySelector('[data-reason="' + id + '"]'); if (r) r.focus(); return; }
+      s.done = { kind: "stop", reason: s.reason.trim(), planned: s.planned, sug: s.sug };
+    } else {
+      var q = parseInt(s.qty, 10);
+      if (!q) { var f = document.querySelector('[data-qty="' + id + '"]'); if (f) f.focus(); return; }
+      s.done = { kind: "prod", qty: q };
+    }
+  }
+  render();
+});
+document.addEventListener("input", function (e) {
+  var t = e.target, id;
+  if ((id = t.getAttribute("data-qty"))) { state[id].qty = t.value.replace(/\D/g, ""); t.value = state[id].qty; }
+  else if ((id = t.getAttribute("data-reason"))) {
+    var s = state[id]; s.reason = t.value; s.showErr = false;
+    // texto diferente de uma sugestão: some a seleção e a marcação fica como o operador deixou
+    var hit = SUG.findIndex(function (o) { return o.t === t.value.trim(); });
+    if (hit >= 0) { s.sug = hit; s.planned = SUG[hit].planned; render(); } else if (s.sug != null) { s.sug = null; render(); }
+  }
+});
+document.addEventListener("change", function (e) {
+  var id = e.target.getAttribute("data-planned"); if (!id) return;
+  state[id].planned = e.target.checked; render();
+});
+document.addEventListener("keydown", function (e) {
+  if (e.key !== "Enter" || !e.target.hasAttribute("data-qty")) return;
+  e.preventDefault(); var id = e.target.getAttribute("data-qty");
+  document.querySelector('[data-act="done"][data-id="' + id + '"]').click();
+});
+document.getElementById("reset").addEventListener("click", function () { fresh(); render(); });
+render();
+</script>

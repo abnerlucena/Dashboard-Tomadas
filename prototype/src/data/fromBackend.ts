@@ -188,6 +188,7 @@ export function buildBackendData(input: BackendInput): BackendData {
           overtime: rec.workMode === "overtime",
           operatorCount: rec.operatorCount && rec.operatorCount > 0 ? rec.operatorCount : null,
           notes: String(rec.obs ?? "").trim(),
+          ...(rec.motivoParada ? { stopReason: String(rec.motivoParada).trim(), stopPlanned: rec.paradaPlanejada === true } : {}),
           orders: (rec.ordensProducao ?? []).map((o) => ({
             op: String(o.ordemId ?? "").trim(),
             quantity: Math.round(Number(o.quantidade) || 0),

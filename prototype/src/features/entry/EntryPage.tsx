@@ -43,7 +43,7 @@ import { TextArea, TextField } from "@/components/ui/TextField";
 import { DateField } from "@/components/ui/DateField";
 import { baseLabel } from "@/features/metas/metaBase";
 import { useDayTargets, type DayTarget } from "./dayTargets";
-import { parseStop, planSaves, stopNote, type ExistingRecord } from "./payload";
+import { STOP_SUGGESTIONS, plannedFor, planSaves, type ExistingRecord } from "./payload";
 
 /** 1 Turno · 2 Máquinas · 3 Conferir e terminar */
 type Step = 1 | 2 | 3;
@@ -69,15 +69,14 @@ interface MachineEntry {
   people: string;
   /** a máquina não produziu neste turno: o painel do motivo está aberto */
   stopOpen: boolean;
-  /** motivo escolhido para a máquina não ter produzido; vazio = ainda sem escolha */
+  /** motivo de a máquina não ter produzido (texto livre, com sugestões); vazio = ainda sem motivo */
   stop: string;
+  /** parada planejada: o turno sai da meta. Vem da sugestão escolhida e pode ser mudada */
+  stopPlanned: boolean;
   /** o banco recusou o último salvar desta máquina (o que foi digitado continua aqui) */
   error?: string;
 }
 type Form = Record<string, MachineEntry>;
-
-/** Motivos rápidos para uma máquina que não produziu no turno */
-const STOP_REASONS = ["Manutenção", "Sem OP", "Sem operador", "Setup / troca", "Falta de material", "Máquina parada"];
 
 /** O que já está gravado para a máquina neste dia, turno e regime: aparece, mas não se edita aqui */
 interface Existing extends ExistingRecord {
@@ -110,22 +109,22 @@ function loadForm(date: string, shift: Shift, overtime: boolean): { form: Form; 
         id: record?.id ?? "",
         operatorCount: record?.operatorCount ?? null,
         notes,
-        // Apontamento sem peça e com "Não produziu: <motivo>" na observação
-        stopped: produced === 0 ? parseStop(notes) : null,
+        // Apontamento sem peça e com motivo de parada (D67)
+        stopped: produced === 0 ? (record?.stopReason ?? null) : null,
+        stopPlanned: record?.stopPlanned ?? false,
         good: orders.reduce((s, o) => s + (o.rework ? 0 : o.quantity), 0),
         rework: orders.reduce((s, o) => s + (o.rework ? o.quantity : 0), 0),
         ops: [...new Set(orders.filter((o) => o.quantity > 0).map(opLabel))],
       };
     }
     const ex = existing[m.id];
-    // A observação "Não produziu: …" aparece como situação da máquina, não no campo de observação
-    const note = ex?.stopped ? "" : (ex?.notes ?? "");
     form[m.id] = {
       rows: [newRow()],
-      note,
-      noteOpen: !!note,
+      note: ex?.notes ?? "",
+      noteOpen: !!ex?.notes,
       stopOpen: false,
       stop: "",
+      stopPlanned: false,
       people: ex?.operatorCount ? String(ex.operatorCount) : "",
     };
   }
@@ -162,7 +161,7 @@ const qtyOf = (r: OpRow) => (r.qty.trim() === "" ? 0 : Number(r.qty));
 const hasInput = (e: MachineEntry, ex: Existing | undefined) =>
   e.rows.some((r) => r.op.trim() || r.qty.trim()) ||
   !!e.stop ||
-  e.note.trim() !== (ex?.stopped ? "" : (ex?.notes ?? "")).trim() ||
+  e.note.trim() !== (ex?.notes ?? "").trim() ||
   e.people.trim() !== (ex?.operatorCount ? String(ex.operatorCount) : "");
 
 function rowErrors(r: OpRow) {
@@ -328,7 +327,7 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
     const scopeIds = opts.only ? [opts.only] : Object.keys(form);
     const scope: Form = Object.fromEntries(scopeIds.map((id) => [id, form[id]]));
     const errorCount = scopeIds.flatMap((id) => form[id].rows).reduce((n, r) => n + Object.keys(rowErrors(r)).length, 0);
-    const noReason = scopeIds.filter((id) => form[id].stopOpen && !form[id].stop);
+    const noReason = scopeIds.filter((id) => form[id].stopOpen && !form[id].stop.trim());
     if (errorCount > 0 || noReason.length > 0) {
       setShowErrors(true);
       notify(
@@ -401,13 +400,14 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
             nextExisting[id] = {
               id: prev?.id ?? "",
               operatorCount: e.people.trim() ? Number(e.people) : (prev?.operatorCount ?? null),
-              notes: e.stop ? stopNote(e.stop) : e.note.trim(),
-              stopped: e.stop ? e.stop : null,
+              notes: e.stop ? "" : e.note.trim(),
+              stopped: e.stop.trim() || null,
+              stopPlanned: !!e.stop.trim() && e.stopPlanned,
               good: (prev?.good ?? 0) + rows.reduce((s, r) => s + (r.rework ? 0 : qtyOf(r)), 0),
               rework: (prev?.rework ?? 0) + rows.reduce((s, r) => s + (r.rework ? qtyOf(r) : 0), 0),
               ops: [...new Set([...(prev?.ops ?? []), ...rows.map((r) => r.op.trim())])],
             };
-            nextForm[id] = { ...e, rows: [newRow()], stopOpen: false, stop: "", error: undefined };
+            nextForm[id] = { ...e, rows: [newRow()], stopOpen: false, stop: "", stopPlanned: false, error: undefined };
           }
           return { form: nextForm, existing: nextExisting };
         });
@@ -890,6 +890,7 @@ function MachineEntryRow({
           {existing.stopped ? (
             <>
               <span className="font-semibold text-default">Não produziu</span> · {existing.stopped}
+              {existing.stopPlanned ? " · parada planejada, fora da meta" : " · continua na meta"}
             </>
           ) : (
             <>
@@ -987,7 +988,8 @@ function MachineEntryRow({
           Já gravado neste turno:{" "}
           {existing.stopped ? (
             <>
-              <span className="font-semibold text-default">não produziu</span> ({existing.stopped})
+              <span className="font-semibold text-default">não produziu</span> ({existing.stopped}
+              {existing.stopPlanned ? ", parada planejada, fora da meta" : ", continua na meta"})
             </>
           ) : (
             <>
@@ -1022,13 +1024,45 @@ function MachineEntryRow({
         <div className="flex flex-col gap-100 rounded-large border bg-surface-sunken p-150">
           <OptionCards
             label="Por que a máquina não produziu neste turno?"
-            value={entry.stop || null}
-            onChange={(v) => onChange((e) => ({ ...e, stop: v }))}
-            options={STOP_REASONS.map((r) => ({ value: r, label: r }))}
-            error={showErrors && !entry.stop ? "Escolha o motivo" : null}
+            value={STOP_SUGGESTIONS.find((o) => o.reason === entry.stop)?.reason ?? null}
+            onChange={(v) => onChange((e) => ({ ...e, stop: v, stopPlanned: plannedFor(v) ?? e.stopPlanned }))}
+            options={STOP_SUGGESTIONS.map((o) => ({ value: o.reason, label: o.reason, hint: o.planned ? "planejada" : "conta na meta" }))}
           />
+          <TextField
+            label="Motivo (pode escrever outro)"
+            aria-label={`Motivo de não ter produzido, ${m.name}`}
+            placeholder="Ex.: Aguardando ferramenta do molde"
+            maxLength={120}
+            value={entry.stop}
+            onChange={(e) => {
+              const v = e.target.value;
+              onChange((x) => ({ ...x, stop: v, stopPlanned: plannedFor(v) ?? x.stopPlanned }));
+            }}
+            error={showErrors && !entry.stop.trim() ? "Escolha uma sugestão ou escreva o motivo" : null}
+            className="max-w-search-width"
+          />
+          <label
+            className={cn(
+              "flex items-start gap-100 rounded-medium border px-150 py-100 font-body",
+              entry.stopPlanned ? "border-selected bg-selected text-selected" : "border-input bg-surface text-default",
+            )}
+          >
+            <Checkbox
+              label={`Parada planejada, ${m.name}`}
+              checked={entry.stopPlanned}
+              onChange={(e) => onChange((x) => ({ ...x, stopPlanned: e.target.checked }))}
+            />
+            <span>
+              <span className="font-semibold">Parada planejada</span>
+              <span className="block font-body-small">
+                {entry.stopPlanned
+                  ? "Sai da meta do turno: esta máquina não derruba o atingimento."
+                  : "Continua contando na meta: o atingimento cai como num turno sem produção."}
+              </span>
+            </span>
+          </label>
           <p className="font-body-small text-subtlest">
-            Fica gravado como apontamento sem peças e aparece nos Feedbacks. O número de operadores abaixo continua valendo.
+            A marcação vem do motivo escolhido e pode ser mudada. Fica gravado sem peças. O número de operadores abaixo continua valendo.
           </p>
         </div>
       )}
@@ -1171,7 +1205,7 @@ function MachineEntryRow({
         {/* Máquina sem apontamento: dá para dizer que ela não produziu, com o motivo */}
         {!existing &&
           (entry.stopOpen ? (
-            <Button appearance="outline" iconBefore={RotateCcw} onClick={() => onChange((e) => ({ ...e, stopOpen: false, stop: "" }))}>
+            <Button appearance="outline" iconBefore={RotateCcw} onClick={() => onChange((e) => ({ ...e, stopOpen: false, stop: "", stopPlanned: false }))}>
               Voltar a apontar peças
             </Button>
           ) : (

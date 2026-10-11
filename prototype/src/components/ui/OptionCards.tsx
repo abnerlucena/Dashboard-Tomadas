@@ -6,7 +6,7 @@ interface OptionCardsProps<T extends string> {
   label: string;
   value: T | null;
   onChange: (v: T) => void;
-  options: Array<{ value: T; label: string }>;
+  options: Array<{ value: T; label: string; /** linha menor sob o rótulo */ hint?: string }>;
   error?: string | null;
   className?: string;
 }
@@ -45,7 +45,10 @@ export function OptionCards<T extends string>({ label, value, onChange, options,
                   : cn("bg-surface text-default hover:bg-neutral-subtle-hovered", error ? "border-danger" : "border-input"),
               )}
             >
-              {o.label}
+              <span>
+                {o.label}
+                {o.hint && <span className={cn("block font-body-small font-normal", selected ? "text-selected" : "text-subtlest")}>{o.hint}</span>}
+              </span>
               {selected && <Check aria-hidden className="size-icon-medium shrink-0" />}
             </button>
           );

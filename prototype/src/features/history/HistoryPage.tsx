@@ -339,8 +339,15 @@ export function HistoryPage({ notify, machineParam }: { notify: Notify; machineP
       id: "events",
       header: "Ocorrências",
       cell: (o) =>
-        o.rework || o.note ? (
+        o.rework || o.note || o.record?.stopReason ? (
           <span className="flex items-center gap-100">
+            {o.record?.stopReason && (
+              <Tooltip content={`${o.record.stopPlanned ? "Parada planejada: fora da meta do turno" : "Continua contando na meta"}`}>
+                <span tabIndex={0}>
+                  <Lozenge appearance={o.record.stopPlanned ? "information" : "neutral"}>Não produziu · {o.record.stopReason}</Lozenge>
+                </span>
+              </Tooltip>
+            )}
             {o.rework && (
               <Tooltip content={`Motivo: ${o.reworkReason ?? "não informado"}`}>
                 <span tabIndex={0}>

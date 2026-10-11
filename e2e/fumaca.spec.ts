@@ -220,12 +220,21 @@ test("não produziu: pede o motivo, grava sem peças e aparece na conferência",
   await page.getByRole("button", { name: `Marcar que ${maquina} não produziu` }).click();
   // sem motivo, não conclui
   await page.getByRole("button", { name: `Concluir ${maquina}` }).click();
-  await expect(page.getByText("Escolha o motivo", { exact: true })).toBeVisible();
+  await expect(page.getByText("Escolha uma sugestão ou escreva o motivo", { exact: true })).toBeVisible();
+  await page.getByRole("radio", { name: "Manutenção" }).click();
+  // manutenção é parada planejada: a marcação vem sugerida e o texto livre acompanha a sugestão
+  await expect(page.getByRole("checkbox", { name: `Parada planejada, ${maquina}` })).toBeChecked();
+  await expect(page.getByLabel(`Motivo de não ter produzido, ${maquina}`)).toHaveValue("Manutenção");
+  // outro motivo, escrito à mão, mantém a marcação como está e dá para mudá-la
+  await page.getByLabel(`Motivo de não ter produzido, ${maquina}`).fill("Aguardando molde");
+  await page.getByRole("checkbox", { name: `Parada planejada, ${maquina}` }).uncheck();
+  await page.getByRole("radio", { name: "Sem OP", exact: false }).first().click();
+  await expect(page.getByRole("checkbox", { name: `Parada planejada, ${maquina}` })).not.toBeChecked();
   await page.getByRole("radio", { name: "Manutenção" }).click();
   await page.getByRole("button", { name: `Concluir ${maquina}` }).click();
   await expect(page.getByText(`${maquina}: gravada`)).toBeVisible();
-  // recolhida, com o motivo
-  await expect(page.getByText("Não produziu · Manutenção")).toBeVisible();
+  // recolhida, com o motivo e a situação na meta
+  await expect(page.getByText("Não produziu · Manutenção · parada planejada, fora da meta")).toBeVisible();
   // conferência: conta à parte, e não vira aviso de "menos de 30% da meta"
   await page.getByRole("button", { name: /Conferir e terminar/ }).first().click();
   const resumo = page.getByRole("region", { name: "Resumo do turno" });

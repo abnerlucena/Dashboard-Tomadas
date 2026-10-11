@@ -15,18 +15,24 @@ import type { Shift } from "@/data/machines";
  */
 export const operatorCountFor = (people: string): number => (people.trim() === "" ? 0 : Number(people));
 
-/* ---------- Máquina que não produziu ---------- */
+/* ---------- Máquina que não produziu (D67) ---------- */
 
 /**
- * "Não produziu" ainda não tem campo no banco: vai como apontamento SEM peça e
- * com a observação "Não produziu: <motivo>" (recado em
- * docs/database/notas/2026-10-09-maquina-que-nao-produziu.md). Quando o banco
- * criar o campo, só estas duas funções mudam.
+ * Motivos sugeridos. O motivo final é texto livre; a marcação "planejada" vem
+ * da sugestão escolhida e o operador pode mudá-la. Parada planejada sai da meta
+ * do turno (como o dia anulado); as outras continuam contando.
  */
-export const STOP_PREFIX = "Não produziu: ";
-export const stopNote = (reason: string) => `${STOP_PREFIX}${reason.trim()}`;
-/** O motivo, se a observação gravada for de uma máquina que não produziu */
-export const parseStop = (notes: string): string | null => (notes.startsWith(STOP_PREFIX) ? notes.slice(STOP_PREFIX.length).trim() || null : null);
+export const STOP_SUGGESTIONS: Array<{ reason: string; planned: boolean }> = [
+  { reason: "Manutenção", planned: true },
+  { reason: "Setup / troca", planned: true },
+  { reason: "Sem OP", planned: false },
+  { reason: "Sem operador", planned: false },
+  { reason: "Falta de material", planned: false },
+  { reason: "Máquina parada", planned: false },
+];
+/** A marcação sugerida para um motivo digitado; nenhuma se não for uma das sugestões */
+export const plannedFor = (reason: string): boolean | null =>
+  STOP_SUGGESTIONS.find((s) => s.reason.toLowerCase() === reason.trim().toLowerCase())?.planned ?? null;
 
 /* ---------- O que a tela manda ao salvar ---------- */
 
@@ -38,6 +44,7 @@ export interface ExistingRecord {
   notes: string;
   /** motivo, quando o apontamento é de uma máquina que não produziu */
   stopped?: string | null;
+  stopPlanned?: boolean;
 }
 
 export interface FormRow {
@@ -55,6 +62,8 @@ export interface FormEntry {
   people: string;
   /** motivo de a máquina não ter produzido no turno; vazio = produziu */
   stop?: string;
+  /** a parada é planejada: o turno sai da meta */
+  stopPlanned?: boolean;
 }
 
 export interface EntryContext {
@@ -110,20 +119,18 @@ export function planSaves(
         quantidade: qtyOf(r),
         ...(r.rework ? { retrabalho: true, ...(r.reason?.trim() ? { motivoRetrabalho: r.reason.trim() } : {}) } : {}),
       }));
-    const note = stop ? stopNote(stop) : entry.note.trim();
+    const note = stop ? "" : entry.note.trim();
     const people = operatorCountFor(entry.people);
-    // A observação de "não produziu" não aparece no campo: o que se compara é só a observação escrita à mão
-    const exNote = ex?.stopped ? "" : (ex?.notes ?? "");
-    const noteChanged = ex ? note !== exNote : note !== "";
+    const noteChanged = ex ? note !== ex.notes : note !== "";
     const peopleChanged = ex ? (people || null) !== ex.operatorCount : false;
 
-    if (!orders.length && !noteChanged && !peopleChanged) continue;
-    if (!ex && !orders.length && !note) continue;
+    if (!orders.length && !stop && !noteChanged && !peopleChanged) continue;
+    if (!ex && !orders.length && !note && !stop) continue;
 
     const sendsPeople = !ex || peopleChanged;
     plan.push({
       machineId: m.id,
-      needsSave: orders.length > 0 || (noteChanged && note !== "") || sendsPeople,
+      needsSave: orders.length > 0 || !!stop || (noteChanged && note !== "") || sendsPeople,
       payload: {
         date: ctx.date,
         turno: `TURNO ${ctx.shift}`,
@@ -136,11 +143,12 @@ export function planSaves(
         savedBy: ctx.savedBy,
         savedAt: "",
         obs: noteChanged ? note : "",
+        // Máquina que não produziu: o banco guarda o motivo e a marcação (D67); lançar peças depois tira a parada sozinho
+        ...(stop ? { motivoParada: stop, paradaPlanejada: entry.stopPlanned === true } : {}),
         // Num apontamento que já existe, sem mudança, não manda: o banco mantém
         ...(sendsPeople ? { operatorCount: people } : {}),
       },
-      // Lançar peça numa máquina que constava como "não produziu": a observação antiga sai
-      ...(ex && ((noteChanged && !note) || (ex.stopped && orders.length && !note)) ? { clearNoteOf: ex.id } : {}),
+      ...(ex && noteChanged && !note ? { clearNoteOf: ex.id } : {}),
     });
   }
   return plan;

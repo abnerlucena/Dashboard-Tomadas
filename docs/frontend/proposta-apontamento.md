@@ -116,3 +116,5 @@ secundários e a lista de situação também têm caixa visível; clicar numa
 máquina da lista rola até ela com animação. **Feito no app.**
 
 **Campos mais altos (11/10/2026).** Dentro do ambiente de apontamento (barra do topo e corpo da página) botões, campos, caixas de seleção e filtros têm 44px de altura, a área de toque para tablet e luva; no resto do Dash seguem com 32px. É um ajuste do tamanho dos controles só nessa tela (`TOUCH` em `EntryPage.tsx`); janelas e menus não mudam.
+
+**Rascunho no navegador (11/10/2026).** O que está digitado e ainda não concluído (OP, quantidade, retrabalho e motivo, observação, nº de operadores, "Não produziu") é guardado no `localStorage` a cada alteração (`features/entry/draft.ts`), para sobreviver a queda de energia, navegador fechado ou computador travado. Ao voltar ao Apontamento, o passo 1 oferece **Restaurar** ou **Descartar**. Regras: fica só neste computador e é de quem entrou; cada máquina concluída sai do rascunho; terminar o turno apaga tudo; o logout apaga os rascunhos de quem saiu; vence em 48 horas. Para continuar em outro computador seria preciso rascunho no servidor (demanda para o banco, não feita).

@@ -3,6 +3,7 @@ import type { Session } from "../../../../src/lib/api";
 import type { EstadoRecuperacao } from "../../../../src/lib/recovery";
 import { AccessCtx, type AccessState } from "./AccessContext";
 import { loadAccessClient, type AccessClient } from "./client";
+import { clearUserDrafts } from "../entry/draft";
 import { can as canWith, canOpen as canOpenWith } from "./permissions";
 
 /**
@@ -50,6 +51,8 @@ export function AccessProvider({ children, fallback }: { children: ReactNode; fa
     async (message?: string) => {
       if (!client) return;
       const current = sessionRef.current;
+      // Quem sai leva os rascunhos de apontamento junto: o computador pode ser de uso compartilhado
+      if (current) clearUserDrafts(current.userId ?? current.nome);
       client.store.clear();
       setSession(null);
       setNotice(message ?? null);

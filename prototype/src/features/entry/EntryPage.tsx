@@ -44,6 +44,7 @@ import { DateField } from "@/components/ui/DateField";
 import { baseLabel } from "@/features/metas/metaBase";
 import { useDayTargets, type DayTarget } from "./dayTargets";
 import { STOP_SUGGESTIONS, plannedFor, planSaves, type ExistingRecord } from "./payload";
+import { listDrafts, removeDraft, saveDraft, type Draft, type DraftMachine } from "./draft";
 
 /**
  * No ambiente de apontamento os controles têm a área de toque de 44px (a do Dash é 32px):
@@ -93,7 +94,7 @@ interface Existing extends ExistingRecord {
 }
 
 let rowSeq = 0;
-const newRow = (op = "", qty = "", rework = false): OpRow => ({ key: `r${rowSeq++}`, op, qty, rework, reason: "" });
+const newRow = (op = "", qty = "", rework = false, reason = ""): OpRow => ({ key: `r${rowSeq++}`, op, qty, rework, reason });
 
 /**
  * Formulário vazio para a data/turno/regime, com o que já foi apontado ao lado.
@@ -191,6 +192,8 @@ interface EntryPageProps {
 
 export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
   const { client, session } = useAccess();
+  // Rascunho no navegador: ligado a quem entrou (a sessão local de demonstração também tem nome)
+  const userKey = session?.userId ?? session?.nome ?? "anon";
   // Com o banco, grava de verdade; na demonstração, só simula
   const live = DATA_ORIGIN === "backend";
   const start = useMemo(() => (live ? currentShift() : { date: toIsoDate(DATA_END), shift: 1 as Shift }), [live]);
@@ -226,6 +229,8 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
   const [confirmFinish, setConfirmFinish] = useState(false);
   // Destino (#/rota) de uma saída que ainda espera a confirmação de quem tem algo digitado
   const [confirmExit, setConfirmExit] = useState<string | null>(null);
+  // Rascunhos de turnos que ficaram pela metade (queda de energia, navegador fechado…): oferecidos no passo 1
+  const [drafts, setDrafts] = useState<Draft[]>(() => listDrafts(session?.userId ?? session?.nome ?? "anon"));
   const toTop = () => {
     document.getElementById(MAIN_ID)?.scrollTo({ top: 0, behavior: "instant" });
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -237,11 +242,15 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
     if (dirty) return setPending(next);
     applyContext(next);
   };
-  const applyContext = (next: Context) => {
+  const applyContext = (next: Context, restored?: Draft) => {
+    // Trocar de turno de propósito (ou descartar) apaga o rascunho do turno que sai
+    if (turnSet) removeDraft(userKey, { date, shift, overtime });
     setDate(next.date);
     setShift(next.shift);
     setOvertime(next.overtime);
-    setLoaded(loadForm(next.date, next.shift, next.overtime));
+    const fresh = loadForm(next.date, next.shift, next.overtime);
+    if (restored) mergeDraft(fresh.form, restored);
+    setLoaded(fresh);
     setReopened(new Set());
     setShowErrors(false);
     setPending(null);
@@ -289,6 +298,44 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
   );
   // Alterações não gravadas: derivado do que está digitado, então concluir uma máquina não "limpa" as outras
   const dirty = Object.entries(form).some(([id, e]) => hasInput(e, existing[id]));
+
+  /*
+   * Rascunho: a cada alteração (com meio segundo de folga) o que está digitado e não concluído vai para o
+   * navegador; ao fechar ou esconder a página, grava na hora. Concluir uma máquina a tira do rascunho.
+   */
+  const flushDraft = useRef<() => void>(() => {});
+  flushDraft.current = () => {
+    if (!turnSet || finished) return;
+    const machines: Record<string, DraftMachine> = {};
+    for (const [id, e] of Object.entries(form))
+      if (hasInput(e, existing[id]))
+        machines[id] = {
+          rows: e.rows.filter((r) => r.op.trim() || r.qty.trim()).map((r) => ({ op: r.op, qty: r.qty, rework: r.rework, reason: r.reason })),
+          note: e.note,
+          noteOpen: e.noteOpen,
+          people: e.people,
+          stopOpen: e.stopOpen,
+          stop: e.stop,
+          stopPlanned: e.stopPlanned,
+        };
+    saveDraft(userKey, { date, shift, overtime }, machines);
+  };
+  useEffect(() => {
+    const t = window.setTimeout(() => flushDraft.current(), 500);
+    return () => window.clearTimeout(t);
+  }, [form, existing, turnSet, finished, date, shift, overtime, userKey]);
+  // Ao sair da tela (menu do Dash, atalho…) grava o que estava no meio do meio segundo de folga
+  useEffect(() => () => flushDraft.current(), []);
+  useEffect(() => {
+    const flush = () => flushDraft.current();
+    const onHide = () => document.visibilityState === "hidden" && flush();
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onHide);
+    };
+  }, []);
 
   // Ordem das máquinas na tela (por linha), para achar a próxima pendente
   const listedIds = MACHINE_GROUPS.flatMap((g) => g.machineIds).filter((id) => {
@@ -531,6 +578,7 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
       setStep(2);
       return;
     }
+    removeDraft(userKey, { date, shift, overtime });
     setFinished(true);
     toTop();
   };
@@ -614,6 +662,22 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
             }}
           />
         ) : step === 1 ? (
+          <>
+          {!turnSet && drafts.length > 0 && (
+            <DraftNotice
+              drafts={drafts}
+              onRestore={(d) => {
+                setPicked({ date: d.date, shift: d.shift, overtime: d.overtime });
+                applyContext({ date: d.date, shift: d.shift, overtime: d.overtime }, d);
+                setDrafts((l) => l.filter((x) => x !== d));
+                notify("Rascunho restaurado", "O que você tinha digitado voltou para os campos. Confira e conclua cada máquina.");
+              }}
+              onDiscard={(d) => {
+                removeDraft(userKey, d);
+                setDrafts((l) => l.filter((x) => x !== d));
+              }}
+            />
+          )}
           <TurnStep
             picked={picked}
             onPick={(p) => setPicked((x) => ({ ...x, ...p }))}
@@ -623,6 +687,7 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
             today={live ? todayIso : toIsoDate(DATA_END)}
             onContinue={continueToMachines}
           />
+          </>
         ) : step === 3 ? (
           <ReviewStep
             apontadas={apontadas - stoppedIds.length}
@@ -803,7 +868,8 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
         }}
         cancelLabel="Continuar apontando"
       >
-        O que você digitou e ainda não concluiu será perdido. As máquinas já concluídas continuam gravadas.
+        O que você digitou e ainda não concluiu fica guardado como rascunho neste computador por 48 horas, e dá para restaurar ao voltar. As
+        máquinas já concluídas continuam gravadas.
       </Modal>
 
       <Modal
@@ -817,6 +883,62 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
         trocar a data ou o turno agora, eles serão perdidos.
       </Modal>
     </>
+  );
+}
+
+/** Põe o rascunho nos campos das máquinas que ainda existem; o resto (o que já está gravado) fica como veio do banco */
+function mergeDraft(form: Form, draft: Draft) {
+  for (const [id, d] of Object.entries(draft.machines)) {
+    const cur = form[id];
+    if (!cur) continue;
+    form[id] = {
+      ...cur,
+      rows: d.rows.length ? d.rows.map((r) => newRow(r.op, r.qty, r.rework, r.reason)) : [newRow()],
+      note: d.note,
+      noteOpen: d.noteOpen || !!d.note,
+      people: d.people,
+      stopOpen: d.stopOpen,
+      stop: d.stop,
+      stopPlanned: d.stopPlanned,
+    };
+  }
+}
+
+/** Aviso do passo 1: há turnos digitados e não concluídos neste computador */
+function DraftNotice({ drafts, onRestore, onDiscard }: { drafts: Draft[]; onRestore: (d: Draft) => void; onDiscard: (d: Draft) => void }) {
+  return (
+    <section aria-label="Rascunhos encontrados" className="mx-auto flex w-full max-w-entry-review flex-col gap-100 rounded-xlarge border bg-warning p-200 text-warning">
+      <h2 className="font-heading-small">{drafts.length === 1 ? "Encontramos um apontamento que ficou pela metade" : "Encontramos apontamentos que ficaram pela metade"}</h2>
+      <ul className="flex flex-col">
+        {drafts.map((d) => {
+          const [y, mo, day] = d.date.split("-");
+          const n = Object.keys(d.machines).length;
+          return (
+            <li key={`${d.date}-${d.shift}-${d.overtime}`} className="flex flex-wrap items-center justify-between gap-100 border-t py-100 first:border-t-0">
+              <span>
+                <span className="font-semibold">
+                  {day}/{mo}/{y} · {SHIFT_META[d.shift].label} · {d.overtime ? "Hora extra" : "Normal"}
+                </span>
+                <span className="block font-body-small">
+                  {n} {n === 1 ? "máquina" : "máquinas"} com dados digitados, guardados às{" "}
+                  {new Date(d.savedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} de{" "}
+                  {new Date(d.savedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+                </span>
+              </span>
+              <span className="flex gap-100">
+                <Button appearance="primary" onClick={() => onRestore(d)} aria-label={`Restaurar o rascunho de ${day}/${mo}, ${SHIFT_META[d.shift].label}`}>
+                  Restaurar
+                </Button>
+                <Button appearance="default" onClick={() => onDiscard(d)} aria-label={`Descartar o rascunho de ${day}/${mo}, ${SHIFT_META[d.shift].label}`}>
+                  Descartar
+                </Button>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="font-body-small">Fica só neste computador e some em 48 horas. O que você já concluiu continua gravado.</p>
+    </section>
   );
 }
 

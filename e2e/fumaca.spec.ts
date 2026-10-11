@@ -242,6 +242,45 @@ test("não produziu: pede o motivo, grava sem peças e aparece na conferência",
   await expect(page.getByText(`${maquina}: 0 peças`)).toHaveCount(0);
 });
 
+test("rascunho: o que foi digitado volta depois de fechar a página", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await iniciarTurno(page);
+  const maquina = "Máquina de plugue Slin (Aumaq)";
+  await page.getByLabel(`Nº da OP, linha 1, ${maquina}`).fill("4511111");
+  await page.getByLabel(`Quantidade, linha 1, ${maquina}`).fill("777");
+  await page.waitForTimeout(800);
+  // a página fecha sem ninguém concluir (queda de energia, navegador fechado)
+  await page.reload();
+  await page.goto("/#/apontamento");
+  await expect(page.getByRole("heading", { name: "Encontramos um apontamento que ficou pela metade" })).toBeVisible();
+  await page.getByRole("button", { name: /^Restaurar o rascunho/ }).click();
+  await expect(page.getByLabel(`Nº da OP, linha 1, ${maquina}`)).toHaveValue("4511111");
+  await expect(page.getByLabel(`Quantidade, linha 1, ${maquina}`)).toHaveValue("777");
+  // concluir a máquina a tira do rascunho: depois de recarregar, não há aviso
+  await page.getByRole("button", { name: `Concluir ${maquina}` }).click();
+  await expect(page.getByText(`${maquina}: gravada`)).toBeVisible();
+  await page.waitForTimeout(800);
+  await page.reload();
+  await page.goto("/#/apontamento");
+  await expect(page.getByText("Escolha a data", { exact: false }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: /ficou pela metade|ficaram pela metade/ })).toHaveCount(0);
+});
+
+test("rascunho: dá para descartar", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await iniciarTurno(page);
+  const maquina = "Máquina de plugue Slin (Aumaq)";
+  await page.getByLabel(`Quantidade, linha 1, ${maquina}`).fill("55");
+  await page.waitForTimeout(800);
+  await page.reload();
+  await page.goto("/#/apontamento");
+  await page.getByRole("button", { name: /^Descartar o rascunho/ }).click();
+  await expect(page.getByRole("heading", { name: /ficou pela metade/ })).toHaveCount(0);
+  await page.reload();
+  await page.goto("/#/apontamento");
+  await expect(page.getByRole("heading", { name: /ficou pela metade/ })).toHaveCount(0);
+});
+
 test("o apontamento é um ambiente: navegação recolhida e turno escolhido por quem aponta", async ({ page }) => {
   await entrar(page, "gestor@demo.weg");
   // No Dashboard a navegação lateral está aberta

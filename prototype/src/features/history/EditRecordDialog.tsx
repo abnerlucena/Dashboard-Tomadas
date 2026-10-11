@@ -12,6 +12,7 @@ import { Modal } from "@/components/ui/Modal";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { TextArea, TextField } from "@/components/ui/TextField";
 import { useDayTargets } from "@/features/entry/dayTargets";
+import { STOP_SUGGESTIONS, plannedFor } from "@/features/entry/payload";
 import { formatNumber } from "@/lib/utils";
 import {
   IMPORTED_OP,
@@ -84,6 +85,55 @@ export function EditRecordDialog({ order, original, minDate, onClose, onSave }: 
       <div className="flex flex-col gap-200">
         <p className="text-subtle">{machine.name}. Vale para o apontamento inteiro da máquina no turno: todas as OPs abaixo.</p>
 
+        <label className="flex h-control w-fit items-center gap-075 text-default">
+          <Checkbox
+            label="A máquina não produziu neste turno"
+            checked={draft.stopOpen}
+            onChange={(ev) => set(ev.target.checked ? { stopOpen: true } : { stopOpen: false, stop: "", stopPlanned: false })}
+          />
+          <span aria-hidden>A máquina não produziu neste turno</span>
+        </label>
+
+        {draft.stopOpen && (
+          <fieldset className="flex flex-col gap-100 rounded-large border bg-surface-sunken p-150">
+            <legend className="sr-only">Motivo de não ter produzido</legend>
+            <TextField
+              label="Motivo"
+              placeholder="Ex.: Manutenção"
+              maxLength={120}
+              value={draft.stop}
+              list="motivos-parada"
+              onChange={(ev) => {
+                const v = ev.target.value;
+                set({ stop: v, stopPlanned: plannedFor(v) ?? draft.stopPlanned });
+              }}
+              error={touched ? errors.stop : null}
+              helper="Escolha uma sugestão ou escreva outro. As OPs do apontamento saem: ele fica sem peças."
+            />
+            <datalist id="motivos-parada">
+              {STOP_SUGGESTIONS.map((o) => (
+                <option key={o.reason} value={o.reason} />
+              ))}
+            </datalist>
+            <label className="flex items-start gap-100 text-default">
+              <Checkbox
+                label="Parada planejada"
+                checked={draft.stopPlanned}
+                onChange={(ev) => set({ stopPlanned: ev.target.checked })}
+              />
+              <span>
+                <span className="font-semibold">Parada planejada</span>
+                <span className="block font-body-small text-subtle">
+                  {draft.stopPlanned
+                    ? "Sai da meta do turno: a máquina não derruba o atingimento."
+                    : "Continua contando na meta: o atingimento cai como num turno sem produção."}
+                </span>
+              </span>
+            </label>
+          </fieldset>
+        )}
+
+        {!draft.stopOpen && (
         <fieldset className="flex flex-col gap-100">
           <legend className="mb-050 font-body-small font-semibold text-subtle">Ordens de produção</legend>
           {draft.rows.map((r, i) => {
@@ -140,9 +190,10 @@ export function EditRecordDialog({ order, original, minDate, onClose, onSave }: 
             </span>
           </div>
           {draft.rows.every((r) => !r.op.trim() && !r.qty.trim()) && (
-            <p className="font-body-small text-warning">Sem OP, o apontamento continua, mas sem peça (máquina parada).</p>
+            <p className="font-body-small text-warning">Sem OP, o apontamento continua, mas sem peça. Se a máquina parou, marque "A máquina não produziu" e diga o motivo.</p>
           )}
         </fieldset>
+        )}
 
         <div className="grid grid-cols-1 gap-150 s:grid-cols-2">
           <DateField

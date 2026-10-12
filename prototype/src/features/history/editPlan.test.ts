@@ -141,3 +141,26 @@ describe("não produziu (D67)", () => {
   });
 });
 
+describe("OP não informada (ajuste temporário)", () => {
+  it("o número reservado aparece como campo vazio e volta igual se nada mudar", () => {
+    const o = original({ orders: [{ op: "0", quantity: 700, rework: false, note: "" }] });
+    const d = draftOf(o);
+    expect(d.rows[0].op).toBe("");
+    expect(changesOf(d, o)).toBeNull();
+  });
+
+  it("linha com quantidade e sem OP é válida e vai como 0", () => {
+    const o = original();
+    const d = draftOf(o);
+    d.rows = [newDraftRow({ qty: "900" })];
+    expect(validateDraft(d, o, TODAY).any).toBe(false);
+    expect(changesOf(d, o)?.ordensProducao).toEqual([{ ordemId: "0", quantidade: 900, retrabalho: false }]);
+  });
+
+  it("OP digitada errada continua recusada", () => {
+    const o = original();
+    const d = draftOf(o);
+    d.rows = [newDraftRow({ op: "45A", qty: "900" })];
+    expect(validateDraft(d, o, TODAY).any).toBe(true);
+  });
+});

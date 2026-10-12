@@ -1,5 +1,5 @@
 import type { ProductionEntryPayload } from "../../../../src/lib/repositories/types";
-import type { Shift } from "@/data/machines";
+import { NO_OP, type Shift } from "@/data/machines";
 
 /**
  * Nº de operadores no payload do apontamento (`operatorCount`, nota de 01/10, § 3):
@@ -115,7 +115,8 @@ export function planSaves(
       .filter((r) => qtyOf(r) > 0)
       // Motivo do retrabalho no campo próprio da OP (D66)
       .map((r) => ({
-        ordemId: r.op.trim(),
+        // Sem número, vai como "não informado" (ajuste temporário, ver NO_OP)
+        ordemId: r.op.trim() || NO_OP,
         quantidade: qtyOf(r),
         ...(r.rework ? { retrabalho: true, ...(r.reason?.trim() ? { motivoRetrabalho: r.reason.trim() } : {}) } : {}),
       }));

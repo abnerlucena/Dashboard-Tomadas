@@ -1,5 +1,5 @@
 import type { UpdateEntryChanges } from "../../../../src/lib/repositories/types";
-import { toIsoDate, type ProductionOrder, type RecordOrder, type Shift } from "@/data/machines";
+import { NO_OP, toIsoDate, type ProductionOrder, type RecordOrder, type Shift } from "@/data/machines";
 
 /*
  * Corrigir UM apontamento inteiro pelo `production.updateEntry` (D59).
@@ -78,7 +78,8 @@ export function originalOf(order: ProductionOrder): EditOriginal | null {
 export function draftOf(o: EditOriginal): EditDraft {
   return {
     rows: o.orders.length
-      ? o.orders.map((x) => newDraftRow({ op: x.op, qty: String(x.quantity), rework: x.rework, note: x.note, reason: x.reason ?? "" }))
+      ? // OP "não informado" (NO_OP) aparece como campo vazio
+        o.orders.map((x) => newDraftRow({ op: x.op === NO_OP ? "" : x.op, qty: String(x.quantity), rework: x.rework, note: x.note, reason: x.reason ?? "" }))
       : [newDraftRow()],
     date: o.date,
     shift: o.shift,
@@ -93,6 +94,8 @@ export function draftOf(o: EditOriginal): EditDraft {
 
 /** Linha em branco (sem OP e sem quantidade) não conta: some ao salvar */
 const isBlank = (r: DraftRow) => !r.op.trim() && !r.qty.trim();
+/** Sem número, a linha vai como "não informado" (ajuste temporário, ver NO_OP) */
+const opOf = (r: DraftRow) => r.op.trim() || NO_OP;
 
 export const isImported = (o: EditOriginal) => o.orders.some((x) => x.op === IMPORTED_OP);
 
@@ -111,8 +114,7 @@ export function validateDraft(d: EditDraft, original: EditOriginal, today: strin
     if (isBlank(r)) continue;
     const e: { op?: string; qty?: string } = {};
     const op = r.op.trim();
-    if (!op) e.op = "Informe a OP";
-    else if (op === IMPORTED_OP ? !imported : !OP_PATTERN.test(op)) e.op = "Use só números, até 15 dígitos";
+    if (op && (op === IMPORTED_OP ? !imported : !OP_PATTERN.test(op))) e.op = "Use só números, até 15 dígitos";
     if (!/^\d+$/.test(r.qty.trim()) || Number(r.qty) <= 0) e.qty = "Quantidade inteira maior que zero";
     if (e.op || e.qty) rows[r.key] = e;
   }
@@ -136,7 +138,7 @@ export function changesOf(d: EditDraft, o: EditOriginal): UpdateEntryChanges | n
   const stop = d.stopOpen ? d.stop.trim() : "";
   const orders: RecordOrder[] = (stop ? [] : d.rows)
     .filter((r) => !isBlank(r))
-    .map((r) => ({ op: r.op.trim(), quantity: Number(r.qty), rework: r.rework, note: r.note, reason: r.reason }));
+    .map((r) => ({ op: opOf(r), quantity: Number(r.qty), rework: r.rework, note: r.note, reason: r.reason }));
   if (!sameOrders(orders, o.orders))
     c.ordensProducao = orders.map((x) => ({
       ordemId: x.op,

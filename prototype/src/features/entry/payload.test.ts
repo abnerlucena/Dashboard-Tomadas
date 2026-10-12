@@ -131,4 +131,19 @@ describe("planSaves", () => {
     expect(plannedFor("Sem OP")).toBe(false);
     expect(plannedFor("Aguardando molde")).toBeNull();
   });
+
+  it("sem nº da OP, a linha vai como não informado (número reservado, ajuste temporário)", () => {
+    const plan = planSaves(
+      { "11": entry({ rows: [{ op: "", qty: "800", rework: false, reason: "" }, { op: " 4510001 ", qty: "100", rework: false, reason: "" }] }) },
+      {},
+      machines,
+      ctx,
+    );
+    expect(plan[0].payload.ordensProducao).toEqual([
+      { ordemId: "0", quantidade: 800 },
+      { ordemId: "4510001", quantidade: 100 },
+    ]);
+    expect(plan[0].payload.producao).toBe(900);
+  });
 });
+

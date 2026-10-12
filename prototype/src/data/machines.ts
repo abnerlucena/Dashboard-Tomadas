@@ -714,8 +714,21 @@ const inRange = (d: Date, r: DateRange) => d >= r.from && d <= r.to;
 export const workingDatesIn = (r: DateRange) => WORKING_DATES.filter((d) => inRange(d, r));
 export const isMonthRange = (r: DateRange) => r.from.getTime() === MONTH_RANGE.from.getTime() && r.to.getTime() === MONTH_RANGE.to.getTime();
 
-/** Número da OP para exibir ("4510000"); sem OP (o banco não explicou a quantidade) = "–" */
-export const opLabel = (o: Pick<ProductionOrder, "opId">) => o.opId.replace("OP ", "") || "–";
+/**
+ * AJUSTE TEMPORÁRIO (12/10/2026): o Apontamento não exige mais o nº da OP. O banco só aceita de 1 a
+ * 15 dígitos (D57), então "não informado" vai como o número 0 até o banco ter um valor próprio
+ * (recado em docs/database/notas/2026-10-12-op-nao-informada.md).
+ */
+export const NO_OP = "0";
+const opNumberOf = (o: Pick<ProductionOrder, "opId">) => o.opId.replace("OP ", "");
+/** A linha tem um número de OP de verdade (não vazio e não o "não informado") */
+export const hasOp = (o: Pick<ProductionOrder, "opId">) => !!o.opId && opNumberOf(o) !== NO_OP;
+
+/** Número da OP para exibir ("4510000"); "Não informado" no número reservado; sem OP (o banco não explicou a quantidade) = "–" */
+export const opLabel = (o: Pick<ProductionOrder, "opId">) => {
+  const n = opNumberOf(o);
+  return n === NO_OP ? "Não informado" : n || "–";
+};
 
 /** Produção de um conjunto de apontamentos: só a boa, retrabalho fica de fora (D11) */
 export const goodQuantity = (orders: ProductionOrder[]) => orders.reduce((s, o) => s + (o.rework ? 0 : o.quantity), 0);

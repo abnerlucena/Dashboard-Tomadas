@@ -109,6 +109,20 @@ test("operador não vê a gestão de usuários", async ({ page }) => {
   await expect(page.getByText("Sem permissão para esta tela")).toBeVisible();
 });
 
+test("o olho mostra e esconde a senha com o clique", async ({ page }) => {
+  await page.goto("/");
+  const senha = page.getByLabel("Senha", { exact: true });
+  await senha.fill("segredo123");
+  await expect(senha).toHaveAttribute("type", "password");
+  await page.getByRole("button", { name: "Mostrar senha" }).click();
+  await expect(senha).toHaveAttribute("type", "text");
+  await expect(senha).toHaveValue("segredo123");
+  // o foco volta ao campo, e dá para continuar digitando
+  await expect(senha).toBeFocused();
+  await page.getByRole("button", { name: "Esconder senha" }).click();
+  await expect(senha).toHaveAttribute("type", "password");
+});
+
 test("senha errada mostra o motivo", async ({ page }) => {
   await page.goto("/");
   await page.getByLabel(/e-mail/i).first().fill("gestor@demo.weg");

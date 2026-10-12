@@ -1,0 +1,256 @@
+<title>Apontamento: três ajustes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: bandeja lateral (recolhe no ambiente de apontamento) + barra de passos no topo; passo 2 = lista de status fixa à esquerda + todas as máquinas em sequência à direita,
+   cada uma com "Concluir" (o distribuidor aponta as 22 em sequência, sem abrir e fechar telas).
+   Cores e tipos copiados do Dash de Produção (tokens.css), para o protótipo parecer a tela real. */
+:root {
+  --bg: #F7F9FA;
+  --surface: #FFFFFF;
+  --sunken: #EEF1F4;
+  --fg: #161F2D;
+  --subtle: #434F60;
+  --subtlest: #5D6979;
+  --border: #D9DEE5;
+  --border-strong: #AEB7C2;
+  --brand: #0062B2;
+  --brand-hover: #00508F;
+  --on-brand: #FFFFFF;
+  --selected-bg: #E7F3FE;
+  --selected-fg: #105893;
+  --success: #126836; --success-bg: #E7F8ED;
+  --warning: #914808; --warning-bg: #FFF1D1;
+  --danger: #AD1F1F; --danger-bg: #FEE9E9;
+  --neutral-bg: #EEF1F4;
+  --banner: #2C3644; --on-banner: #FFFFFF;
+  --shadow: 0 1px 2px rgba(22,31,45,.08), 0 0 1px rgba(22,31,45,.18);
+  --overlay: rgba(22,31,45,.45);
+  --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101722; --surface: #18212E; --sunken: #121A25; --fg: #E6EAF0; --subtle: #B4BDC9; --subtlest: #96A1AF;
+    --border: #2F3B4B; --border-strong: #4A5A70; --brand: #4C9EEB; --brand-hover: #74B5F2; --on-brand: #0B1420;
+    --selected-bg: #11304D; --selected-fg: #9CCBF7;
+    --success: #6FD39A; --success-bg: #12301F; --warning: #F5B25C; --warning-bg: #3A2A10; --danger: #F38B8B; --danger-bg: #3D1717;
+    --neutral-bg: #222D3B; --banner: #050A12; --on-banner: #E6EAF0;
+    --shadow: 0 0 0 1px #2F3B4B; --overlay: rgba(0,0,0,.6); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101722; --surface: #18212E; --sunken: #121A25; --fg: #E6EAF0; --subtle: #B4BDC9; --subtlest: #96A1AF;
+  --border: #2F3B4B; --border-strong: #4A5A70; --brand: #4C9EEB; --brand-hover: #74B5F2; --on-brand: #0B1420;
+  --selected-bg: #11304D; --selected-fg: #9CCBF7;
+  --success: #6FD39A; --success-bg: #12301F; --warning: #F5B25C; --warning-bg: #3A2A10; --danger: #F38B8B; --danger-bg: #3D1717;
+  --neutral-bg: #222D3B; --banner: #050A12; --on-banner: #E6EAF0;
+  --shadow: 0 0 0 1px #2F3B4B; --overlay: rgba(0,0,0,.6); color-scheme: dark;
+}
+
+[hidden] { display: none !important; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 400 15px/1.45 var(--font); margin: 0; padding-inline: 16px; padding-block: 20px 56px; }
+button, input { font: inherit; color: inherit; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+.num { font-variant-numeric: tabular-nums; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.page { max-width: 1160px; margin: 0 auto; display: grid; gap: 16px; }
+.intro p { margin: 4px 0 0; color: var(--subtle); max-width: 76ch; }
+.intro h1 { font-size: 20px; font-weight: 700; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.legend li { font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; color: var(--subtle); }
+.legend b { color: var(--fg); }
+
+/* barra do ambiente */
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; background: var(--surface); border: 1px solid var(--border); border-top: 3px solid var(--brand); border-radius: 12px; padding: 10px 16px; }
+.bar h2 { font-size: 18px; font-weight: 700; }
+.bar .chip { font-size: 13px; background: var(--sunken); border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; color: var(--subtle); }
+.bar .sp { flex: 1; }
+.btn { height: 44px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--subtle); font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.btn:hover { background: var(--sunken); }
+.btn.primary { background: var(--brand); border-color: var(--brand); color: var(--on-brand); font-weight: 600; }
+.btn.primary:hover { background: var(--brand-hover); border-color: var(--brand-hover); }
+.btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; font-weight: 600; }
+
+/* simulador de saídas */
+.sim { display: grid; gap: 8px; background: var(--sunken); border: 1px dashed var(--border-strong); border-radius: 12px; padding: 12px 16px; }
+.sim h2 { font-size: 13px; font-weight: 600; color: var(--subtle); }
+.sim .row { display: flex; flex-wrap: wrap; gap: 8px; }
+.sim p { margin: 0; font-size: 12px; color: var(--subtlest); }
+.dirty { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: var(--neutral-bg); color: var(--subtle); }
+.dirty.on { background: var(--warning-bg); color: var(--warning); }
+
+.layout { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) minmax(0, 300px); align-items: start; }
+@media (max-width: 900px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+/* cartão em duas colunas */
+.list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); overflow: hidden; min-width: 0; }
+.list > li { border-top: 1px solid var(--border); padding: 14px 16px; display: grid; gap: 12px; }
+.list > li:first-child { border-top: 0; }
+.card { display: grid; grid-template-columns: minmax(0, 18rem) minmax(0, 1fr); gap: 12px 24px; align-items: start; }
+@media (max-width: 760px) { .card { grid-template-columns: minmax(0, 1fr); } }
+.side { display: grid; gap: 8px; align-content: start; }
+.side .head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.side h3 { font-size: 15px; font-weight: 600; flex-basis: 100%; }
+.tag { font-size: 12px; font-weight: 500; padding: 1px 8px; border-radius: 6px; background: #FCE4F2; color: #8C1D5E; }
+.pill { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: var(--neutral-bg); color: var(--subtle); }
+.pill.next { background: #EFE7FD; color: #5B2DBA; }
+.meta { font-size: 13px; color: var(--subtle); display: grid; gap: 2px; }
+.meta b { color: var(--fg); font-weight: 600; }
+.meta .op { font-family: var(--mono); font-weight: 600; color: var(--brand); }
+.work { display: grid; gap: 12px; min-width: 0; }
+.fields { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.field { display: grid; gap: 4px; font-size: 12px; font-weight: 600; color: var(--subtle); }
+.field input { height: 44px; border: 1px solid var(--border-strong); border-radius: 8px; padding: 0 12px; background: var(--surface); font-size: 15px; font-weight: 400; text-align: right; font-variant-numeric: tabular-nums; width: 9.5rem; }
+.field input.sm { width: 6rem; }
+.foot { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-top: 1px solid var(--border); padding-top: 12px; }
+.foot .sp { flex: 1; }
+.done { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+.done .txt { flex: 1 1 14rem; font-size: 13px; color: var(--subtle); }
+.done .txt b { color: var(--fg); }
+.ico { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; background: var(--success-bg); color: var(--success); flex: none; }
+
+/* lista de situação com toque maior */
+aside { position: sticky; top: 12px; display: grid; gap: 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 14px; box-shadow: var(--shadow); max-height: calc(100dvh - 24px); overflow-y: auto; }
+aside h2 { font-size: 14px; font-weight: 600; }
+.bar2 { height: 8px; border-radius: 999px; background: var(--neutral-bg); overflow: hidden; }
+.bar2 > span { display: block; height: 100%; background: var(--success); transition: width .25s; }
+aside ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.go { width: 100%; min-height: 44px; display: flex; align-items: center; gap: 10px; text-align: left; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 6px 12px; cursor: pointer; font-size: 14px; }
+.go:hover { background: var(--sunken); }
+.go.next { border-color: var(--brand); background: var(--selected-bg); color: var(--selected-fg); font-weight: 600; }
+.go .d { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--border-strong); flex: none; }
+.go .d.ok { background: var(--success); border-color: transparent; }
+.go .d.typing { background: var(--warning); border-color: transparent; }
+.sub { font-size: 12px; color: var(--subtlest); margin: 0; }
+
+/* confirmação de saída */
+.veil { position: fixed; inset: 0; background: var(--overlay); display: grid; place-items: center; padding: 16px; z-index: 50; }
+.dlg { background: var(--surface); border-radius: 14px; max-width: 30rem; width: 100%; padding: 20px; display: grid; gap: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.3); }
+.dlg h2 { font-size: 17px; font-weight: 700; }
+.dlg p { margin: 0; color: var(--subtle); }
+.dlg .acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--banner); color: var(--on-banner); border-radius: 10px; padding: 10px 16px; font-size: 14px; z-index: 60; max-width: calc(100vw - 32px); }
+.where { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: grid; gap: 8px; }
+.where h2 { font-size: 16px; }
+@media (prefers-reduced-motion: reduce) { .bar2 > span { transition: none; } }
+</style>
+
+<div class="page" id="app">
+  <div class="intro">
+    <h1>Apontamento: três ajustes</h1>
+    <p>Protótipo dos três ajustes juntos. Dados fictícios, nada é gravado. Digite algo numa máquina e tente sair de três jeitos para ver a confirmação.</p>
+  </div>
+  <ul class="legend">
+    <li><b>1.</b> Cartão em duas colunas: contexto à esquerda, o que se digita à direita</li>
+    <li><b>2.</b> Lista de máquinas ao lado com linhas de 44px</li>
+    <li><b>3.</b> Confirmação de saída também para mudanças de rota feitas pelo sistema</li>
+  </ul>
+
+  <div id="screen"></div>
+</div>
+<div id="overlay"></div>
+<div class="toast" id="toast" hidden role="status"></div>
+
+<script>
+var MACHINES = [
+  { id: 1, name: "Máquina de plugue Slin (Aumaq)", tag: "Montagem", meta: 5800, op: "4514087" },
+  { id: 2, name: "Máquina de tomadas Composé (Aumaq)", tag: "Montagem", meta: 4000, op: "4516173" },
+  { id: 3, name: "Embaladora horizontal nº 1", tag: "Embalagem", meta: 3200, op: "4514099" },
+  { id: 4, name: "Embaladora vertical conjuntos nº 1", tag: "Embalagem", meta: 2600, op: "4514120" }
+];
+var st = {}, route = "apontamento", pendingTo = null;
+MACHINES.forEach(function (m) { st[m.id] = { opn: "", qty: "", ppl: "", done: null }; });
+st[2].done = { qty: 4120 };
+var fmt = function (n) { return n.toLocaleString("pt-BR"); };
+var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+var dirtyOf = function (id) { var s = st[id]; return !s.done && (s.opn || s.qty || s.ppl); };
+var dirty = function () { return MACHINES.some(function (m) { return dirtyOf(m.id); }); };
+var nextId = function () { var m = MACHINES.filter(function (m) { return !st[m.id].done; })[0]; return m && m.id; };
+
+function toast(t) { var el = document.getElementById("toast"); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(function () { el.hidden = true; }, 2600); }
+
+function card(m) {
+  var s = st[m.id];
+  if (s.done) return '<li id="m' + m.id + '"><div class="done"><span class="ico" aria-hidden="true">✓</span><h3 style="font-size:15px;font-weight:600">' + esc(m.name) + '</h3><span class="txt"><b class="num">' + fmt(s.done.qty) + '</b> peças · ' + Math.round(s.done.qty / m.meta * 100) + '% da meta do turno</span><button class="btn" data-a="reopen" data-id="' + m.id + '" type="button">Lançar mais</button></div></li>';
+  return '<li id="m' + m.id + '"><div class="card">' +
+    '<div class="side"><div class="head"><h3>' + esc(m.name) + '</h3><span class="tag">' + m.tag + '</span>' + (nextId() === m.id ? '<span class="pill next">Próxima</span>' : '') + '<span class="pill">Pendente</span></div>' +
+    '<div class="meta"><span>Meta do turno <b class="num">' + fmt(m.meta) + '</b></span><span>OP liberada <span class="op">' + m.op + '</span></span></div></div>' +
+    '<div class="work"><div class="fields">' +
+    '<label class="field">Nº da OP<input inputmode="numeric" placeholder="Ex.: 4501234" data-f="opn" data-id="' + m.id + '" value="' + esc(s.opn) + '" aria-label="Nº da OP, ' + esc(m.name) + '"></label>' +
+    '<label class="field">Quantidade<input inputmode="numeric" placeholder="0" data-f="qty" data-id="' + m.id + '" value="' + esc(s.qty) + '" aria-label="Quantidade, ' + esc(m.name) + '"></label>' +
+    '<label class="field">Nº de operadores<input class="sm" inputmode="numeric" placeholder="–" data-f="ppl" data-id="' + m.id + '" value="' + esc(s.ppl) + '" aria-label="Nº de operadores, ' + esc(m.name) + '"></label></div>' +
+    '<div class="foot"><button class="btn" type="button" data-a="none">+ Adicionar OP</button><button class="btn" type="button" data-a="none">⊘ Não produziu</button><span class="sp"></span><button class="btn primary" type="button" data-a="conclude" data-id="' + m.id + '">✓ Concluir</button></div></div></div></li>';
+}
+function renderScreen() {
+  var el = document.getElementById("screen");
+  if (route !== "apontamento") {
+    el.innerHTML = '<div class="where"><h2>Você saiu do Apontamento</h2><p style="margin:0;color:var(--subtle)">Destino: <b>' + esc(route) + '</b>. No app é a tela correspondente do Dash.</p><div><button class="btn primary" data-a="back" type="button">Voltar ao Apontamento (exemplo)</button></div></div>';
+    return;
+  }
+  var d = dirty(), n = MACHINES.filter(function (m) { return st[m.id].done; }).length;
+  var ae = document.activeElement, key = ae && ae.getAttribute && ae.getAttribute("data-f") ? ae.getAttribute("data-id") + ae.getAttribute("data-f") : null, pos = key ? ae.selectionStart : 0;
+  var nx = nextId();
+  el.innerHTML =
+    '<div style="display:grid;gap:16px">' +
+    '<div class="bar"><h2>Apontamento</h2><span class="chip">27/03/2026 · Turno 1 · Normal</span><span class="sp"></span><span class="dirty' + (d ? " on" : "") + '">' + (d ? "Há dados não concluídos" : "Nada pendente de gravar") + '</span><button class="btn" type="button" data-a="exit">Sair</button></div>' +
+    '<div class="sim"><h2>Três jeitos de sair, para testar</h2><div class="row">' +
+    '<button class="btn" type="button" data-a="go-dash">Clique em um link do Dash</button>' +
+    '<button class="btn" type="button" data-a="go-notif">Atalho de uma notificação (rota muda sozinha)</button>' +
+    '<button class="btn" type="button" data-a="go-back">Botão Voltar do navegador</button></div>' +
+    '<p>Os dois últimos não são cliques num link. Hoje o app só pergunta no primeiro. Aqui os três perguntam quando há algo digitado e não concluído.</p></div>' +
+    '<div class="layout"><ul class="list" id="list">' + MACHINES.map(card).join("") + '</ul>' +
+    '<aside aria-label="Situação das máquinas no turno"><div><p class="sub"><b class="num" style="color:var(--fg)">' + n + '</b> de ' + MACHINES.length + ' apontadas</p></div><div class="bar2" aria-hidden="true"><span style="width:' + (n / MACHINES.length * 100) + '%"></span></div><ul>' +
+    MACHINES.map(function (m) { var s = st[m.id], c = s.done ? "ok" : dirtyOf(m.id) ? "typing" : ""; return '<li><button class="go' + (nx === m.id ? " next" : "") + '" data-a="goto" data-id="' + m.id + '" type="button"><span class="d ' + c + '" aria-hidden="true"></span><span>' + esc(m.name) + '</span></button></li>'; }).join("") +
+    '</ul><p class="sub">Linhas de 44px: dá para tocar com luva.</p></aside></div></div>';
+  if (key) { var f = document.querySelector('[data-id="' + key.slice(0, -3) + '"][data-f="' + key.slice(-3) + '"]'); if (f) { f.focus(); try { f.setSelectionRange(pos, pos); } catch (e) {} } }
+}
+function renderOverlay() {
+  var o = document.getElementById("overlay");
+  if (!pendingTo) { o.innerHTML = ""; return; }
+  o.innerHTML = '<div class="veil"><div class="dlg" role="dialog" aria-modal="true" aria-labelledby="dt"><h2 id="dt">Sair do apontamento?</h2><p>' + esc(pendingTo.why) + ' O que você digitou e ainda não concluiu será perdido. As máquinas já concluídas continuam gravadas.</p><div class="acts"><button class="btn" data-a="stay" type="button" id="stay">Continuar apontando</button><button class="btn danger" data-a="leave" type="button">Sair</button></div></div></div>';
+  var b = document.getElementById("stay"); if (b) b.focus();
+}
+function render() { renderScreen(); renderOverlay(); }
+
+// Guarda único: todo caminho de saída passa por aqui
+function requestLeave(dest, why) {
+  if (dirty()) { pendingTo = { dest: dest, why: why }; render(); return; }
+  route = dest; render();
+}
+document.addEventListener("click", function (e) {
+  var b = e.target.closest("[data-a]"); if (!b) return;
+  var a = b.getAttribute("data-a"), id = +b.getAttribute("data-id");
+  if (a === "exit") requestLeave("Dashboard", "Você clicou em Sair.");
+  else if (a === "go-dash") requestLeave("Máquinas", "Você clicou num link do Dash.");
+  else if (a === "go-notif") requestLeave("OP 4514087, em Feedbacks", "Uma notificação levou a outra tela.");
+  else if (a === "go-back") requestLeave("tela anterior", "Você usou o botão Voltar do navegador.");
+  else if (a === "stay") { pendingTo = null; render(); }
+  else if (a === "leave") { var d = pendingTo.dest; pendingTo = null; MACHINES.forEach(function (m) { var s = st[m.id]; if (!s.done) { s.opn = ""; s.qty = ""; s.ppl = ""; } }); route = d; render(); }
+  else if (a === "back") { route = "apontamento"; render(); }
+  else if (a === "reopen") { st[id].done = null; render(); }
+  else if (a === "conclude") {
+    var q = parseInt(st[id].qty, 10);
+    if (!q) { var f = document.querySelector('[data-f="qty"][data-id="' + id + '"]'); if (f) f.focus(); toast("Informe a quantidade para concluir."); return; }
+    st[id].done = { qty: q }; st[id].opn = ""; st[id].qty = ""; st[id].ppl = ""; render();
+    var nx = nextId(); if (nx) setTimeout(function () { var c = document.getElementById("m" + nx); if (c) c.scrollIntoView({ behavior: "smooth", block: "center" }); }, 30);
+  }
+  else if (a === "goto") { var c2 = document.getElementById("m" + id); if (c2) { c2.scrollIntoView({ behavior: "smooth", block: "center" }); var f2 = c2.querySelector("input"); if (f2) setTimeout(function () { f2.focus({ preventScroll: true }); }, 450); } }
+  else if (a === "none") toast("Igual ao app: não faz parte deste protótipo.");
+});
+document.addEventListener("input", function (e) {
+  var t = e.target, f = t.getAttribute("data-f"); if (!f) return;
+  var id = +t.getAttribute("data-id"); st[id][f] = t.value.replace(/\D/g, "");
+  t.value = st[id][f];
+  // atualiza só o que depende do "dirty", sem refazer o campo
+  var s = document.querySelector(".dirty"); if (s) { var d = dirty(); s.className = "dirty" + (d ? " on" : ""); s.textContent = d ? "Há dados não concluídos" : "Nada pendente de gravar"; }
+  document.querySelectorAll(".go").forEach(function (g, i) { var m = MACHINES[i], dot = g.querySelector(".d"); dot.className = "d " + (st[m.id].done ? "ok" : dirtyOf(m.id) ? "typing" : ""); });
+});
+document.addEventListener("keydown", function (e) {
+  if (e.key === "Escape" && pendingTo) { pendingTo = null; render(); }
+  if (e.key === "Enter" && e.target.getAttribute && e.target.getAttribute("data-f") === "qty") { e.preventDefault(); document.querySelector('[data-a="conclude"][data-id="' + e.target.getAttribute("data-id") + '"]').click(); }
+});
+render();
+</script>

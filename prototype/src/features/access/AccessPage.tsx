@@ -392,13 +392,18 @@ function PasswordField(props: {
       {...props}
       type={shown ? "text" : "password"}
       elemAfter={
-        <IconButton
-          icon={shown ? EyeOff : Eye}
-          label={shown ? "Esconder senha" : "Mostrar senha"}
-          spacing="compact"
-          showTooltip={false}
-          onClick={() => setShown((s) => !s)}
-        />
+        // O contêiner do campo ignora o mouse (serve a textos como "un."): o botão pede o clique de volta
+        <span className="pointer-events-auto flex">
+          <IconButton
+            icon={shown ? EyeOff : Eye}
+            label={shown ? "Esconder senha" : "Mostrar senha"}
+            spacing="compact"
+            showTooltip={false}
+            // Não tira o foco do campo: dá para continuar digitando depois de espiar a senha
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => setShown((s) => !s)}
+          />
+        </span>
       }
     />
   );

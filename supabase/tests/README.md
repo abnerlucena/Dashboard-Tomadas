@@ -22,6 +22,7 @@ cada execução acontece dentro de uma transação que termina em `rollback`
 | `13_cadastro_de_maquinas.sql` | Cadastro completo de máquinas e edição (migration 0037): meta 0 é por demanda, combinações contraditórias recusadas, linha obrigatória (migration 0038: sem linha é recusado, e a coluna não aceita vazio), base rateada sem lotação, editar e nome repetido |
 | `14_motivo_do_retrabalho.sql` | Motivo do retrabalho na OP (migration 0039): grava sem espaços nas pontas, retrabalho sem motivo é aceito, o motivo só vale para retrabalho (descartado nas outras OPs e travado na tabela), corrigir o apontamento troca e tira o motivo |
 | `15_maquina_que_nao_produziu.sql` | "Não produziu" (migration 0040): parada não planejada conta para a meta e a planejada sai; parada e peças não andam juntas; lançar peças tira a parada; máquina por pessoa parada não exige nº de pessoas; corrigir a parada e a marcação |
+| `16_op_nao_informada.sql` | OP não informada (migration 0041): vazio, "0" e "000" gravam nulo sem criar OP; nenhuma "OP 0" junta máquinas; número digitado continua conferido; completar o número depois; "só zeros" recusado na aba OPs |
 
 ## Como rodar (SQL Editor do Supabase)
 

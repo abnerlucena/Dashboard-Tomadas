@@ -74,6 +74,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D65 | Produção começa no Supabase da nuvem e passa depois para um servidor da WEG | Aprovada | 05/10/2026 |
 | D66 | O motivo do retrabalho é um campo próprio da OP, em texto livre | Aprovada | 08/10/2026 |
 | D67 | "Não produziu": motivo da parada no apontamento; só a parada planejada sai da meta | Aprovada | 09/10/2026 |
+| D68 | OP não informada: o apontamento grava sem número, sem inventar a "OP 0" | Aprovada | 12/10/2026 |
 
 ---
 
@@ -1413,3 +1414,40 @@ máquina**.
     ser corrigida sozinha.
 - **Dados:** não havia nada a migrar. Conferido em 09/10: nenhum apontamento
   sem peças, e nenhum com "Não produziu" na observação.
+
+### D68 — OP não informada: o apontamento grava sem número, sem inventar a "OP 0"
+- **Status:** Aprovada (12/10/2026), pelo gestor. Ajuste temporário, até a
+  integração com o SAP. Complementa a D57 e a D62.
+- **Contexto:** no teste na fábrica, **digitar** o nº da OP tomava tempo demais
+  do distribuidor: o número é longo, e são várias máquinas e OPs rodando por
+  turno. Sem o SAP, o gestor tornou a OP opcional no Apontamento. Sem um valor
+  próprio para "não informada", a tela mandava `0`, e a D62 criaria **uma única
+  OP "0"** juntando os apontamentos sem número de todas as máquinas.
+- **O que se perde sem a OP:** quase nada do que a gestão acompanha. Produção,
+  meta, atingimento, retrabalho e paradas são por máquina, dia e turno. A OP só
+  serve ao que é dela: quanto já se produziu de cada ordem, a conversa da ordem
+  e, no futuro, a devolução ao SAP.
+- **Decisão:**
+  - `production_orders.order_number` nulo = **OP não informada**. A linha guarda
+    as peças normalmente;
+  - número vazio, ausente ou **só zeros** vira nulo. O "só zeros" entra de
+    propósito: a tela já em uso manda `0`, e assim ela funciona sem esperar a
+    troca do lado dela;
+  - OP não informada **não cria OP** na aba OPs;
+  - "só zeros" não é OP: o cadastro da aba OPs e a tabela `work_orders` recusam.
+- **Alternativas descartadas:**
+  - **a OP "0" como está**: mistura máquinas numa ordem falsa e pede limpeza e
+    trava depois;
+  - **um texto fixo, como o `IMPORTADO`**: funcionaria, mas nulo é o jeito do
+    banco dizer "não sei", e não se confunde com um número.
+- **O que fica para o processo (recomendado à interface e ao gestor):**
+  1. **Sugerir a OP do último turno da máquina.** A mesma OP costuma rodar
+     vários turnos seguidos: o distribuidor só confirma, e digita só quando a
+     OP muda. A tela já tem os dados para isso;
+  2. **Completar depois.** Quem tem o número (o PCP, por exemplo) corrige o
+     apontamento no Histórico, sem travar o chão de fábrica;
+  3. **Ponte até o SAP:** se o SAP exportar a lista de OPs liberadas em
+     planilha, ela entra pela `importar_ops_do_sap` (D62), sem digitação. **A
+     confirmar na fábrica** se a exportação é possível.
+- **Dados:** nada a limpar. Conferido em 12/10, antes de aplicar: nenhuma OP
+  "0" em `work_orders` nem em `production_orders`.

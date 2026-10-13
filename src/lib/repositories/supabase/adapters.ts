@@ -49,7 +49,8 @@ export function toLegacyDateTime(iso: string | null | undefined): string {
 
 export function toOrdens(orders: OrderRow[]): OrdemProducao[] {
   return orders.map(o => {
-    const ordem: OrdemProducao = { ordemId: o.order_number, quantidade: o.quantity };
+    // Nulo = OP não informada (D68): chega à tela como número vazio.
+    const ordem: OrdemProducao = { ordemId: o.order_number ?? "", quantidade: o.quantity };
     if (o.notes) ordem.obs = o.notes;
     if (o.is_rework) ordem.retrabalho = true;
     if (o.rework_reason) ordem.motivoRetrabalho = o.rework_reason;

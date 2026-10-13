@@ -1,4 +1,8 @@
 -- Testes das funções de regra de negócio (migration 0009). Ver README desta pasta.
+--
+-- Os apontamentos de teste ficam DAQUI A 45 DIAS: desde 12/10/2026 a fábrica
+-- aponta pelo site, e um apontamento real no mesmo dia, máquina e turno
+-- confundiria as contagens.
 set local role authenticated;
 -- 1. gestora aprova operadores (perfil operator=1) e a conta Admin (admin=6)
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1');
@@ -11,18 +15,18 @@ exception when others then insert into results(test, ok, info) values ('gestora 
 -- 2. operador 1 aponta (cria)
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000b1');
 do $$ declare v uuid; begin
-  v := public.save_production_record(((now() at time zone 'America/Sao_Paulo')::date), 1::smallint, 1,
+  v := public.save_production_record(((now() at time zone 'America/Sao_Paulo')::date + 45), 1::smallint, 1,
         '[{"order_number":"000001004521","quantity":3000},{"order_number":"000001004522","quantity":1000,"is_rework":true}]'::jsonb, 'obs 1');
   insert into results(test, ok, info) values ('op1 cria apontamento', true, (select format('meta=%s boa=%s retr=%s total=%s conta=%s', target_quantity, good_quantity, rework_quantity, total_quantity, counts_toward_target) from public.production_summary where id=v));
 exception when others then insert into results(test, ok, info) values ('op1 cria apontamento', false, sqlerrm); end $$;
 -- 3. operador 1 completa o próprio (D30: acrescenta)
 do $$ declare v uuid; begin
-  v := public.save_production_record(((now() at time zone 'America/Sao_Paulo')::date), 1::smallint, 1, '[{"order_number":"000001004530","quantity":500}]'::jsonb);
+  v := public.save_production_record(((now() at time zone 'America/Sao_Paulo')::date + 45), 1::smallint, 1, '[{"order_number":"000001004530","quantity":500}]'::jsonb);
   insert into results(test, ok, info) values ('op1 completa o próprio (acrescenta)', true, (select format('ordens=%s boa=%s', order_count, good_quantity) from public.production_summary where id=v));
 exception when others then insert into results(test, ok, info) values ('op1 completa o próprio', false, sqlerrm); end $$;
 -- 4. hora extra no mesmo turno vira outra linha e não conta para meta
 do $$ declare v uuid; begin
-  v := public.save_production_record(((now() at time zone 'America/Sao_Paulo')::date), 1::smallint, 1, '[{"order_number":"4500001","quantity":100}]'::jsonb, null, null, 'overtime');
+  v := public.save_production_record(((now() at time zone 'America/Sao_Paulo')::date + 45), 1::smallint, 1, '[{"order_number":"4500001","quantity":100}]'::jsonb, null, null, 'overtime');
   insert into results(test, ok, info) values ('hora extra separada', true, (select format('modo=%s conta_meta=%s', work_mode, counts_toward_target) from public.production_summary where id=v));
 exception when others then insert into results(test, ok, info) values ('hora extra separada', false, sqlerrm); end $$;
 -- 4b. operador lê os próprios apontamentos? (antes do RLS: nenhuma política → deve ver 0)
@@ -30,7 +34,7 @@ insert into results(test, ok, info) values ('op1 leitura direta (sem RLS ainda)'
 -- 5. operador 2 tenta completar o apontamento do operador 1 → deve FALHAR
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000b2');
 do $$ begin
-  perform public.save_production_record(((now() at time zone 'America/Sao_Paulo')::date), 1::smallint, 1, '[{"order_number":"4500002","quantity":1}]'::jsonb);
+  perform public.save_production_record(((now() at time zone 'America/Sao_Paulo')::date + 45), 1::smallint, 1, '[{"order_number":"4500002","quantity":1}]'::jsonb);
   insert into results(test, ok, info) values ('op2 NÃO pode mexer no do op1', false, 'deixou gravar!');
 exception when others then insert into results(test, ok, info) values ('op2 NÃO pode mexer no do op1', true, sqlerrm); end $$;
 -- 6. operador 2 tenta mover em massa → deve FALHAR
@@ -74,7 +78,7 @@ do $$ declare c int; begin
   insert into results(test, ok, info) values ('Admin troca turno em massa', c = 1, c::text);
 exception when others then insert into results(test, ok, info) values ('Admin troca turno em massa', false, sqlerrm); end $$;
 do $$ begin
-  perform public.save_production_record(((now() at time zone 'America/Sao_Paulo')::date), 1::smallint, 1, '[{"order_number":"4500004","quantity":1}]'::jsonb);
+  perform public.save_production_record(((now() at time zone 'America/Sao_Paulo')::date + 45), 1::smallint, 1, '[{"order_number":"4500004","quantity":1}]'::jsonb);
   perform public.bulk_update_production_records(array(select id from ids), null, 1::smallint);
   insert into results(test, ok, info) values ('colisão em massa recusada', false, 'deixou!');
 exception when others then insert into results(test, ok, info) values ('colisão em massa recusada', true, sqlerrm); end $$;

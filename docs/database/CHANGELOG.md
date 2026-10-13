@@ -17,6 +17,37 @@ Formato de cada entrada:
 
 ---
 
+## [0.31.0] — 12/10/2026 — OP não informada: apontamento sem número de OP
+- Status: **Implementado** — aplicada no Supabase em 12/10/2026
+- Migration: `20261012100000_op_nao_informada.sql` (0041)
+- Decisões: D68 (nova), D57, D62
+
+### Alterado
+- **`production_orders.order_number`** aceita nulo = OP não informada. `CHECK`: nulo
+  ou não vazio.
+- **`insert_production_orders`**: número vazio, ausente ou só zeros grava nulo e não
+  cria OP na aba OPs. Número digitado continua conferido, e a mensagem de erro diz
+  que pode deixar em branco.
+- **`work_orders`** e **`create_work_order`** recusam OP só de zeros.
+
+### Testes
+- Suíte `16_op_nao_informada.sql` (9 casos). A `09` passa a esperar OP vazia e
+  ausente como aceitas.
+- A `01` e a `05` apontavam na data de **hoje**. Desde 12/10 a fábrica aponta pelo
+  site, e um apontamento real no mesmo dia e máquina fez a `05` falhar sem defeito
+  no banco. As duas passam a apontar daqui a 45 dias.
+- Total: **236 casos**, todos passando.
+
+### Contrato
+- `OrdemProducao.ordemId` vazio = OP não informada (só documentação; o tipo não
+  muda). Na leitura, a OP nula chega como `""`.
+
+### Impacto no frontend
+- A tela pode mandar `""` em vez de `"0"`. As duas formas funcionam: a #51 pode
+  entrar como está. Nota: `2026-10-12-resposta-do-banco-op-nao-informada.md`.
+
+---
+
 ## [0.30.0] — 09/10/2026 — "Não produziu": motivo da parada no apontamento
 - Status: **Implementado** — aplicada no Supabase em 09/10/2026
 - Migration: `20261009100000_maquina_que_nao_produziu.sql` (0040)

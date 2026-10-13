@@ -51,6 +51,9 @@ Um **apontamento** é: *"a máquina X, no dia Y, no turno Z, produziu estas orde
   completa o apontamento existente em vez de criar outro.
 - Apontar **atrasado** é permitido.
 - Uma **ordem de produção (OP)** pode ser dividida entre turnos: o 1º turno faz uma parte, o 2º completa.
+- **O número da OP é opcional** (desde 12/10/2026, enquanto não há integração com o SAP). Sem número, as
+  peças contam normalmente para produção, meta e atingimento; só não se sabe de qual OP vieram. Quem tiver
+  o número pode completá-lo depois, corrigindo o apontamento no Histórico. [D68]
 - Qualquer pessoa pode apontar qualquer turno. O sistema sempre registra **quem** apontou.
 - **Hora extra** (esporádica, combinada com o gestor) é apontada no turno em que ocorreu, mas **marcada como tal**: entra na produção total e num indicador próprio, e fica fora do cálculo de atingimento de meta — medir poucas horas com a meta de um turno inteiro daria um percentual falso. [D27]
 

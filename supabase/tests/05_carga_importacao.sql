@@ -14,6 +14,10 @@
 --
 -- As datas são de 2027 de propósito: assim nunca esbarram no histórico real,
 -- que vai até 21/09/2026.
+--
+-- Os apontamentos de teste ficam DAQUI A 45 DIAS: desde 12/10/2026 a fábrica
+-- aponta pelo site, e um apontamento real no mesmo dia, máquina e turno
+-- confundiria as contagens.
 
 set local role authenticated;
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1');
@@ -61,7 +65,7 @@ exception when others then insert into rc values (1, 'lote de rascunho criado co
 -- ─── Um apontamento feito À MÃO, que a importação não pode encostar ─────────
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000b1');
 do $$ begin
-  perform public.save_production_record(((now() at time zone 'America/Sao_Paulo')::date), 1::smallint, 3,
+  perform public.save_production_record(((now() at time zone 'America/Sao_Paulo')::date + 45), 1::smallint, 3,
     '[{"order_number":"000001009999","quantity":1234}]'::jsonb, 'apontado por uma pessoa');
   insert into rc values (2, 'apontamento manual criado', 'aceita', 'ACEITOU');
 exception when others then insert into rc values (2, 'apontamento manual criado', 'aceita', 'RECUSOU: ' || sqlerrm); end $$;
@@ -93,7 +97,7 @@ exception when others then insert into rc values (5, 'carregar o mesmo lote de n
 do $$ declare n int; begin
   select count(*) into n from public.production_records
    where machine_id = 3 and import_batch_id is null
-     and production_date = (now() at time zone 'America/Sao_Paulo')::date;
+     and production_date = (now() at time zone 'America/Sao_Paulo')::date + 45;
   insert into rc values (6, 'apontamento manual sobreviveu à carga', 'aceita',
     case when n = 1 then 'ACEITOU' else format('RECUSOU: achei %s', n) end);
 end $$;
@@ -160,7 +164,7 @@ do $$ declare imp int; man int; begin
    where import_batch_id = '00000000-0000-0000-0000-00000000ca01'::uuid;
   select count(*) into man from public.production_records
    where machine_id = 3 and import_batch_id is null
-     and production_date = (now() at time zone 'America/Sao_Paulo')::date;
+     and production_date = (now() at time zone 'America/Sao_Paulo')::date + 45;
   insert into rc values (11, 'reversão apagou só o importado', 'aceita',
     case when imp = 0 and man = 1 then 'ACEITOU' else format('RECUSOU: importados=%s manuais=%s', imp, man) end);
 end $$;

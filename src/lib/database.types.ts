@@ -529,7 +529,7 @@ export type Database = {
           id: string
           is_rework: boolean
           notes: string | null
-          order_number: string
+          order_number: string | null
           production_record_id: string
           quantity: number
           rework_reason: string | null
@@ -539,7 +539,7 @@ export type Database = {
           id?: string
           is_rework?: boolean
           notes?: string | null
-          order_number: string
+          order_number?: string | null
           production_record_id: string
           quantity: number
           rework_reason?: string | null
@@ -549,7 +549,7 @@ export type Database = {
           id?: string
           is_rework?: boolean
           notes?: string | null
-          order_number?: string
+          order_number?: string | null
           production_record_id?: string
           quantity?: number
           rework_reason?: string | null

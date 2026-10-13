@@ -62,6 +62,11 @@ export interface Holiday {
 export type HolidayScope = "national" | "state" | "municipal" | "company";
 
 export interface OrdemProducao {
+  /**
+   * Nº da OP: só números, até 15 dígitos (D57). Vazio = OP NÃO INFORMADA (D68):
+   * o banco grava sem número e não cria OP na aba OPs. "0" também é tratado
+   * como não informada.
+   */
   ordemId: string;
   quantidade: number;
   obs?: string;

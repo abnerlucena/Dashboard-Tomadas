@@ -1,4 +1,5 @@
--- O nº da OP: só números, até 15 dígitos (migration 0029).
+-- O nº da OP: só números, até 15 dígitos (migration 0029). Vazio é OP não
+-- informada desde a migration 0041 (D68).
 -- Decisões: D57, D35. Ver README desta pasta.
 --
 -- Rode SEMPRE dentro de uma transação desfeita, depois do 00_fixtures.sql.
@@ -58,17 +59,19 @@ do $$ begin
   insert into rc values (5, 'letra no número', 'recusa', 'ACEITOU');
 exception when others then insert into rc values (5, 'letra no número', 'recusa', 'RECUSOU'); end $$;
 
+-- Até a 0041, OP vazia ou ausente era recusada. Desde a D68 é OP NÃO INFORMADA:
+-- grava com o número nulo (detalhes na suíte 16).
 do $$ begin
   perform public.save_production_record(pg_temp.amanha() + 1, 1::smallint, pg_temp.vertical(),
     '[{"order_number":"","quantity":100}]'::jsonb);
-  insert into rc values (6, 'OP vazia', 'recusa', 'ACEITOU');
-exception when others then insert into rc values (6, 'OP vazia', 'recusa', 'RECUSOU'); end $$;
+  insert into rc values (6, 'OP vazia vira não informada (D68)', 'aceita', 'ACEITOU');
+exception when others then insert into rc values (6, 'OP vazia', 'aceita', 'RECUSOU: ' || sqlerrm); end $$;
 
 do $$ begin
-  perform public.save_production_record(pg_temp.amanha() + 1, 1::smallint, pg_temp.vertical(),
+  perform public.save_production_record(pg_temp.amanha() + 1, 3::smallint, pg_temp.vertical(),
     '[{"quantity":100}]'::jsonb);
-  insert into rc values (7, 'OP ausente', 'recusa', 'ACEITOU');
-exception when others then insert into rc values (7, 'OP ausente', 'recusa', 'RECUSOU'); end $$;
+  insert into rc values (7, 'OP ausente vira não informada (D68)', 'aceita', 'ACEITOU');
+exception when others then insert into rc values (7, 'OP ausente', 'aceita', 'RECUSOU: ' || sqlerrm); end $$;
 
 -- A mensagem diz qual OP e o que fazer.
 do $$ begin

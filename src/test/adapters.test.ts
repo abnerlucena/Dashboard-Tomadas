@@ -48,6 +48,14 @@ describe("adaptadores Supabase → formato das telas", () => {
     expect(toUpdateEntryArgs("r1", { paradaPlanejada: false })).toEqual({ p_id: "r1", p_stop_planned: false });
   });
 
+  it("OP não informada (nula no banco) chega como número vazio, e vazio vai como vazio (D68)", () => {
+    const [r] = buildProdRecords([baseRow], [
+      { production_record_id: "r1", order_number: null, quantity: 700, is_rework: false, notes: null, rework_reason: null },
+    ], names);
+    expect(r.ordensProducao).toEqual([{ ordemId: "", quantidade: 700 }]);
+    expect(toOrdersJson([{ ordemId: "", quantidade: 700 }])[0].order_number).toBe("");
+  });
+
   it("zera a meta da hora extra e do dia anulado, sem perder a produção (D27, D16)", () => {
     const [extra, anulado] = buildProdRecords([
       { ...baseRow, id: "r2", work_mode: "overtime", counts_toward_target: false },

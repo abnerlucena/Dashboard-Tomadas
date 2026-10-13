@@ -11,6 +11,8 @@ import {
   type ProductionOrder,
   type Shift,
   type Status,
+  hasOp,
+  opLabel,
 } from "@/data/machines";
 import { Report, loadExcel, type Column } from "@/lib/xlsx/report";
 import { CHART } from "@/lib/xlsx/theme";
@@ -76,7 +78,7 @@ export async function buildReportXlsx(x: ReportXlsxInput): Promise<Blob> {
       rework: own.reduce((s, o) => s + (o.rework ? o.quantity : 0), 0),
       target: scopedTarget(m, x.shifts, x.range),
       byShift,
-      ops: new Set(own.filter((o) => o.opId).map((o) => o.opId)).size,
+      ops: new Set(own.filter(hasOp).map((o) => o.opId)).size,
       days: new Set(own.map((o) => dayKey(o.date))).size,
       last,
       reasons,
@@ -107,7 +109,7 @@ export async function buildReportXlsx(x: ReportXlsxInput): Promise<Blob> {
     },
     { label: "Máquinas", value: x.machines.length, format: "int", note: `${rows.filter((r) => r.produced > 0).length} com produção` },
     { label: "Dias úteis", value: days.length, format: "int" },
-    { label: "OPs", value: new Set(x.orders.filter((o) => o.opId).map((o) => o.opId)).size, format: "int" },
+    { label: "OPs", value: new Set(x.orders.filter(hasOp).map((o) => o.opId)).size, format: "int" },
     { label: "Apontamentos", value: x.orders.length, format: "int", note: "linhas na aba Apontamentos" },
   ]);
 
@@ -243,7 +245,7 @@ export async function buildReportXlsx(x: ReportXlsxInput): Promise<Blob> {
       { header: "Data", value: (o) => o.date, format: "date" },
       { header: "Turno", value: (o) => SHIFT_META[o.shift].label },
       { header: "Máquina", value: (o) => names.get(o.machineId)?.name ?? "", width: 34 },
-      { header: "OP", value: (o) => o.opId.replace("OP ", "") || "—" },
+      { header: "OP", value: (o) => (o.opId.replace("OP ", "") ? opLabel(o) : "—") },
       { header: "Material", value: (o) => o.material },
       { header: "Descrição do material", value: (o) => o.product, width: 28 },
       { header: "Quantidade", value: (o) => o.quantity, format: "int", total: "sum", dataBar: true },

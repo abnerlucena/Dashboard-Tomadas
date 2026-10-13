@@ -14,6 +14,8 @@ import {
   type ProductionOrder,
   type Shift,
   type Status,
+  hasOp,
+  opLabel,
 } from "@/data/machines";
 import { Report, loadExcel, type Column, type Kpi } from "@/lib/xlsx/report";
 import { CHART } from "@/lib/xlsx/theme";
@@ -40,8 +42,8 @@ export interface DashboardExport {
 
 const dm = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" });
 const rework = (orders: ProductionOrder[]) => orders.reduce((s, o) => s + (o.rework ? o.quantity : 0), 0);
-const ops = (orders: ProductionOrder[]) => new Set(orders.filter((o) => o.quantity > 0 && o.opId).map((o) => o.opId)).size;
-const opNumber = (o: ProductionOrder) => o.opId.replace("OP ", "");
+const ops = (orders: ProductionOrder[]) => new Set(orders.filter((o) => o.quantity > 0 && hasOp(o)).map((o) => o.opId)).size;
+const opNumber = (o: ProductionOrder) => (hasOp(o) ? o.opId.replace("OP ", "") : opLabel(o));
 const source = () => (DATA_ORIGIN === "backend" ? "Dados do banco" : "Demonstração (dados fictícios)");
 const fraction = (num: number, den: number) => (den > 0 ? num / den : null);
 const statusOf = (produced: number, target: number): Status | null =>

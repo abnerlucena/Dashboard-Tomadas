@@ -9,6 +9,7 @@ import {
   type DateRange,
   type Machine,
   type ProductionOrder,
+  opLabel,
 } from "@/data/machines";
 import { formatDecimal, formatNumber } from "@/lib/utils";
 import { reasonOf, reworkRate, reworkReasonsOf } from "@/features/machines/insights";
@@ -229,7 +230,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
             machineById(o.machineId).name,
             // o cabeçalho já diz "Turno": só o número, sem quebrar a linha
             String(o.shift),
-            o.opId.replace("OP ", ""),
+            o.opId.replace("OP ", "") ? opLabel(o) : "",
             o.material,
             o.product,
             formatNumber(o.quantity),

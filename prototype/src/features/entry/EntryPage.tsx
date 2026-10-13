@@ -10,6 +10,7 @@ import {
   LINE_ACCENT,
   MACHINE_GROUPS,
   MACHINES,
+  NO_OP,
   REWORK_REASONS,
   SHIFTS,
   SHIFT_META,
@@ -177,8 +178,8 @@ function rowErrors(r: OpRow) {
   const qty = r.qty.trim();
   const errors: { op?: string; qty?: string; reason?: string } = {};
   if (qty !== "" && (!Number.isInteger(Number(qty)) || Number(qty) < 0)) errors.qty = "Use um número inteiro";
-  if (qtyOf(r) > 0 && !r.op.trim()) errors.op = "Informe o número da OP";
-  else if (r.op.trim() && !OP_PATTERN.test(r.op.trim())) errors.op = "Use só números, até 15 dígitos";
+  // O nº da OP é opcional por enquanto: sem ele, o apontamento vai como "não informado"
+  if (r.op.trim() && !OP_PATTERN.test(r.op.trim())) errors.op = "Use só números, até 15 dígitos";
   // Retrabalho sem motivo deixa o gráfico "Motivos de retrabalho" sem informação
   if (r.rework && qtyOf(r) > 0 && !r.reason.trim()) errors.reason = "Escreva o motivo do retrabalho";
   return errors;
@@ -460,7 +461,7 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
               stopPlanned: !!e.stop.trim() && e.stopPlanned,
               good: (prev?.good ?? 0) + rows.reduce((s, r) => s + (r.rework ? 0 : qtyOf(r)), 0),
               rework: (prev?.rework ?? 0) + rows.reduce((s, r) => s + (r.rework ? qtyOf(r) : 0), 0),
-              ops: [...new Set([...(prev?.ops ?? []), ...rows.map((r) => r.op.trim())])],
+              ops: [...new Set([...(prev?.ops ?? []), ...rows.map((r) => opLabel({ opId: r.op.trim() || NO_OP }))])],
             };
             nextForm[id] = { ...e, rows: [newRow()], stopOpen: false, stop: "", stopPlanned: false, error: undefined };
           }
@@ -1229,7 +1230,13 @@ function MachineEntryRow({
               onChange={(e) => setRow(r.key, { op: e.target.value.replace(/\D/g, "").slice(0, 15) })}
               error={showErrors || (r.qty && !r.op) ? errors.op : null}
               warning={errors.op ? null : hintFor(r.op)}
-              helper={releasedNumbers.includes(r.op) ? "OP liberada desta máquina" : undefined}
+              helper={
+                releasedNumbers.includes(r.op)
+                  ? "OP liberada desta máquina"
+                  : qtyOf(r) > 0 && !r.op.trim()
+                    ? "Sem número: vai como não informado"
+                    : undefined
+              }
               inputClassName="text-right font-code tabular-nums"
               className="w-field-op flex-1 basis-field-op s:flex-none"
             />

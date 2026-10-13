@@ -45,7 +45,7 @@ test("gestor entra e navega pelas telas principais", async ({ page }) => {
   expect(erros).toEqual([]);
 });
 
-test("apontamento valida a OP e salva (demonstração)", async ({ page }) => {
+test("apontamento valida a OP e salva, e sem OP vai como não informado (demonstração)", async ({ page }) => {
   await entrar(page, "gestor@demo.weg");
   await iniciarTurno(page);
   const maquina = "Máquina de tomadas Composé (Aumaq)";
@@ -53,11 +53,16 @@ test("apontamento valida a OP e salva (demonstração)", async ({ page }) => {
   // O nº da OP começa vazio: quem aponta digita
   await expect(page.getByLabel(`Nº da OP, linha 1, ${maquina}`)).toHaveValue("");
   await page.getByLabel(`Quantidade, linha 1, ${maquina}`).fill("5000");
-  await page.getByRole("button", { name: "Salvar tudo" }).click();
-  await expect(page.getByText("Corrija os campos destacados")).toBeVisible();
-  await page.getByLabel(`Nº da OP, linha 1, ${maquina}`).fill("4511111");
+  // O nº da OP é opcional por enquanto: avisa que vai como não informado, sem barrar
+  await expect(page.getByText("Sem número: vai como não informado")).toBeVisible();
+  // Mas, se digitou, tem de ser válido (só números, até 15)
+  await page.getByLabel(`Nº da OP, linha 1, ${maquina}`).fill("1234567890123456");
+  await expect(page.getByLabel(`Nº da OP, linha 1, ${maquina}`)).toHaveValue("123456789012345");
+  await page.getByLabel(`Nº da OP, linha 1, ${maquina}`).fill("");
   await page.getByRole("button", { name: "Salvar tudo" }).click();
   await expect(page.getByText("Apontamento salvo")).toBeVisible();
+  // gravada sem OP: aparece "Não informado" na linha recolhida
+  await expect(page.getByText("Não informado").first()).toBeVisible();
 });
 
 test("meta por pessoa exige o nº de operadores; OP aceita até 15 dígitos", async ({ page }) => {

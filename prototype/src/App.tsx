@@ -84,6 +84,10 @@ import { UsersPage } from "@/features/access/UsersPage";
 import { BackendGate } from "@/features/data/BackendGate";
 import { Spinner } from "@/components/ui/Spinner";
 import { useColorMode, type ColorModePreference } from "@/lib/hooks";
+import { PreferencesProvider } from "@/features/preferences/PreferencesProvider";
+import { usePrefs } from "@/features/preferences/PreferencesContext";
+import { PreferencesPage } from "@/features/preferences/PreferencesPage";
+import { ProfilePage } from "@/features/preferences/ProfilePage";
 import { cn, plural, readToken, storageGet, storageSet, type Notify } from "@/lib/utils";
 
 /* ---------- Navegação ---------- */
@@ -231,7 +235,9 @@ function Gate() {
   return (
     <BackendGate>
       <OpsProvider>
-        <Shell />
+        <PreferencesProvider>
+          <Shell />
+        </PreferencesProvider>
       </OpsProvider>
     </BackendGate>
   );
@@ -244,7 +250,24 @@ function Shell() {
   const home = [...NAV_MAIN, ...NAV_SECTIONS.flatMap((s) => s.items)].find((n) => canOpen(n.id))?.id ?? "ajuda";
   const route = rawRoute === "dashboard" && !canOpen("dashboard") ? home : rawRoute;
   const { totalUnread } = useOps();
-  const colorMode = useColorMode();
+  const { prefs, setPref, store, user } = usePrefs();
+  const resolvedMode = useColorMode(prefs.tema);
+  // O tema é uma preferência da conta: trocar aqui (ícone do topo, menu) grava nela
+  const colorMode = { ...resolvedMode, setPreference: (p: ColorModePreference) => setPref("tema", p) };
+
+  // Ao entrar sem endereço, abre a página escolhida nas preferências (Apontamento ou a última tela)
+  useEffect(() => {
+    const h = window.location.hash;
+    if (h && h !== "#" && h !== "#/") return;
+    const want = prefs.inicio === "apontamento" ? "apontamento" : prefs.inicio === "ultima" ? store.lastRoute(user) : null;
+    if (want && want !== "dashboard" && canOpen(want)) window.location.hash = `/${want}`;
+    // só uma vez por sessão: depois disso a pessoa navega por conta própria
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+  // Lembra a última tela aberta, para a opção "Última tela"
+  useEffect(() => {
+    if (ALL_NAV.some((n) => n.id === route && n.id !== "tv")) store.saveLastRoute(user, route);
+  }, [route, store, user]);
   const [search, setSearch] = useState("");
   const [demoState, setDemoState] = useState<DemoState>("live");
   const [flags, setFlags] = useState<FlagData[]>([]);
@@ -350,6 +373,7 @@ function Shell() {
         }
       >
         <Main>
+          <NavPreferenceSync />
           {current && !canOpen(route) ? (
             <div className="px-200 pt-300 m:px-400">
               <h1 className="font-heading-large text-default">{current.label}</h1>
@@ -394,6 +418,10 @@ function Shell() {
             <UsersPage notify={notify} />
           ) : route === "ajuda" ? (
             <HelpPage />
+          ) : route === "perfil" ? (
+            <ProfilePage notify={notify} />
+          ) : route === "preferencias" ? (
+            <PreferencesPage />
           ) : (
             <div className="px-200 pt-300 m:px-400">
               <h1 className="font-heading-large text-default">{current?.label ?? "Página não encontrada"}</h1>
@@ -655,13 +683,27 @@ function DemoMenu({ value, onChange }: { value: DemoState; onChange: (s: DemoSta
   );
 }
 
+/** Aplica a preferência "barra lateral aberta" quando a pessoa entra ou a muda; não renderiza nada */
+function NavPreferenceSync() {
+  const { prefs, user } = usePrefs();
+  const { setSideNavExpanded } = useLayout();
+  useEffect(() => {
+    setSideNavExpanded(prefs.nav);
+  }, [prefs.nav, user, setSideNavExpanded]);
+  return null;
+}
+
 function UserMenuItems() {
   const { session, logout } = useAccess();
   return (
     <>
       <MenuLabel>{session?.nome}</MenuLabel>
-      <MenuItem icon={UserRound}>Perfil</MenuItem>
-      <MenuItem icon={Settings}>Preferências</MenuItem>
+      <MenuItem icon={UserRound} onSelect={() => (window.location.hash = "/perfil")}>
+        Perfil
+      </MenuItem>
+      <MenuItem icon={Settings} onSelect={() => (window.location.hash = "/preferencias")}>
+        Preferências
+      </MenuItem>
       <MenuSeparator />
       <MenuItem icon={LogOut} onSelect={() => logout()}>
         Sair

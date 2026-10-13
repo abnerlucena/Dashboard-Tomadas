@@ -34,6 +34,8 @@ export interface LayoutState {
   setSideNavWidth: (px: number) => void;
   sideNavBounds: () => { min: number; max: number };
   toggleSideNav: () => void;
+  /** Abre ou recolhe a navegação por padrão (a preferência da conta); não mexe na gaveta */
+  setSideNavExpanded: (expanded: boolean) => void;
   collapseSideNav: () => void;
 
   flyoutOpen: boolean;

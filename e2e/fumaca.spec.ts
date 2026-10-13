@@ -114,6 +114,79 @@ test("operador não vê a gestão de usuários", async ({ page }) => {
   await expect(page.getByText("Sem permissão para esta tela")).toBeVisible();
 });
 
+/** Sai pelo menu da conta */
+const sair = async (page: Page) => {
+  await page.getByRole("button", { name: /^Conta de/ }).click();
+  await page.getByRole("menuitem", { name: "Sair" }).click();
+  await expect(page.getByLabel(/e-mail/i).first()).toBeVisible();
+};
+
+test("preferências são pessoais: o tema de uma conta não vai para a outra", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await page.goto("/#/preferencias");
+  await expect(page.getByRole("heading", { name: "Preferências", level: 1 })).toBeVisible();
+  await page.getByRole("radio", { name: /Escuro/ }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-color-mode", "dark");
+  await sair(page);
+  // outra pessoa no mesmo computador: abre com as dela (padrão), não com o escuro do gestor
+  await entrar(page, "operador@demo.weg");
+  await page.goto("/#/preferencias");
+  await expect(page.getByRole("radio", { name: /Igual ao sistema/ })).toHaveAttribute("aria-checked", "true");
+  await expect(page.locator("html")).toHaveAttribute("data-color-mode", "light");
+  await sair(page);
+  // o gestor volta e o escuro dele continua lá
+  await entrar(page, "gestor@demo.weg");
+  await page.goto("/#/preferencias");
+  await expect(page.getByRole("radio", { name: /Escuro/ })).toHaveAttribute("aria-checked", "true");
+  await expect(page.locator("html")).toHaveAttribute("data-color-mode", "dark");
+});
+
+test("preferências: página inicial Apontamento abre o Apontamento ao entrar", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await page.goto("/#/preferencias");
+  await page.getByRole("radio", { name: /Apontamento/ }).click();
+  await sair(page);
+  await page.goto("/");
+  await entrar(page, "gestor@demo.weg");
+  await expect(page).toHaveURL(/#\/apontamento/);
+});
+
+test("preferências: campos maiores ligam e desligam no Apontamento", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await iniciarTurno(page);
+  const maquina = "Máquina de plugue Slin (Aumaq)";
+  const campo = page.getByLabel(`Quantidade, linha 1, ${maquina}`);
+  expect((await campo.boundingBox())!.height).toBeGreaterThanOrEqual(43);
+  await page.goto("/#/preferencias");
+  await page.getByRole("switch", { name: "Campos e botões maiores" }).click();
+  await iniciarTurno(page);
+  expect((await page.getByLabel(`Quantidade, linha 1, ${maquina}`).boundingBox())!.height).toBeLessThan(40);
+});
+
+test("preferências: sem rascunho, o que foi digitado não volta depois de recarregar", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await page.goto("/#/preferencias");
+  await page.getByRole("switch", { name: "Guardar rascunho" }).click();
+  await iniciarTurno(page);
+  const maquina = "Máquina de plugue Slin (Aumaq)";
+  await page.getByLabel(`Quantidade, linha 1, ${maquina}`).fill("77");
+  await page.waitForTimeout(800);
+  await page.reload();
+  await page.goto("/#/apontamento");
+  await expect(page.getByRole("heading", { name: /ficou pela metade|ficaram pela metade/ })).toHaveCount(0);
+});
+
+test("perfil mostra quem sou e o menu da conta abre Perfil e Preferências", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await page.getByRole("button", { name: /^Conta de/ }).click();
+  await page.getByRole("menuitem", { name: "Perfil" }).click();
+  await expect(page.getByRole("heading", { name: "Perfil", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Rafael Souza", level: 2 })).toBeVisible();
+  await page.getByRole("button", { name: /^Conta de/ }).click();
+  await page.getByRole("menuitem", { name: "Preferências" }).click();
+  await expect(page.getByRole("heading", { name: "Preferências", level: 1 })).toBeVisible();
+});
+
 test("o olho mostra e esconde a senha com o clique", async ({ page }) => {
   await page.goto("/");
   const senha = page.getByLabel("Senha", { exact: true });

@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import { storageGet, storageSet } from "./utils";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 
 export function useMediaQuery(query: string) {
   const subscribe = useCallback(
@@ -22,12 +21,12 @@ export function useBreakpoints() {
 }
 
 export type ColorModePreference = "light" | "dark" | "auto";
-const COLOR_MODE_KEY = "dash-proto.color-mode";
 
-export function useColorMode() {
-  const [preference, setPreference] = useState<ColorModePreference>(() =>
-    storageGet<ColorModePreference>(COLOR_MODE_KEY, "auto"),
-  );
+/**
+ * Aplica o tema escolhido. A escolha é pessoal e mora nas preferências da conta
+ * (features/preferences); aqui só se resolve "igual ao sistema" e se marca a página.
+ */
+export function useColorMode(preference: ColorModePreference) {
   const systemDark = useMediaQuery("(prefers-color-scheme: dark)");
   const resolved = preference === "auto" ? (systemDark ? "dark" : "light") : preference;
 
@@ -35,10 +34,5 @@ export function useColorMode() {
     document.documentElement.setAttribute("data-color-mode", resolved);
   }, [resolved]);
 
-  const update = useCallback((next: ColorModePreference) => {
-    setPreference(next);
-    storageSet(COLOR_MODE_KEY, next);
-  }, []);
-
-  return { preference, resolved, setPreference: update };
+  return { preference, resolved };
 }

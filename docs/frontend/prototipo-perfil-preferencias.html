@@ -1,0 +1,285 @@
+<title>Perfil e Preferências</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: bandeja lateral (recolhe no ambiente de apontamento) + barra de passos no topo; passo 2 = lista de status fixa à esquerda + todas as máquinas em sequência à direita,
+   cada uma com "Concluir" (o distribuidor aponta as 22 em sequência, sem abrir e fechar telas).
+   Cores e tipos copiados do Dash de Produção (tokens.css), para o protótipo parecer a tela real. */
+:root {
+  --bg: #F7F9FA;
+  --surface: #FFFFFF;
+  --sunken: #EEF1F4;
+  --fg: #161F2D;
+  --subtle: #434F60;
+  --subtlest: #5D6979;
+  --border: #D9DEE5;
+  --border-strong: #AEB7C2;
+  --brand: #0062B2;
+  --brand-hover: #00508F;
+  --on-brand: #FFFFFF;
+  --selected-bg: #E7F3FE;
+  --selected-fg: #105893;
+  --success: #126836; --success-bg: #E7F8ED;
+  --warning: #914808; --warning-bg: #FFF1D1;
+  --danger: #AD1F1F; --danger-bg: #FEE9E9;
+  --neutral-bg: #EEF1F4;
+  --banner: #2C3644; --on-banner: #FFFFFF;
+  --shadow: 0 1px 2px rgba(22,31,45,.08), 0 0 1px rgba(22,31,45,.18);
+  --overlay: rgba(22,31,45,.45);
+  --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101722; --surface: #18212E; --sunken: #121A25; --fg: #E6EAF0; --subtle: #B4BDC9; --subtlest: #96A1AF;
+    --border: #2F3B4B; --border-strong: #4A5A70; --brand: #4C9EEB; --brand-hover: #74B5F2; --on-brand: #0B1420;
+    --selected-bg: #11304D; --selected-fg: #9CCBF7;
+    --success: #6FD39A; --success-bg: #12301F; --warning: #F5B25C; --warning-bg: #3A2A10; --danger: #F38B8B; --danger-bg: #3D1717;
+    --neutral-bg: #222D3B; --banner: #050A12; --on-banner: #E6EAF0;
+    --shadow: 0 0 0 1px #2F3B4B; --overlay: rgba(0,0,0,.6); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101722; --surface: #18212E; --sunken: #121A25; --fg: #E6EAF0; --subtle: #B4BDC9; --subtlest: #96A1AF;
+  --border: #2F3B4B; --border-strong: #4A5A70; --brand: #4C9EEB; --brand-hover: #74B5F2; --on-brand: #0B1420;
+  --selected-bg: #11304D; --selected-fg: #9CCBF7;
+  --success: #6FD39A; --success-bg: #12301F; --warning: #F5B25C; --warning-bg: #3A2A10; --danger: #F38B8B; --danger-bg: #3D1717;
+  --neutral-bg: #222D3B; --banner: #050A12; --on-banner: #E6EAF0;
+  --shadow: 0 0 0 1px #2F3B4B; --overlay: rgba(0,0,0,.6); color-scheme: dark;
+}
+
+[hidden] { display: none !important; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 400 15px/1.45 var(--font); margin: 0; padding-inline: 16px; padding-block: 16px 56px; }
+button, input { font: inherit; color: inherit; }
+h1, h2, h3, h4 { text-wrap: balance; margin: 0; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.shell { max-width: 1040px; margin: 0 auto; display: grid; gap: 16px; }
+.note { background: var(--sunken); border: 1px dashed var(--border-strong); border-radius: 10px; padding: 10px 14px; font-size: 13px; color: var(--subtle); display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+.note b { color: var(--fg); }
+.seg { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.seg button { height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--subtle); cursor: pointer; font-size: 13px; font-weight: 500; }
+.seg button[aria-pressed="true"] { background: var(--selected-bg); color: var(--selected-fg); border-color: var(--brand); }
+
+/* barra do Dash */
+.top { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 8px 14px; display: flex; align-items: center; gap: 12px; position: relative; }
+.logo { width: 32px; height: 32px; border-radius: 8px; background: var(--brand); color: var(--on-brand); font-weight: 700; display: grid; place-items: center; font-size: 12px; }
+.top strong { font-size: 15px; }
+.top .sp { flex: 1; }
+.avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--selected-bg); color: var(--selected-fg); font-weight: 700; font-size: 12px; display: grid; place-items: center; border: 0; cursor: pointer; padding: 0; overflow: hidden; }
+.menu { position: absolute; right: 10px; top: 52px; z-index: 10; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.18); min-width: 15rem; padding: 6px; display: grid; gap: 2px; }
+.menu .who { padding: 8px 10px; font-size: 13px; color: var(--subtle); border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+.menu .who b { display: block; color: var(--fg); font-size: 14px; }
+.menu button { text-align: left; background: transparent; border: 0; border-radius: 6px; padding: 8px 10px; cursor: pointer; display: flex; gap: 8px; align-items: center; }
+.menu button:hover { background: var(--sunken); }
+.menu hr { border: 0; border-top: 1px solid var(--border); margin: 4px 0; width: 100%; }
+
+.page { display: grid; gap: 16px; }
+.page > h1 { font-size: 22px; font-weight: 700; }
+.page > p { margin: -8px 0 0; color: var(--subtle); max-width: 70ch; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); }
+.tabs button { background: transparent; border: 0; padding: 10px 14px; cursor: pointer; color: var(--subtle); font-weight: 500; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs button[aria-selected="true"] { color: var(--selected-fg); border-bottom-color: var(--brand); font-weight: 600; }
+
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.card h2 { font-size: 16px; font-weight: 600; }
+.card .sub { margin: 0; font-size: 13px; color: var(--subtle); max-width: 66ch; }
+.cols { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+@media (max-width: 820px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+
+.opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); gap: 8px; }
+.opt { display: grid; gap: 2px; min-height: 52px; padding: 10px 12px; border-radius: 10px; border: 2px solid var(--border-strong); background: var(--surface); text-align: left; cursor: pointer; font-weight: 600; }
+.opt small { font-weight: 400; font-size: 12px; color: var(--subtlest); }
+.opt:hover { background: var(--sunken); }
+.opt[aria-checked="true"] { border-color: var(--brand); background: var(--selected-bg); color: var(--selected-fg); }
+.opt[aria-checked="true"] small { color: var(--selected-fg); }
+.row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.row .t { min-width: 0; flex: 1 1 16rem; }
+.row .t b { display: block; font-weight: 600; }
+.row .t span { font-size: 13px; color: var(--subtle); }
+.switch { width: 46px; height: 26px; border-radius: 999px; border: 0; background: var(--border-strong); position: relative; cursor: pointer; flex: none; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.switch[aria-checked="true"] { background: var(--brand); }
+.switch[aria-checked="true"]::after { transform: translateX(20px); }
+.btn { height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--subtle); font-weight: 500; cursor: pointer; }
+.btn:hover { background: var(--sunken); }
+.btn.primary { background: var(--brand); border-color: var(--brand); color: var(--on-brand); font-weight: 600; }
+.btn.danger { color: var(--danger); border-color: var(--danger); }
+.saved { font-size: 12px; color: var(--success); background: var(--success-bg); padding: 2px 10px; border-radius: 999px; font-weight: 600; }
+.preview { border: 1px dashed var(--border-strong); border-radius: 10px; padding: 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; background: var(--sunken); }
+.preview .fld { border: 1px solid var(--border-strong); border-radius: 6px; background: var(--surface); padding: 0 10px; display: flex; align-items: center; color: var(--subtlest); width: 9rem; justify-content: flex-end; transition: height .12s; }
+.preview .pb { border-radius: 6px; background: var(--brand); color: var(--on-brand); padding: 0 14px; display: flex; align-items: center; font-weight: 600; transition: height .12s; }
+.mini { display: grid; grid-template-columns: auto 1fr; gap: 8px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; height: 74px; background: var(--sunken); }
+.mini .nav { width: 70px; background: var(--surface); border-right: 1px solid var(--border); padding: 8px; display: grid; gap: 4px; align-content: start; transition: width .15s; }
+.mini .nav.off { width: 20px; }
+.mini .nav i { display: block; height: 8px; border-radius: 4px; background: var(--border-strong); }
+.mini .body { padding: 10px; display: grid; gap: 6px; align-content: start; }
+.mini .body i { display: block; height: 10px; border-radius: 4px; background: var(--border); }
+.mini .body i:first-child { width: 40%; background: var(--border-strong); }
+
+/* perfil */
+.id { display: flex; flex-wrap: wrap; gap: 16px 20px; align-items: flex-start; }
+.big { width: 64px; height: 64px; border-radius: 50%; background: var(--selected-bg); color: var(--selected-fg); font-weight: 700; font-size: 22px; display: grid; place-items: center; flex: none; }
+.id h2 { font-size: 20px; }
+.id p { margin: 0; color: var(--subtle); }
+.chip { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: var(--neutral-bg); color: var(--subtle); }
+.chip.brand { background: var(--selected-bg); color: var(--selected-fg); }
+dl { margin: 0; display: grid; gap: 0; }
+dl div { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border); font-size: 14px; flex-wrap: wrap; }
+dl div:first-child { border-top: 0; }
+dt { color: var(--subtle); } dd { margin: 0; font-weight: 500; text-align: right; }
+.can { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.can li { display: flex; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); align-items: flex-start; }
+.can li:first-child { border-top: 0; }
+.can .mk { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; flex: none; margin-top: 2px; }
+.can .yes .mk { background: var(--success-bg); color: var(--success); }
+.can .no .mk { background: var(--neutral-bg); color: var(--subtlest); }
+.can .no { color: var(--subtlest); }
+.can b { font-weight: 600; display: block; }
+.can small { font-size: 12px; color: inherit; opacity: .85; }
+.ph { position: relative; width: 88px; height: 88px; flex: none; }
+.ph .big { width: 88px; height: 88px; font-size: 28px; overflow: hidden; }
+.ph .big img, .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 50%; }
+.ph .cam { position: absolute; right: -4px; bottom: -4px; width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--surface); background: var(--brand); color: var(--on-brand); cursor: pointer; display: grid; place-items: center; padding: 0; }
+.ph .cam:hover { background: var(--brand-hover); }
+.photo-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+.err { color: var(--danger); background: var(--danger-bg); border-radius: 8px; padding: 6px 10px; font-size: 13px; margin-top: 8px; }
+.hint { font-size: 12px; color: var(--subtlest); margin: 6px 0 0; max-width: 56ch; }
+.sent { background: var(--success-bg); color: var(--success); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+.todo { background: var(--warning-bg); color: var(--warning); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+</style>
+
+<div class="shell">
+  <div class="note">
+    <span><b>Protótipo de Perfil e Preferências.</b> Dados fictícios. As preferências são pessoais: cada conta tem as suas. Troque o "Ver como" e veja que tema, página inicial e demais escolhas mudam junto.</span>
+    <span>Ver como: <span class="seg" id="who" role="group" aria-label="Ver como"></span></span>
+  </div>
+
+  <div class="page" id="page"></div>
+  <input type="file" id="file" accept="image/jpeg,image/png,image/webp" hidden>
+</div>
+
+<script>
+var PROFILES = {
+  gestor: { nome: "Renata Souza", email: "renata.souza@empresa.com.br", perfil: "Gestor", tipo: "Conta pessoal", expira: "hoje, 18:00",
+    can: { apontar: true, corrigir: true, metas: true, relatorios: true, usuarios: false, ops: true } },
+  distribuidor: { nome: "Carlos Mendes", email: "carlos.mendes@empresa.com.br", perfil: "Distribuidor", tipo: "Conta pessoal", expira: "hoje, 18:00",
+    can: { apontar: true, corrigir: false, metas: false, relatorios: false, usuarios: false, ops: false } },
+  compartilhada: { nome: "Linha de montagem 2", email: "", perfil: "Operador", tipo: "Conta compartilhada", expira: "no fim do turno", cracha: "Ana Lima · crachá 48213",
+    can: { apontar: true, corrigir: false, metas: false, relatorios: false, usuarios: false, ops: false } }
+};
+var DEFAULTS = { tema: "auto", inicio: "dashboard", nav: true, toque: false, rascunho: true };
+var state = { foto: null, fotoErr: "", fotoOk: "", msg: "", who: "gestor", tab: "prefs", prefs: Object.assign({}, DEFAULTS), drafts: 2, resetSent: false, wipe: false, saved: false };
+try { state.foto = localStorage.getItem("foto-proto") || null; } catch (e) {}
+// Preferência é pessoal: cada conta tem as suas (aqui, uma chave por perfil de teste)
+function loadPrefs() {
+  state.prefs = Object.assign({}, DEFAULTS);
+  try { var raw = localStorage.getItem("prefs-proto:" + state.who); if (raw) Object.assign(state.prefs, JSON.parse(raw)); } catch (e) {}
+}
+loadPrefs();
+var P = function () { return PROFILES[state.who]; };
+var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+var initials = function (n) { return n.split(" ").slice(0, 2).map(function (x) { return x[0]; }).join("").toUpperCase(); };
+
+function applyTheme() {
+  var r = document.documentElement, t = state.prefs.tema;
+  if (t === "auto") r.removeAttribute("data-theme"); else r.setAttribute("data-theme", t === "escuro" ? "dark" : "light");
+}
+function savePrefs() {
+  try { localStorage.setItem("prefs-proto:" + state.who, JSON.stringify(state.prefs)); } catch (e) {}
+  state.saved = true; clearTimeout(savePrefs.t); savePrefs.t = setTimeout(function () { state.saved = false; var s = document.getElementById("saved"); if (s) s.hidden = true; }, 2200);
+}
+function setPref(k, v) { state.prefs[k] = v; savePrefs(); applyTheme(); render(); }
+
+function optGroup(label, key, items) {
+  return '<div role="radiogroup" aria-label="' + label + '" class="opts">' + items.map(function (o) {
+    return '<button type="button" role="radio" class="opt" aria-checked="' + (state.prefs[key] === o[0]) + '" data-pref="' + key + '" data-v="' + o[0] + '">' + o[1] + '<small>' + o[2] + '</small></button>';
+  }).join("") + '</div>';
+}
+function prefsView() {
+  var p = state.prefs, h = p.toque ? 44 : 32;
+  return '<div class="card"><div class="row"><div class="t"><h2>Aparência</h2><p class="sub">Só para você: outras pessoas que usam este computador têm as delas.</p></div><span class="saved" id="saved"' + (state.saved ? "" : " hidden") + '>Salvo na sua conta</span></div>' +
+    '<h3 style="font-size:13px;color:var(--subtle)">Tema</h3>' + optGroup("Tema", "tema", [["claro", "Claro", "Fundo branco"], ["escuro", "Escuro", "Menos brilho"], ["auto", "Igual ao sistema", "Segue o aparelho"]]) + '</div>' +
+    '<div class="cols">' +
+    '<div class="card"><h2>Ao entrar</h2><p class="sub">Para onde o Dash leva depois do login.</p>' +
+    optGroup("Página inicial", "inicio", [["dashboard", "Dashboard", "Visão geral"], ["apontamento", "Apontamento", "Direto para apontar"], ["ultima", "Última tela", "Onde parei"]]) +
+    '<div class="row" style="border-top:1px solid var(--border);padding-top:12px"><div class="t"><b>Barra lateral aberta</b><span>Abre ou recolhe a navegação por padrão.</span></div><button class="switch" role="switch" aria-checked="' + p.nav + '" aria-label="Barra lateral aberta" data-sw="nav"></button></div>' +
+    '<div class="mini" aria-hidden="true"><div class="nav' + (p.nav ? "" : " off") + '"><i></i><i></i><i></i></div><div class="body"><i></i><i></i><i></i></div></div></div>' +
+    '<div class="card"><h2>Apontamento</h2><p class="sub">Ajustes da tela de apontamento.</p>' +
+    '<div class="row"><div class="t"><b>Campos e botões maiores</b><span>44px em vez de 32px: melhor para tablet e luva.</span></div><button class="switch" role="switch" aria-checked="' + p.toque + '" aria-label="Campos e botões maiores" data-sw="toque"></button></div>' +
+    '<div class="preview" aria-hidden="true"><span class="fld" style="height:' + h + 'px">4501234</span><span class="pb" style="height:' + h + 'px">Concluir</span></div>' +
+    '<div class="row" style="border-top:1px solid var(--border);padding-top:12px"><div class="t"><b>Guardar rascunho</b><span>O que você digitou e não concluiu volta se a energia cair ou o navegador fechar. Fica só neste computador, por 48 horas.</span></div><button class="switch" role="switch" aria-checked="' + p.rascunho + '" aria-label="Guardar rascunho" data-sw="rascunho"></button></div>' +
+    (state.wipe ? '<div class="row"><span style="font-size:13px">Apagar ' + state.drafts + ' rascunhos deste computador?</span><span class="seg"><button type="button" data-a="wipe-no" style="background:var(--surface);color:var(--subtle)">Cancelar</button><button type="button" data-a="wipe-yes" aria-pressed="true">Apagar</button></span></div>'
+      : '<div class="row"><span style="font-size:13px;color:var(--subtle)">' + (state.drafts ? state.drafts + ' rascunhos neste computador' : 'Nenhum rascunho neste computador') + '</span><button class="btn danger" type="button" data-a="wipe"' + (state.drafts ? '' : ' disabled style="opacity:.5;cursor:not-allowed"') + '>Apagar rascunhos</button></div>') +
+    '</div></div>' +
+    '<div class="row"><span class="sub" style="font-size:13px;color:var(--subtle)">Salvam sozinhas, sem botão. São da sua conta e seguem você.</span><button class="btn" type="button" data-a="defaults">Restaurar padrões</button></div>';
+}
+function profileView() {
+  var u = P();
+  var canPhoto = state.who !== "compartilhada";
+  var big = '<div class="ph"><div class="big" aria-hidden="true">' + (canPhoto && state.foto ? '<img alt="" src="' + state.foto + '">' : esc(initials(u.nome))) + '</div>' + (canPhoto ? '<button class="cam" type="button" data-a="pick" aria-label="Alterar foto de perfil"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></button>' : '') + '</div>';
+  var actions = canPhoto ? '<div class="photo-actions">' + (state.foto ? '<button class="btn danger" type="button" data-a="rmfoto">Remover foto</button>' : '') + '</div>' + (state.fotoErr ? '<div class="err" role="alert">' + esc(state.fotoErr) + '</div>' : '') + '' : '';
+  return '<div class="card"><div class="id">' + big + '<div><h2>' + esc(u.nome) + '</h2><p>' + (u.email ? esc(u.email) : esc(u.cracha || "")) + '</p><p style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><span class="chip brand">' + esc(u.perfil) + '</span><span class="chip">' + esc(u.tipo) + '</span></p>' + actions + '</div></div></div>' +
+    '<div class="card"><h2>Minha conta</h2><dl>' +
+    '<div><dt>Nome</dt><dd>' + esc(u.nome) + '</dd></div>' +
+    (u.email ? '<div><dt>E-mail</dt><dd>' + esc(u.email) + '</dd></div>' : '<div><dt>Identificado por</dt><dd>' + esc(u.cracha) + '</dd></div>') +
+    '<div><dt>Perfil</dt><dd>' + esc(u.perfil) + '</dd></div><div><dt>Tipo de conta</dt><dd>' + esc(u.tipo) + '</dd></div></dl></div>' +
+
+    (u.email ? '<div class="card"><h2>Senha</h2><p class="sub">Enviamos um link para o seu e-mail; ao abrir, você define a senha nova.</p>' +
+      (state.resetSent ? '<div class="sent" role="status">Enviamos o link para ' + esc(u.email) + '. Confira a caixa de entrada.</div>' : '<div><button class="btn primary" type="button" data-a="reset">Enviar link para trocar a senha</button></div>') +
+      '<div class="todo"><b>Depende do banco:</b> trocar a senha aqui dentro, informando a atual, precisa de uma função nova no contrato. Até lá, vale o link por e-mail.</div></div>'
+      : '<div class="card"><h2>Senha</h2><p class="sub">Conta compartilhada: quem entra é identificado pelo crachá, e a senha é da área. Peça a troca ao administrador.</p></div>') +
+    '<div class="row"><span></span><button class="btn" type="button" data-a="logout">Sair do Dash</button></div>';
+}
+function render() {
+  var u = P();
+  document.getElementById("who").innerHTML = Object.keys(PROFILES).map(function (k) { return '<button type="button" data-who="' + k + '" aria-pressed="' + (state.who === k) + '">' + PROFILES[k].perfil + (k === "compartilhada" ? " (compartilhada)" : "") + '</button>'; }).join("");
+  var title = state.tab === "prefs" ? ["Preferências", "Suas escolhas para usar o Dash. Valem só para a sua conta."] : ["Perfil", "Quem você é no sistema."];
+  document.getElementById("page").innerHTML = (state.msg ? '<div class="sent" role="status">' + esc(state.msg) + '</div>' : '') + '<h1>' + title[0] + '</h1><p>' + title[1] + '</p><div class="tabs" role="tablist"><button role="tab" type="button" aria-selected="' + (state.tab === "perfil") + '" data-tab="perfil">Perfil</button><button role="tab" type="button" aria-selected="' + (state.tab === "prefs") + '" data-tab="prefs">Preferências</button></div>' + (state.tab === "prefs" ? prefsView() : profileView());
+  var m = document.getElementById("menu"); if (!m) return;
+  m.innerHTML = '<div class="who"><b>' + esc(u.nome) + '</b>' + esc(u.perfil) + '</div><button role="menuitem" type="button" data-tab="perfil">Perfil</button><button role="menuitem" type="button" data-tab="prefs">Preferências</button><hr><button role="menuitem" type="button" data-a="logout">Sair</button>';
+}
+function closeMenu() {}
+document.addEventListener("click", function (e) {
+  var t = e.target;
+  var tab = t.closest("[data-tab]"); if (tab) { state.tab = tab.getAttribute("data-tab"); state.msg = ""; closeMenu(); render(); return; }
+  var w = t.closest("[data-who]"); if (w) { state.who = w.getAttribute("data-who"); state.resetSent = false; loadPrefs(); applyTheme(); render(); return; }
+  var o = t.closest("[data-pref]"); if (o) { setPref(o.getAttribute("data-pref"), o.getAttribute("data-v")); return; }
+  var s = t.closest("[data-sw]"); if (s) { var k = s.getAttribute("data-sw"); setPref(k, !state.prefs[k]); return; }
+  var a = t.closest("[data-a]");
+  if (a) {
+    var act = a.getAttribute("data-a");
+    if (act === "wipe") state.wipe = true;
+    else if (act === "wipe-no") state.wipe = false;
+    else if (act === "wipe-yes") { state.wipe = false; state.drafts = 0; }
+    else if (act === "defaults") { state.prefs = Object.assign({}, DEFAULTS); savePrefs(); applyTheme(); }
+    else if (act === "reset") state.resetSent = true;
+    else if (act === "pick") { state.fotoErr = ""; state.fotoOk = ""; document.getElementById("file").click(); return; }
+    else if (act === "rmfoto") { state.foto = null; state.fotoErr = ""; state.fotoOk = "Foto removida. Volta a aparecer as suas iniciais."; try { localStorage.removeItem("foto-proto"); } catch (e) {} }
+    else if (act === "logout") { closeMenu(); state.msg = "Sair: no Dash, volta para a tela de entrada e apaga os rascunhos de quem saiu. Aqui, nada acontece."; }
+    render(); return;
+  }
+  if (!t.closest("#menu")) closeMenu();
+});
+document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeMenu(); });
+document.getElementById("file").addEventListener("change", function (e) {
+  var f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
+  if (!/^image\/(jpeg|png|webp)$/.test(f.type)) { state.fotoErr = "Use uma imagem JPG, PNG ou WebP."; render(); return; }
+  if (f.size > 5 * 1024 * 1024) { state.fotoErr = "A imagem tem " + (f.size / 1048576).toFixed(1).replace(".", ",") + " MB. O limite é 5 MB."; render(); return; }
+  var img = new Image(), url = URL.createObjectURL(f);
+  img.onload = function () {
+    // recorta o centro em quadrado e reduz para 256 px: o que vai para o banco pesa poucos KB
+    var side = Math.min(img.width, img.height), c = document.createElement("canvas"); c.width = c.height = 256;
+    c.getContext("2d").drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, 256, 256);
+    URL.revokeObjectURL(url);
+    state.foto = c.toDataURL("image/jpeg", 0.85);
+    try { localStorage.setItem("foto-proto", state.foto); } catch (er) {}
+    state.fotoErr = ""; state.fotoOk = "Foto atualizada (" + Math.round(state.foto.length * 0.75 / 1024) + " KB depois de reduzida).";
+    render();
+  };
+  img.onerror = function () { URL.revokeObjectURL(url); state.fotoErr = "Não foi possível ler essa imagem. Tente outra."; render(); };
+  img.src = url;
+});
+applyTheme(); render();
+</script>

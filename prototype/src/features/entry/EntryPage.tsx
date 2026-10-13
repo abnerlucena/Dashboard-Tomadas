@@ -47,6 +47,7 @@ import { baseLabel } from "@/features/metas/metaBase";
 import { useDayTargets, type DayTarget } from "./dayTargets";
 import { STOP_SUGGESTIONS, plannedFor, planSaves, type ExistingRecord } from "./payload";
 import { listDrafts, removeDraft, saveDraft, type Draft, type DraftMachine } from "./draft";
+import { usePrefs, userKeyOf } from "@/features/preferences/PreferencesContext";
 
 /**
  * No ambiente de apontamento os controles têm a área de toque de 44px (a do Dash é 32px):
@@ -195,7 +196,9 @@ interface EntryPageProps {
 export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
   const { client, session } = useAccess();
   // Rascunho no navegador: ligado a quem entrou (a sessão local de demonstração também tem nome)
-  const userKey = session?.userId ?? session?.nome ?? "anon";
+  const userKey = userKeyOf(session);
+  // Preferências da conta: tamanho dos controles e se guarda rascunho
+  const { prefs } = usePrefs();
   // Com o banco, grava de verdade; na demonstração, só simula
   const live = DATA_ORIGIN === "backend";
   const start = useMemo(() => (live ? currentShift() : { date: toIsoDate(DATA_END), shift: 1 as Shift }), [live]);
@@ -232,7 +235,7 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
   // Destino (#/rota) de uma saída que ainda espera a confirmação de quem tem algo digitado
   const [confirmExit, setConfirmExit] = useState<string | null>(null);
   // Rascunhos de turnos que ficaram pela metade (queda de energia, navegador fechado…): oferecidos no passo 1
-  const [drafts, setDrafts] = useState<Draft[]>(() => listDrafts(session?.userId ?? session?.nome ?? "anon"));
+  const [drafts, setDrafts] = useState<Draft[]>(() => (prefs.rascunho ? listDrafts(userKey) : []));
   const toTop = () => {
     document.getElementById(MAIN_ID)?.scrollTo({ top: 0, behavior: "instant" });
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -307,7 +310,7 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
    */
   const flushDraft = useRef<() => void>(() => {});
   flushDraft.current = () => {
-    if (!turnSet || finished) return;
+    if (!turnSet || finished || !prefs.rascunho) return;
     const machines: Record<string, DraftMachine> = {};
     for (const [id, e] of Object.entries(form))
       if (hasInput(e, existing[id]))
@@ -646,7 +649,7 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
         onExit={() => requestLeave("#/dashboard")}
       />
 
-      <PageBody className={TOUCH}>
+      <PageBody className={prefs.toque ? TOUCH : undefined}>
         {targets.status === "error" && step === 2 && (
           <ErrorMessage
             title="Não foi possível carregar as metas deste dia"
@@ -1580,8 +1583,9 @@ function EntryBar({
   onSave: () => void;
   onExit: () => void;
 }) {
+  const touch = usePrefs().prefs.toque;
   return (
-    <div data-entry-bar className={cn(PAGE_GUTTER, TOUCH, "z-sticky border-b border-t-thick border-t-brand bg-surface m:sticky m:top-0")}>
+    <div data-entry-bar className={cn(PAGE_GUTTER, touch && TOUCH, "z-sticky border-b border-t-thick border-t-brand bg-surface m:sticky m:top-0")}>
       <div className="flex flex-wrap items-center gap-x-200 gap-y-100 py-150">
         <div className="flex w-full items-center gap-150 s:w-auto">
           <h1 className="font-heading-medium text-default">Apontamento</h1>

@@ -24,6 +24,10 @@ const FAQ: Array<{ q: string; a: string }> = [
     a: "Abra Apontamento: a navegação lateral recolhe e você entra no ambiente de apontamento, em três passos. 1) Escolha a data, o turno e o regime. 2) Em cada máquina, preencha a quantidade e, se tiver, o número da OP (só números; sem número, o apontamento vai como não informado por enquanto), e clique em Concluir (ou tecle Enter na quantidade) para gravá-la e ir para a próxima; a lista ao lado mostra o que falta, e clicar numa máquina da lista leva até ela. Se a máquina não produziu, clique em Não produziu e escolha ou escreva o motivo: ela fica gravada sem peças. Manutenção e Setup / troca são paradas planejadas e saem da meta do turno; os outros motivos continuam contando. Salvar tudo (Ctrl+S) grava todas de uma vez. 3) Em Conferir e terminar, veja o resumo e os avisos e termine o turno. O que você digitou e ainda não concluiu fica guardado neste computador por 48 horas: se a energia cair ou o navegador fechar, ao voltar ao Apontamento aparece o aviso para restaurar. Para voltar ao Dash, use Sair; o botão do topo, à esquerda, abre a navegação sem sair.",
   },
   {
+    q: "Como mudo o tema e outras preferências?",
+    a: "Clique no seu avatar e escolha Preferências. Lá você muda o tema (claro, escuro ou igual ao sistema), a página que abre ao entrar, se a barra lateral começa aberta e, no Apontamento, o tamanho dos campos e o rascunho. São suas: cada pessoa tem as dela e elas salvam sozinhas. Em Perfil, no mesmo menu, estão seus dados e o envio do link para trocar a senha.",
+  },
+  {
     q: "Posso corrigir um apontamento já salvo?",
     a: "Sim. Em Histórico, filtre pela máquina se quiser, escolha o dia no calendário e use o menu da linha para editar, mover para outra data ou excluir. Dá para agir em vários de uma vez selecionando as linhas. Antes de excluir, a tela pede confirmação.",
   },

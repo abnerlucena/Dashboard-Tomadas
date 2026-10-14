@@ -294,16 +294,16 @@ function Shell() {
       <AppRoot
         immersive={route === "apontamento"}
         banner={
-          bannerOpen && (
+          // O aviso é só da demonstração, para ninguém tomar dados fictícios por reais; com o banco não há o que avisar
+          bannerOpen &&
+          DATA_ORIGIN !== "backend" && (
             <Banner
               onDismiss={() => {
                 setBannerOpen(false);
                 storageSet("dash-proto.banner.dismissed", true);
               }}
             >
-              {DATA_ORIGIN === "backend"
-                ? `Dados do banco · ${PERIOD_LABEL}`
-                : `Modo de demonstração · dados fictícios de ${PERIOD_LABEL}`}
+              {`Modo de demonstração · dados fictícios de ${PERIOD_LABEL}`}
             </Banner>
           )
         }

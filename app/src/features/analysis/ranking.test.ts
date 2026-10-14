@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ELAPSED_DATES, TARGET_MACHINES, scopeToShift } from "@/data/machines";
+import { ELAPSED_DATES, MONTH_RANGE, TARGET_MACHINES, scopeToShift } from "@/data/machines";
 import { reworkRate } from "@/features/machines/insights";
 import { rankMachines, rankingValue } from "./ranking";
 
@@ -24,4 +24,34 @@ describe("Ranking de máquinas", () => {
     expect(t3.map((r) => r.machine.id).sort()).toEqual(TARGET_MACHINES.filter((m) => m.regime === 3).map((m) => m.id).sort());
     expect(t3.every((r) => scopeToShift(r.machine, 3).target > 0)).toBe(true);
   });
+
+  it("só as máquinas escolhidas entram, com posições de 1 a N", () => {
+    const ids = new Set(TARGET_MACHINES.slice(0, 3).map((m) => m.id));
+    const r = rankMachines("produced", "all", { machineIds: ids });
+    expect(r.map((x) => x.machine.id).sort()).toEqual([...ids].sort());
+    expect(r.map((x) => x.position)).toEqual([1, 2, 3]);
+    expect(rankMachines("produced", "all", { machineIds: new Set() })).toEqual([]);
+  });
+
+  it("outro período recalcula a produção e não tem posição da semana passada", () => {
+    const month = rankMachines("produced", "all");
+    const firstWeek = { from: new Date(MONTH_RANGE.from), to: new Date(MONTH_RANGE.from.getFullYear(), MONTH_RANGE.from.getMonth(), 7) };
+    const week = rankMachines("produced", "all", { range: firstWeek });
+    const total = (rows: typeof month) => rows.reduce((s, x) => s + x.value, 0);
+    expect(total(week)).toBeLessThan(total(month));
+    expect(week.every((x) => x.previous === null)).toBe(true);
+    // no período padrão a comparação continua
+    expect(month.every((x) => x.previous !== null)).toBe(true);
+  });
+
+  it("o motivo só muda a taxa de retrabalho", () => {
+    const all = rankMachines("rework", "all");
+    const none = rankMachines("rework", "all", { reason: "Motivo que ninguém usou" });
+    expect(none.every((x) => x.value === 0)).toBe(true);
+    expect(all.some((x) => x.value > 0)).toBe(true);
+    expect(rankMachines("produced", "all", { reason: "Motivo que ninguém usou" }).map((x) => x.value)).toEqual(
+      rankMachines("produced", "all").map((x) => x.value),
+    );
+  });
 });
+

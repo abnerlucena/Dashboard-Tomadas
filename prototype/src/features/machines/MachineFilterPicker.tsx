@@ -14,6 +14,8 @@ interface Props {
   onChange: (next: Set<string>) => void;
   /** produção do dia aberto por máquina, para ver o peso de cada uma antes de tirar */
   quantities: Record<string, number>;
+  /** onde as máquinas entram: a conta do Histórico ou o ranking */
+  scope?: "conta" | "ranking";
 }
 
 const normalize = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -23,7 +25,8 @@ const normalize = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLo
  * a máquina da conta; "Só as encontradas" (depois de buscar) deixa só algumas. O
  * painel não fecha ao marcar, para tirar várias de uma vez.
  */
-export function MachineFilterPicker({ machines, included, onChange, quantities }: Props) {
+export function MachineFilterPicker({ machines, included, onChange, quantities, scope = "conta" }: Props) {
+  const where = scope === "ranking" ? "no ranking" : "na conta";
   const [query, setQuery] = useState("");
   const q = normalize(query.trim());
   const active = included.size !== machines.length;
@@ -66,13 +69,12 @@ export function MachineFilterPicker({ machines, included, onChange, quantities }
           align="start"
           sideOffset={6}
           collisionPadding={8}
-          aria-label="Escolher as máquinas da conta"
+          aria-label={`Escolher as máquinas ${scope === "ranking" ? "do ranking" : "da conta"}`}
           className="z-menu flex max-h-[min(34rem,80dvh)] w-[26rem] max-w-[calc(100vw-1rem)] flex-col rounded-large bg-surface-overlay text-default shadow-overlay"
         >
           <div className="flex flex-col gap-100 border-b p-150">
             <div className="flex items-baseline justify-between gap-100">
-              <h2 className="font-heading-xsmall">Máquinas na conta</h2>
-              <span className="font-body-small text-subtlest">Desmarque para tirar</span>
+              <h2 className="font-heading-xsmall">Máquinas {where}</h2>
             </div>
             <label className="relative flex items-center">
               <Search aria-hidden className="pointer-events-none absolute left-100 size-icon-small text-icon-subtle" />
@@ -144,7 +146,7 @@ export function MachineFilterPicker({ machines, included, onChange, quantities }
 
           <div className="flex items-center justify-between gap-100 border-t px-150 py-100">
             <span className="font-body-small text-subtle">
-              <span className="font-semibold tabular-nums text-default">{included.size}</span> de {machines.length} máquinas na conta
+              <span className="font-semibold tabular-nums text-default">{included.size}</span> de {machines.length} máquinas {where}
             </span>
             <Popover.Close asChild>
               <Button appearance="primary">Concluir</Button>

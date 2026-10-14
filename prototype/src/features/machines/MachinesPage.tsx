@@ -159,6 +159,17 @@ export function MachinesPage({
     [pool, shift, range],
   );
 
+  // Postos por demanda da linha (kits, bancadas, prensas): sem meta, ficam fora do atingimento, mas aparecem na página da linha com a produção
+  const demandRows = useMemo(() => {
+    if (!groupId) return [];
+    const group = MACHINE_GROUPS.find((g) => g.id === groupId);
+    const q = search.trim().toLowerCase();
+    return DEMAND_MACHINES.filter((m) => group?.machineIds.includes(m.id) && (shift === "all" || shift <= m.regime))
+      .map((m) => scopeMachine(m, shift, range))
+      .filter((m) => !q || m.name.toLowerCase().includes(q) || m.lines.some((l) => l.toLowerCase().includes(q)))
+      .sort((a, b) => b.produced - a.produced);
+  }, [groupId, shift, range, search]);
+
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
     const list = scoped.filter(
@@ -206,6 +217,8 @@ export function MachinesPage({
   const growthLabel = previous?.range ? `o período anterior (${rangeLabel(previous.range)})` : PREVIOUS_MONTH_LABEL;
   const showGrowth = previous ? !!previous.range : onlyDefaults && !groupId && !presetShift && PREVIOUS_MONTH_PRODUCED > 0;
 
+  const showDemand = demandRows.length > 0 && filters.machine === "all" && filters.status === "all";
+  const demandProduced = demandRows.reduce((s, m) => s + m.produced, 0);
   const tableState: TableState =
     demoState === "loading" || periodLoading
       ? "loading"
@@ -460,7 +473,10 @@ export function MachinesPage({
           {tableState === "ready" && (
             <p aria-live="polite" className="ml-auto font-body-small text-subtlest">
               {rows.length === pool.length ? plural(rows.length, "máquina com meta", "máquinas com meta") : `${rows.length} de ${pool.length} máquinas com meta`}
-              {demandCount > 0 && ` · ${plural(demandCount, "centro por demanda fica", "centros por demanda ficam")} fora do atingimento`}
+              {demandCount > 0 &&
+                (groupId
+                  ? ` · ${plural(demandCount, "posto por demanda aparece", "postos por demanda aparecem")} abaixo, fora do atingimento`
+                  : ` · ${plural(demandCount, "centro por demanda fica", "centros por demanda ficam")} fora do atingimento`)}
             </p>
           )}
         </div>
@@ -485,6 +501,28 @@ export function MachinesPage({
             emptyState={emptyState}
             errorState={errorState}
           />
+          {showDemand && (
+            <section aria-labelledby="postos-demanda" className="flex flex-col gap-100">
+              <div>
+                <h2 id="postos-demanda" className="font-heading-small text-default">
+                  Postos por demanda
+                </h2>
+                <p className="font-body-small text-subtle">Sem meta: aparecem aqui com a produção e ficam fora do atingimento e dos totais acima.</p>
+              </div>
+              <DataTable
+                caption={`Postos por demanda em ${periodText}`}
+                columns={machineColumns({ onOpenOrders: openPanel, onAction, totals: { produced: demandProduced, target: 0, percent: 0 } }).filter((c) =>
+                  ["name", "lines", "days", "produced", "last"].includes(c.id),
+                )}
+                rows={demandRows}
+                getRowId={(m) => m.id}
+                getRowLabel={(m) => `${m.name}, ${formatNumber(m.produced)} unidades, por demanda`}
+                state="ready"
+                selectable={false}
+                footerLead={plural(demandRows.length, "posto", "postos")}
+              />
+            </section>
+          )}
         </Tabs.Content>
 
         {/* ---------- Detalhado ---------- */}

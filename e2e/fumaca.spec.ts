@@ -306,6 +306,57 @@ test("histórico: tirar máquinas da conta, devolver e deixar só algumas", asyn
   await expect(page.getByRole("button", { name: "Máquinas: Todas" })).toBeVisible();
 });
 
+test("ranking tem os filtros do Retrabalho: período, máquinas, turno e motivo", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await page.goto("/#/ranking");
+  await expect(page.getByRole("heading", { name: "Ranking de máquinas", level: 1 })).toBeVisible();
+  const filtros = page.getByRole("toolbar", { name: "Filtros" });
+  await expect(filtros.getByRole("button", { name: /^Período/ })).toBeVisible();
+  await expect(filtros.getByRole("button", { name: "Máquinas: Todas" })).toBeVisible();
+  await expect(filtros.getByRole("button", { name: "Turno: Todos" })).toBeVisible();
+  // o motivo só vale no critério Retrabalho
+  await expect(filtros.getByRole("button", { name: "Motivo: Todos" })).toBeDisabled();
+  await page.getByRole("radio", { name: "Retrabalho" }).click();
+  await expect(filtros.getByRole("button", { name: "Motivo: Todos" })).toBeEnabled();
+  await page.getByRole("radio", { name: "Atingimento" }).click();
+  // só duas máquinas no ranking
+  const linhas = page.getByRole("table", { name: /Ranking por/ }).getByRole("row");
+  const antes = await linhas.count();
+  await filtros.getByRole("button", { name: "Máquinas: Todas" }).click();
+  const painel = page.getByRole("dialog", { name: "Escolher as máquinas do ranking" });
+  await painel.getByRole("button", { name: "Desmarcar todas" }).click();
+  await painel.getByLabel("Buscar máquina").fill("Composé");
+  await painel.getByRole("button", { name: "Só as encontradas" }).click();
+  await expect(painel.getByText(/^2 de \d+ máquinas no ranking/)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(filtros.getByRole("button", { name: "Máquinas: 2 máquinas" })).toBeVisible();
+  await expect(page.getByText("Só as 2 máquinas escolhidas.")).toBeVisible();
+  expect(await linhas.count()).toBeLessThan(antes);
+  await expect(page.getByRole("table", { name: /Ranking por/ })).toContainText("Composé");
+  // limpar volta a todas
+  await filtros.getByRole("button", { name: "Limpar filtros" }).click();
+  await expect(filtros.getByRole("button", { name: "Máquinas: Todas" })).toBeVisible();
+  expect(await linhas.count()).toBe(antes);
+});
+
+test("a aba Montagem mostra também os postos por demanda, fora do atingimento", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await page.goto("/#/linha-montagem");
+  await expect(page.getByRole("heading", { name: "Montagem", level: 1 })).toBeVisible();
+  const postos = page.getByRole("table", { name: /^Postos por demanda/ });
+  await expect(page.getByRole("heading", { name: "Postos por demanda", level: 2 })).toBeVisible();
+  await expect(postos).toContainText("Embaladora kit parafusos nº 1");
+  await expect(postos).toContainText("Prensa Tox");
+  await expect(postos).toContainText("Bancada nº 3");
+  // a tabela principal continua só com as máquinas com meta
+  await expect(page.getByRole("table", { name: /^Produção por máquina/ })).not.toContainText("Prensa Tox");
+  await expect(page.getByText(/postos por demanda aparecem abaixo, fora do atingimento/)).toBeVisible();
+  // a página da Embalagem não tem postos por demanda
+  await page.goto("/#/linha-embalagem");
+  await expect(page.getByRole("heading", { name: "Embalagem", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Postos por demanda" })).toHaveCount(0);
+});
+
 test("quantidade acima de 2× a meta pede conferência, sem impedir", async ({ page }) => {
   await entrar(page, "gestor@demo.weg");
   await iniciarTurno(page);

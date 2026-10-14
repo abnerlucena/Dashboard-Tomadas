@@ -1,13 +1,35 @@
-import { ArrowDown, ArrowUp, Equal, Medal } from "lucide-react";
+import { ArrowDown, ArrowUp, Equal, FilterX, Medal, SearchX } from "lucide-react";
 import { useMemo, useState } from "react";
-import { COMPARISON_CUTOFF, SHIFTS, SHIFT_META, STATUS_META, groupOf, statusFor, type Shift } from "@/data/machines";
+import {
+  ALL_ORDERS,
+  COMPARISON_CUTOFF,
+  DATA_END,
+  DATA_START,
+  MONTH_RANGE,
+  REWORK_REASONS,
+  SHIFTS,
+  SHIFT_META,
+  STATUS_META,
+  TARGET_MACHINES,
+  groupOf,
+  isMonthRange,
+  scopeMachine,
+  statusFor,
+  type DateRange,
+  type Shift,
+} from "@/data/machines";
 import { cn, formatDecimal, formatNumber, plural } from "@/lib/utils";
 import { DataTable, type Column } from "@/components/data/DataTable";
 import { PageBody, PageHeader } from "@/components/layout/PageHeader";
+import { Button } from "@/components/ui/Button";
+import { DateRangePicker } from "@/components/ui/DateRangePicker";
+import { EmptyState } from "@/components/ui/Feedback";
 import { FilterPill } from "@/components/ui/FilterPill";
 import { Lozenge } from "@/components/ui/Lozenge";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import { METRICS, rankMachines, type Metric, type Ranked } from "./ranking";
+import { MachineFilterPicker } from "@/features/machines/MachineFilterPicker";
+import { reworkReasonsOf } from "@/features/machines/insights";
+import { METRICS, hintOf, rankMachines, type Metric, type Ranked } from "./ranking";
 
 const cutoffLabel = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "numeric", month: "long" });
 
@@ -20,10 +42,36 @@ export function RankingPage() {
   const [shiftFilter, setShiftFilter] = useState("all");
   const shift: Shift | "all" = shiftFilter === "all" ? "all" : (Number(shiftFilter) as Shift);
   const meta = METRICS[metric];
+  // Os mesmos filtros da tela Retrabalho: período, máquinas, turno e motivo
+  const [range, setRange] = useState<DateRange>(MONTH_RANGE);
+  const allIds = useMemo(() => TARGET_MACHINES.map((m) => m.id), []);
+  const [included, setIncluded] = useState<Set<string>>(() => new Set(allIds));
+  const [reason, setReason] = useState("all");
+  const monthly = isMonthRange(range);
+  const machinesFiltered = included.size !== allIds.length;
 
-  const ranked = useMemo<Ranked[]>(() => rankMachines(metric, shift), [metric, shift]);
-  // Sem uma semana de dados não há posição anterior: a comparação sai da tela
-  const hasPrevious = COMPARISON_CUTOFF != null;
+  const ranked = useMemo<Ranked[]>(
+    () => rankMachines(metric, shift, { range, machineIds: included, reason }),
+    [metric, shift, range, included, reason],
+  );
+  // Sem uma semana de dados, ou em outro período que não o mês, não há posição anterior: a comparação sai da tela
+  const hasPrevious = COMPARISON_CUTOFF != null && monthly;
+  // Produção de cada máquina no período e turno escolhidos, para ver o peso de cada uma no filtro de máquinas
+  const quantities = useMemo(
+    () => Object.fromEntries(TARGET_MACHINES.map((m) => [m.id, scopeMachine(m, shift, range).produced])),
+    [shift, range],
+  );
+  const reasons = useMemo(
+    () => [...new Set([...REWORK_REASONS, ...reworkReasonsOf(ALL_ORDERS.filter((o) => o.date >= range.from && o.date <= range.to))])],
+    [range],
+  );
+  const filtersActive = !monthly || machinesFiltered || shiftFilter !== "all" || reason !== "all";
+  const clear = () => {
+    setRange(MONTH_RANGE);
+    setIncluded(new Set(allIds));
+    setShiftFilter("all");
+    setReason("all");
+  };
 
   const best = Math.max(...ranked.map((r) => r.value), 1);
 
@@ -107,6 +155,24 @@ export function RankingPage() {
             onChange={(v) => setMetric(v as Metric)}
             options={(Object.keys(METRICS) as Metric[]).map((k) => ({ value: k, label: METRICS[k].label }))}
           />
+        </div>
+        <div role="toolbar" aria-label="Filtros" className="flex flex-wrap items-center gap-100">
+          <DateRangePicker
+            label="Período"
+            value={range}
+            defaultValue={MONTH_RANGE}
+            onChange={setRange}
+            min={DATA_START}
+            max={MONTH_RANGE.to}
+            dataEnd={DATA_END}
+          />
+          <MachineFilterPicker
+            machines={TARGET_MACHINES}
+            included={included}
+            onChange={(next) => setIncluded(next)}
+            quantities={quantities}
+            scope="ranking"
+          />
           <FilterPill
             label="Turno"
             value={shiftFilter}
@@ -117,8 +183,25 @@ export function RankingPage() {
               ...SHIFTS.map((s) => ({ value: String(s), label: SHIFT_META[s].label, hint: SHIFT_META[s].hours })),
             ]}
           />
-          <p className="font-body-small text-subtlest">{meta.hint}</p>
+          <FilterPill
+            label="Motivo"
+            value={reason}
+            defaultValue="all"
+            onChange={setReason}
+            isDisabled={metric !== "rework"}
+            options={[{ value: "all", label: "Todos" }, ...reasons.map((r) => ({ value: r, label: r }))]}
+          />
+          {filtersActive && (
+            <Button appearance="subtle" iconBefore={FilterX} onClick={clear}>
+              Limpar filtros
+            </Button>
+          )}
         </div>
+        <p className="font-body-small text-subtlest">
+          {hintOf(metric, monthly)}
+          {metric !== "rework" && " · O filtro Motivo vale para o critério Retrabalho."}
+          {machinesFiltered && ` · Só as ${included.size} máquinas escolhidas.`}
+        </p>
 
         {/* Pódio: os 3 primeiros */}
         <ol aria-label="Três primeiras posições" className="flex flex-wrap gap-200">
@@ -148,6 +231,15 @@ export function RankingPage() {
           getRowLabel={(r) => `${r.position}º, ${r.machine.name}, ${display(metric, r.value)}`}
           selectable={false}
           footerLead={plural(ranked.length, "máquina", "máquinas")}
+          state={ranked.length ? "ready" : "empty"}
+          emptyState={
+            <EmptyState
+              icon={SearchX}
+              title={included.size ? "Nenhuma máquina neste recorte" : "Nenhuma máquina no ranking"}
+              hint={included.size ? "Nada corresponde aos filtros selecionados." : "Marque pelo menos uma máquina no filtro Máquinas."}
+              action={filtersActive ? { label: "Limpar filtros", icon: FilterX, onClick: clear } : undefined}
+            />
+          }
         />
       </PageBody>
     </>

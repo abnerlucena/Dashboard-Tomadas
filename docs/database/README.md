@@ -5,7 +5,7 @@ Ela registra **o que existe, como funciona, por que foi decidido assim e o que m
 
 > **Estado atual do schema:** `v0.31.0` — **implementado** no Supabase, no projeto que virou o de
 > produção (D55), com o histórico real carregado: 2.712 apontamentos de 20/12/2025 a 30/09/2026.
-> A interface oficial é a de `prototype/` (D56). O Google Apps Script foi aposentado em 05/10/2026
+> A interface oficial é a de `app/` (D56; antes `prototype/`, D69). O Google Apps Script foi aposentado em 05/10/2026
 > (D64): até a virada, a produção é registrada à mão na planilha `.xlsx`, que entra no banco pelo
 > extrator de `supabase/import/`. O histórico de cada versão está no `CHANGELOG.md`.
 > **Onde roda (D65):** a produção começa no Supabase da nuvem; depois, o mesmo banco

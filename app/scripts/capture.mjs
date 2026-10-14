@@ -1,6 +1,6 @@
 // Gera as capturas de tela dos estados principais do protótipo.
 // Uso: com o servidor rodando (npm run dev), execute
-//   node prototype/scripts/capture.mjs [url]
+//   node app/scripts/capture.mjs [url]
 import { chromium } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import path from "node:path";

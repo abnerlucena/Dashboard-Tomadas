@@ -12,7 +12,7 @@ Interruptores. Vite + React + TypeScript.
 
 | Pasta | O que é |
 |---|---|
-| `prototype/` | **A interface** do sistema (o nome da pasta é provisório, ver D44). Publicada no GitHub Pages |
+| `app/` | **A interface** do sistema (até 14/10/2026 se chamava `prototype/`, D69). Publicada no GitHub Pages |
 | `src/lib/` | A **camada de dados** (`repositories/`, `supabase.ts`, `metas.ts`…), que a interface usa para falar com o Supabase |
 | `src/test/` | Testes de unidade da camada de dados |
 | `e2e/` | Teste de fumaça no navegador (Playwright), no modo de demonstração |
@@ -20,7 +20,7 @@ Interruptores. Vite + React + TypeScript.
 | `docs/database/` | **Fonte da verdade sobre o banco**: visão geral, referência técnica, decisões (ADR) e ata de mudanças |
 
 A UI antiga (telas de `src/`) foi aposentada em 03/10/2026, antes de ir para
-produção: a interface de `prototype/` é a única. O Google Apps Script
+produção: a interface de `app/` é a única. O Google Apps Script
 (`Main.gs`) foi aposentado em 05/10/2026 e saiu do repositório (D64). Até a
 virada, a fábrica registra a produção à mão na planilha `.xlsx`, que entra no
 banco pelo extrator de `supabase/import/`.
@@ -63,7 +63,7 @@ npm run typecheck      # tipos (interface e camada de dados)
 npm run lint           # eslint
 npm test               # testes de unidade (vitest)
 npm run test:e2e       # fumaça no navegador (Playwright)
-npm run build          # build da interface → prototype/dist
+npm run build          # build da interface → app/dist
 npm run test:integration   # camada de dados contra o Supabase (precisa de .env.local)
 ```
 

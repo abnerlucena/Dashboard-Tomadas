@@ -11,7 +11,7 @@ node_modules
 dist
 dist-ssr
 # dados reais (repositório público)
-prototype/src/**/*.local.ts
+app/src/**/*.local.ts
 *.local
 
 # Editor directories and files

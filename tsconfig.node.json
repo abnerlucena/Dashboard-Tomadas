@@ -18,5 +18,5 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["vitest.config.ts", "vitest.integration.config.ts", "playwright.config.ts", "e2e", "prototype/vite.config.ts", "prototype/vitest.config.ts"]
+  "include": ["vitest.config.ts", "vitest.integration.config.ts", "playwright.config.ts", "e2e", "app/vite.config.ts", "app/vitest.config.ts"]
 }

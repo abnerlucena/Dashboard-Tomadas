@@ -29,7 +29,11 @@ const FAQ: Array<{ q: string; a: string }> = [
   },
   {
     q: "Posso corrigir um apontamento já salvo?",
-    a: "Sim. Em Histórico, filtre pela máquina se quiser, escolha o dia no calendário e use o menu da linha para editar, mover para outra data ou excluir. Dá para agir em vários de uma vez selecionando as linhas. Antes de excluir, a tela pede confirmação.",
+    a: "Sim. Em Histórico, escolha o dia no calendário e use o menu da linha para editar, mover para outra data ou excluir. Dá para agir em vários de uma vez selecionando as linhas. Antes de excluir, a tela pede confirmação.",
+  },
+  {
+    q: "Como vejo o Histórico sem algumas máquinas?",
+    a: "No Histórico, abra o filtro Máquinas e desmarque as que não devem entrar na conta (dá para buscar pelo nome, por exemplo kit, e usar Tirar as encontradas), ou use Desmarcar todas e marque só as que quer. O calendário, a produção do dia, o atingimento da meta e a tabela passam a contar só as máquinas marcadas, e as que ficaram de fora aparecem como etiquetas acima do calendário, com um ✕ para devolvê-las. O endereço guarda o filtro: dá para mandar o link. Limpar filtro volta a todas. O filtro vale só no Histórico.",
   },
   {
     q: "O que significa cada cor de status?",

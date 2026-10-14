@@ -13,7 +13,7 @@ import type { ReadSource } from "@/data/fromBackend";
  *   raiz): a camada de dados da sessão do banco, carregada sob demanda. O
  *   "mock" dela só liga em desenvolvimento (nunca num build).
  * - Sem configuração: a fonte de demonstração desta pasta (demoClient.ts), para
- *   o protótipo — inclusive o HTML único, que é um build — abrir sozinho.
+ *   o app — inclusive o HTML único, que é um build — abrir sozinho.
  */
 export interface AccessClient {
   kind: DataSourceKind | "demo";

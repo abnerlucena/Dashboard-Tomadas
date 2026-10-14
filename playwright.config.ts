@@ -26,7 +26,7 @@ export default defineConfig({
   ],
   webServer: {
     // VITE_DATA_SOURCE vazio: sempre a demonstração, mesmo com .env.local apontando para o banco
-    command: `npx vite --config prototype/vite.config.ts --port ${PORT} --strictPort`,
+    command: `npx vite --config app/vite.config.ts --port ${PORT} --strictPort`,
     env: { VITE_DATA_SOURCE: "" },
     url: `http://localhost:${PORT}/`,
     reuseExistingServer: false,

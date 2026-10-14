@@ -29,14 +29,15 @@ Ao começar, descubra de qual lado você está e respeite a divisão.
 
 | Pasta | Dono | Observação |
 |---|---|---|
-| `prototype/src/features/**`, `prototype/src/components/**` | **interface** | as telas |
+| `app/src/features/**`, `app/src/components/**` | **interface** | as telas |
 | `supabase/**`, `docs/database/**` | **banco** | migrations e documentação |
-| `prototype/src/data/fromBackend.ts`, `e2e/`, `.github/workflows/deploy.yml` e `ci.yml` | **interface** | adaptador de leitura, fumaça no navegador, publicação |
+| `app/src/data/fromBackend.ts`, `e2e/`, `.github/workflows/deploy.yml` e `ci.yml` | **interface** | adaptador de leitura, fumaça no navegador, publicação |
 | `src/lib/**`, `src/test/**` | **banco** | a camada de dados que a interface usa, e os testes dela |
-| `prototype/src/data/machines.ts` | **compartilhado** | combine antes de mexer |
+| `app/src/data/machines.ts` | **compartilhado** | combine antes de mexer |
 
-A UI antiga (telas de `src/`) foi aposentada em 03/10/2026: `prototype/` é a única
-interface. Não recrie telas fora dela.
+A UI antiga (telas de `src/`) foi aposentada em 03/10/2026: `app/` é a única
+interface (até 14/10/2026 a pasta se chamava `prototype/`; notas antigas usam
+esse nome). Não recrie telas fora dela.
 
 Regras que evitam a maior parte do atrito:
 

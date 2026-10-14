@@ -10,13 +10,13 @@
     {
       "name": "dash-supabase",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", "--config", "prototype/vite.config.ts", "--mode", "supabase", "--port", "8091", "--strictPort"],
+      "runtimeArgs": ["vite", "--config", "app/vite.config.ts", "--mode", "supabase", "--port", "8091", "--strictPort"],
       "port": 8091
     },
     {
       "name": "dash-mock",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", "--config", "prototype/vite.config.ts", "--mode", "mock", "--port", "8092", "--strictPort"],
+      "runtimeArgs": ["vite", "--config", "app/vite.config.ts", "--mode", "mock", "--port", "8092", "--strictPort"],
       "port": 8092
     }
   ]

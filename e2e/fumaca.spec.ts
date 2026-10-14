@@ -603,3 +603,20 @@ test("a lista de situação tem largura proporcional à tela", async ({ page }) 
   expect(estreita).toBeLessThan(larga);
   expect(estreita).toBeGreaterThanOrEqual(224);
 });
+
+test("ajuda: respostas por assunto, em passos, e a busca acha o texto da resposta", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await page.evaluate(() => (window.location.hash = "#/ajuda"));
+  for (const assunto of ["Apontamento", "Consultar e corrigir", "Metas e números", "OPs e Feedbacks", "Sua conta"]) {
+    await expect(page.getByRole("heading", { name: assunto, level: 3, exact: true })).toBeVisible();
+  }
+  await page.getByRole("button", { name: "Como faço um apontamento?" }).click();
+  await expect(page.getByRole("listitem").filter({ hasText: "Conferir e terminar: veja o resumo" })).toBeVisible();
+  // busca pelo texto de dentro da resposta, sem acento
+  await page.getByPlaceholder(/Buscar na ajuda/).fill("restaurar");
+  await expect(page.getByRole("button", { name: "A luz caiu no meio do apontamento. Perdi tudo?" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Como faço um apontamento?" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Sua conta", level: 3 })).toHaveCount(0);
+  await page.getByPlaceholder(/Buscar na ajuda/).fill("xyzxyz");
+  await expect(page.getByText("Nada encontrado")).toBeVisible();
+});

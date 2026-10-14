@@ -9,79 +9,259 @@ import { Lozenge } from "@/components/ui/Lozenge";
 import { TextField } from "@/components/ui/TextField";
 
 const SHORTCUTS: Array<[string[], string]> = [
-  [["Ctrl", "["], "Recolher ou expandir a navegação lateral"],
+  [["Ctrl", "["], "Abrir ou fechar o menu lateral"],
   [["/"], "Ir para a busca"],
   [["Ctrl", "S"], "Salvar o apontamento"],
-  [["Esc"], "Fechar painel, menu ou janela"],
-  [["↑", "↓"], "Percorrer as linhas de uma tabela"],
-  [["Enter"], "Abrir as ordens de produção da máquina"],
-  [["←", "→"], "Percorrer os dias num gráfico ou os slides do Modo TV"],
+  [["Esc"], "Fechar o painel, o menu ou a janela aberta"],
+  [["↑", "↓"], "Andar pelas linhas de uma tabela"],
+  [["Enter"], "Abrir as OPs da máquina selecionada"],
+  [["←", "→"], "Passar os dias de um gráfico ou as telas do Modo TV"],
 ];
 
-const FAQ: Array<{ q: string; a: string }> = [
+/**
+ * Uma resposta é uma sequência de blocos curtos: parágrafo (texto), passos
+ * numerados ({ steps }) ou lista de itens ({ items }). Escreva como quem explica
+ * no chão de fábrica: frase curta, o nome do botão como aparece na tela, um
+ * assunto por pergunta.
+ */
+type Block = string | { steps: string[] } | { items: string[] };
+type Faq = { q: string; a: Block[] };
+
+const FAQ_GROUPS: Array<{ title: string; faq: Faq[] }> = [
   {
-    q: "Como faço um apontamento?",
-    a: "Abra Apontamento: a navegação lateral recolhe e você entra no ambiente de apontamento, em três passos. 1) Escolha a data, o turno e o regime. 2) Em cada máquina, preencha a quantidade e, se tiver, o número da OP (só números; sem número, o apontamento vai como não informado por enquanto), e clique em Concluir (ou tecle Enter na quantidade) para gravá-la e ir para a próxima; a lista ao lado mostra o que falta, e clicar numa máquina da lista leva até ela. Se a máquina não produziu, clique em Não produziu e escolha ou escreva o motivo: ela fica gravada sem peças. Manutenção e Setup / troca são paradas planejadas e saem da meta do turno; os outros motivos continuam contando. Salvar tudo (Ctrl+S) grava todas de uma vez. 3) Em Conferir e terminar, veja o resumo e os avisos e termine o turno. O que você digitou e ainda não concluiu fica guardado neste computador por 48 horas: se a energia cair ou o navegador fechar, ao voltar ao Apontamento aparece o aviso para restaurar. Para voltar ao Dash, use Sair; o botão do topo, à esquerda, abre a navegação sem sair.",
+    title: "Apontamento",
+    faq: [
+      {
+        q: "Como faço um apontamento?",
+        a: [
+          "Clique em Apontamento. A tela fica só para o apontamento, em três passos:",
+          {
+            steps: [
+              "Turno: escolha a data, o turno e o regime.",
+              "Máquinas: em cada máquina, digite a quantidade e o número da OP e clique em Concluir (ou tecle Enter). O Dash grava e passa para a próxima.",
+              "Conferir e terminar: veja o resumo e os avisos e termine o turno.",
+            ],
+          },
+          "A lista ao lado mostra o que ainda falta. Clique numa máquina da lista para ir direto a ela. Salvar tudo (Ctrl+S) grava todas de uma vez.",
+          "Para voltar ao Dash, use Sair. O botão no canto de cima, à esquerda, abre o menu sem sair do apontamento.",
+        ],
+      },
+      {
+        q: "E se eu não souber o número da OP?",
+        a: [
+          "Por enquanto, pode deixar em branco: o apontamento vai como OP não informada. Quando tiver o número, digite só os algarismos.",
+          "Dá para completar depois, editando o registro no Histórico.",
+        ],
+      },
+      {
+        q: "A máquina não produziu. O que eu faço?",
+        a: [
+          "Clique em Não produziu e escolha o motivo (ou escreva outro). A máquina fica registrada no turno, sem peças.",
+          {
+            items: [
+              "Manutenção e Setup / troca são paradas planejadas: saem da meta do turno.",
+              "Os outros motivos são paradas não planejadas: a meta continua contando.",
+            ],
+          },
+        ],
+      },
+      {
+        q: "Como marco uma OP como retrabalho?",
+        a: [
+          "No apontamento, marque Retrabalho ao lado da OP e escolha o motivo. Retrabalho não conta como produção.",
+          "Os motivos e as taxas ficam em Análises › Retrabalho.",
+        ],
+      },
+      {
+        q: "A luz caiu no meio do apontamento. Perdi tudo?",
+        a: [
+          "Não. O que você digitou e ainda não concluiu fica guardado neste computador por 48 horas. Ao abrir o Apontamento de novo, aparece um aviso: clique em Restaurar para continuar de onde parou.",
+          "O rascunho fica só neste computador e é apagado quando você sai da conta. Dá para desligá-lo em Preferências.",
+        ],
+      },
+    ],
   },
   {
-    q: "Como mudo o tema e outras preferências?",
-    a: "Clique no seu avatar e escolha Preferências. Lá você muda o tema (claro, escuro ou igual ao sistema), a página que abre ao entrar, se a barra lateral começa aberta e, no Apontamento, o tamanho dos campos e o rascunho. São suas: cada pessoa tem as dela e elas salvam sozinhas. Em Perfil, no mesmo menu, estão seus dados e o envio do link para trocar a senha.",
+    title: "Consultar e corrigir",
+    faq: [
+      {
+        q: "Como corrijo um apontamento já salvo?",
+        a: [
+          {
+            steps: [
+              "Abra o Histórico e escolha o dia no calendário.",
+              "No menu da linha, escolha editar, mover para outra data ou excluir.",
+            ],
+          },
+          "Para agir em vários registros de uma vez, selecione as linhas. Antes de excluir, o Dash pede confirmação.",
+        ],
+      },
+      {
+        q: "Como vejo o Histórico sem algumas máquinas?",
+        a: [
+          "Abra o filtro Máquinas no Histórico. Você pode:",
+          {
+            items: [
+              "desmarcar as que não devem entrar na conta;",
+              "buscar pelo nome (por exemplo, kit) e usar Tirar as encontradas;",
+              "usar Desmarcar todas e marcar só as que quer ver.",
+            ],
+          },
+          "O calendário, a produção, o atingimento e a tabela passam a contar só as máquinas marcadas. As que ficaram de fora aparecem acima do calendário, com um ✕ para trazê-las de volta. Limpar filtro volta a todas.",
+          "O filtro fica no endereço da página: dá para mandar o link para alguém.",
+        ],
+      },
+      {
+        q: "Como filtro o Ranking de máquinas?",
+        a: [
+          "Em Análises › Ranking de máquinas, escolha o período, as máquinas e o turno. O filtro de motivo só funciona quando o ranking é de retrabalho. Limpar filtros volta ao mês atual, com todas as máquinas e turnos.",
+        ],
+      },
+      {
+        q: "Como exporto os dados?",
+        a: [
+          "Em Relatórios, escolha o tipo, o período, as máquinas e os turnos.",
+          {
+            items: [
+              "PDF: para imprimir.",
+              "Planilha do Excel: resumo com gráficos, tabela por máquina, mapa diário e todos os apontamentos.",
+            ],
+          },
+          "Na tela Máquinas, o botão Exportar baixa o que está na tela, no mesmo formato.",
+        ],
+      },
+    ],
   },
   {
-    q: "Posso corrigir um apontamento já salvo?",
-    a: "Sim. Em Histórico, escolha o dia no calendário e use o menu da linha para editar, mover para outra data ou excluir. Dá para agir em vários de uma vez selecionando as linhas. Antes de excluir, a tela pede confirmação.",
+    title: "Metas e números",
+    faq: [
+      {
+        q: "O que significa cada cor de status?",
+        a: [
+          {
+            items: ["Crítico: abaixo de 70% da meta.", "Atenção: de 70% a 89%.", "Próximo: de 90% a 99%.", "Atingido: 100% ou mais."],
+          },
+          "A cor sempre vem junto com o nome do status.",
+        ],
+      },
+      {
+        q: "Por que o atingimento do mês está baixo se os dias apontados vão bem?",
+        // Com o banco, a meta é a soma das metas gravadas nos turnos apontados (D08): dia sem apontamento não entra na conta
+        a:
+          DATA_ORIGIN === "backend"
+            ? [
+                "O atingimento compara a produção com a soma das metas dos turnos apontados. Turno sem apontamento fica fora da conta: não baixa o atingimento, mas também não soma produção.",
+                "Para achar o motivo, abra a aba Detalhado da tela Máquinas e veja os dias abaixo da meta.",
+              ]
+            : [
+                "O atingimento compara a produção com a meta do mês inteiro, e dia sem apontamento conta como zero.",
+                "Na aba Detalhado da tela Máquinas, os traços (–) mostram os dias sem registro.",
+              ],
+      },
+      {
+        q: "Por que algumas máquinas não aparecem no atingimento?",
+        a: [
+          "Kit parafusos, bancadas e prensas trabalham por demanda e não têm meta. Por isso ficam fora do atingimento e dos gráficos de meta.",
+          "Elas continuam no Apontamento, nas OPs, nos Feedbacks e nas linhas. Na Montagem, aparecem numa lista própria, Postos por demanda, com a produção.",
+        ],
+      },
+      {
+        q: "Quem pode mudar as metas?",
+        a: [
+          "Gestores. Em Metas, clique em Editar metas, ajuste a meta por turno e escolha a partir de quando ela vale. Meta nova nunca muda os números de dias que já passaram.",
+        ],
+      },
+    ],
   },
   {
-    q: "Como vejo o Histórico sem algumas máquinas?",
-    a: "No Histórico, abra o filtro Máquinas e desmarque as que não devem entrar na conta (dá para buscar pelo nome, por exemplo kit, e usar Tirar as encontradas), ou use Desmarcar todas e marque só as que quer. O calendário, a produção do dia, o atingimento da meta e a tabela passam a contar só as máquinas marcadas, e as que ficaram de fora aparecem como etiquetas acima do calendário, com um ✕ para devolvê-las. O endereço guarda o filtro: dá para mandar o link. Limpar filtro volta a todas. O filtro vale só no Histórico.",
+    title: "OPs e Feedbacks",
+    faq: [
+      {
+        q: "Como uma OP anda até ser concluída?",
+        a: [
+          {
+            steps: [
+              "Aguardando liberação: a OP entrou, mas ainda não foi para a máquina.",
+              "Em produção: foi liberada e recebe os apontamentos dos turnos. Pode ser pausada, com um motivo.",
+              "Pronta para concluir: atingiu a quantidade pedida.",
+              "Concluída: um líder ou gestor confirmou.",
+            ],
+          },
+        ],
+      },
+      {
+        q: "Como funcionam os Feedbacks?",
+        a: [
+          "Cada OP tem uma conversa. A observação que o operador escreve no apontamento vira uma mensagem ali, e líderes e gestor respondem.",
+          "Liberar, pausar e concluir a OP aparecem na conversa como avisos do sistema. Quando a OP é concluída, a conversa fecha e fica guardada para consulta.",
+        ],
+      },
+      {
+        q: "O que é o Modo TV?",
+        a: [
+          "É a tela para o telão da fábrica. Cada TV mostra uma área (fábrica inteira, Montagem, Embalagem ou Granel) com o placar dos turnos, o ranking, as peças por minuto, as OPs concluídas e os destaques do mês.",
+          "Nunca mostra nome de operador. Barra de espaço pausa, Esc sai.",
+        ],
+      },
+    ],
   },
   {
-    q: "O que significa cada cor de status?",
-    a: "Crítico: abaixo de 70% da meta. Atenção: de 70% a 89%. Próximo: de 90% a 99%. Atingido: 100% ou mais. A cor sempre vem acompanhada do nome do status.",
-  },
-  {
-    q: "Por que o atingimento do mês está baixo se os dias apontados vão bem?",
-    // Com o banco, a meta é a soma das metas gravadas nos turnos apontados (D08): dia sem apontamento não entra na conta
-    a:
-      DATA_ORIGIN === "backend"
-        ? "O atingimento compara a produção com a soma das metas dos turnos apontados. Um turno sem apontamento não entra na conta: não baixa o atingimento, mas também não soma produção. Se o número parece baixo, confira na aba Detalhado da tela Máquinas os dias com produção abaixo da meta."
-        : "O atingimento compara a produção com a meta do mês inteiro. Dias sem apontamento contam como zero. Veja a aba Detalhado da tela Máquinas: os traços (–) mostram os dias que ficaram sem registro.",
-  },
-  {
-    q: "Como marco uma OP como retrabalho?",
-    a: "No apontamento, marque a caixa Retrabalho ao lado da OP e escolha o motivo. Os motivos e as taxas aparecem em Análises › Retrabalho.",
-  },
-  {
-    q: "Quem pode alterar as metas?",
-    a: "Gestores. Em Metas, use Editar metas, ajuste a meta por turno e escolha a data de vigência. As metas novas nunca mudam números de dias que já passaram.",
-  },
-  {
-    q: "Como exporto os dados?",
-    a: "Em Relatórios, escolha o tipo, o período, as máquinas e os turnos. O PDF serve para imprimir; a planilha do Excel traz resumo com gráficos, tabela por máquina, mapa diário e todos os apontamentos. O botão Exportar da tela Máquinas baixa a visão atual no mesmo padrão.",
-  },
-  {
-    q: "O que é o Modo TV?",
-    a: "Um telão para o meio da fábrica. Cada TV mostra uma área (fábrica inteira, Montagem, Embalagem ou Granel) e compara turnos e máquinas: placar dos turnos, ranking, peças por minuto, OPs concluídas e destaques do mês. Nunca mostra nomes de operadores. Pause com a barra de espaço e saia com Esc.",
-  },
-  {
-    q: "O que é uma OP e como ela anda?",
-    a: "Cada ordem de produção entra em OPs como Aguardando liberação. Quando vai para a máquina, é liberada (Em produção) e recebe os apontamentos dos turnos. Pode ser pausada com um motivo. Ao atingir a quantidade pedida, aparece como Pronta para concluir: um líder ou gestor confirma, e ela fica Concluída.",
-  },
-  {
-    q: "Como funcionam os Feedbacks?",
-    a: "Cada OP tem uma conversa. A observação que o operador escreve no apontamento vira uma mensagem ali; líderes e gestor respondem, e liberar, pausar e concluir aparecem como avisos do sistema. Quando a OP é concluída, a conversa se encerra e fica guardada para consulta.",
-  },
-  {
-    q: "Por que algumas máquinas não aparecem no atingimento?",
-    a: "Kit parafusos, bancadas e prensas trabalham por demanda e não têm meta. Elas aparecem no Apontamento, nas OPs, nos Feedbacks e nas linhas (na página da Montagem, numa lista própria chamada Postos por demanda, com a produção), mas ficam fora do atingimento e dos gráficos de meta.",
+    title: "Sua conta",
+    faq: [
+      {
+        q: "Como mudo o tema e outras preferências?",
+        a: [
+          "Clique no seu avatar e escolha Preferências. Lá você escolhe:",
+          {
+            items: [
+              "o tema: claro, escuro ou igual ao do computador;",
+              "a página que abre quando você entra;",
+              "se o menu lateral começa aberto ou fechado;",
+              "no Apontamento, o tamanho dos campos e o rascunho.",
+            ],
+          },
+          "As preferências são só suas e salvam sozinhas.",
+        ],
+      },
+      {
+        q: "Como troco minha senha?",
+        a: ["Clique no seu avatar, abra Perfil e peça o link para trocar a senha. Ele chega no seu e-mail."],
+      },
+    ],
   },
 ];
+
+const textOf = (blocks: Block[]) => blocks.map((b) => (typeof b === "string" ? b : "steps" in b ? b.steps.join(" ") : b.items.join(" "))).join(" ");
+
+function Answer({ blocks }: { blocks: Block[] }) {
+  return (
+    <div className="flex flex-col gap-100">
+      {blocks.map((b, i) =>
+        typeof b === "string" ? (
+          <p key={i}>{b}</p>
+        ) : "steps" in b ? (
+          <ol key={i} className="flex list-decimal flex-col gap-050 pl-300">
+            {b.steps.map((s) => (
+              <li key={s}>{s}</li>
+            ))}
+          </ol>
+        ) : (
+          <ul key={i} className="flex list-disc flex-col gap-050 pl-300">
+            {b.items.map((s) => (
+              <li key={s}>{s}</li>
+            ))}
+          </ul>
+        ),
+      )}
+    </div>
+  );
+}
 
 const LINKS: Array<{ href: string; title: string; text: string; icon: LucideIcon }> = [
-  { href: "#/apontamento", title: "Fazer um apontamento", text: "Registrar a produção do turno", icon: ClipboardList },
-  { href: "#/historico", title: "Corrigir apontamentos", text: "Editar, mover ou excluir registros", icon: History },
-  { href: "#/metas", title: "Ajustar metas", text: "Meta por turno e vigência", icon: Target },
-  { href: "#/relatorios", title: "Gerar um relatório", text: "PDF ou planilha do período", icon: FileText },
+  { href: "#/apontamento", title: "Fazer um apontamento", text: "Registrar o que cada máquina fez no turno", icon: ClipboardList },
+  { href: "#/historico", title: "Corrigir apontamentos", text: "Editar, mover ou excluir no Histórico", icon: History },
+  { href: "#/metas", title: "Ajustar metas", text: "Mudar a meta por turno de cada máquina", icon: Target },
+  { href: "#/relatorios", title: "Gerar um relatório", text: "Baixar PDF ou planilha do período", icon: FileText },
 ];
 
 const normalize = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -89,16 +269,18 @@ const normalize = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLo
 export function HelpPage() {
   const [query, setQuery] = useState("");
   const q = normalize(query.trim());
-  const faq = FAQ.filter((f) => !q || normalize(f.q + " " + f.a).includes(q));
+  const groups = FAQ_GROUPS.map((g) => ({ ...g, faq: g.faq.filter((f) => !q || normalize(f.q + " " + textOf(f.a)).includes(q)) })).filter(
+    (g) => g.faq.length > 0,
+  );
 
   return (
     <>
-      <PageHeader title="Ajuda" description="Respostas rápidas sobre o Dash de Produção." />
+      <PageHeader title="Ajuda" description="Como usar o Dash de Produção, em respostas curtas." />
       <PageBody>
         <TextField
           label="Buscar na ajuda"
           hideLabel
-          placeholder="Buscar na ajuda (ex.: retrabalho, metas, exportar)"
+          placeholder="Buscar na ajuda (ex.: retrabalho, OP, senha)"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           elemAfter={<Search aria-hidden className="size-icon-small" />}
@@ -126,11 +308,11 @@ export function HelpPage() {
           </nav>
         )}
 
-        <section aria-labelledby="faq" className="flex flex-col gap-150">
+        <section aria-labelledby="faq" className="flex flex-col gap-200">
           <h2 id="faq" className="font-heading-medium text-default">
             Perguntas frequentes
           </h2>
-          {faq.length === 0 ? (
+          {groups.length === 0 ? (
             <div className="rounded-xlarge border">
               <EmptyState
                 icon={SearchX}
@@ -140,22 +322,31 @@ export function HelpPage() {
               />
             </div>
           ) : (
-            <Accordion.Root type="multiple" className="flex flex-col overflow-hidden rounded-xlarge border">
-              {faq.map((f) => (
-                <Accordion.Item key={f.q} value={f.q} className="border-t first:border-t-0">
-                  <Accordion.Header>
-                    <Accordion.Trigger className="group flex w-full items-center gap-150 px-200 py-150 text-left font-heading-xsmall text-default transition-colors duration-hover ease-out hover:bg-neutral-subtle-hovered">
-                      <span className="flex-1">{f.q}</span>
-                      <ChevronDown
-                        aria-hidden
-                        className="size-icon-small shrink-0 text-icon-subtle transition-transform duration-menu ease-out group-data-[state=open]:rotate-180"
-                      />
-                    </Accordion.Trigger>
-                  </Accordion.Header>
-                  <Accordion.Content className="px-200 pb-200 text-subtle">{f.a}</Accordion.Content>
-                </Accordion.Item>
-              ))}
-            </Accordion.Root>
+            groups.map((g) => (
+              <div key={g.title} className="flex flex-col gap-100">
+                <h3 className="font-heading-xsmall text-subtle">{g.title}</h3>
+                <Accordion.Root type="multiple" className="flex flex-col overflow-hidden rounded-xlarge border">
+                  {g.faq.map((f) => (
+                    <Accordion.Item key={f.q} value={f.q} className="border-t first:border-t-0">
+                      <Accordion.Header asChild>
+                        <h4>
+                        <Accordion.Trigger className="group flex w-full items-center gap-150 px-200 py-150 text-left font-heading-xsmall text-default transition-colors duration-hover ease-out hover:bg-neutral-subtle-hovered">
+                          <span className="flex-1">{f.q}</span>
+                          <ChevronDown
+                            aria-hidden
+                            className="size-icon-small shrink-0 text-icon-subtle transition-transform duration-menu ease-out group-data-[state=open]:rotate-180"
+                          />
+                        </Accordion.Trigger>
+                        </h4>
+                      </Accordion.Header>
+                      <Accordion.Content className="px-200 pb-200 text-subtle">
+                        <Answer blocks={f.a} />
+                      </Accordion.Content>
+                    </Accordion.Item>
+                  ))}
+                </Accordion.Root>
+              </div>
+            ))
           )}
         </section>
 
@@ -198,7 +389,7 @@ export function HelpPage() {
               </ul>
               <p className="text-subtle">
                 {DATA_ORIGIN === "backend"
-                  ? "A meta de um período é a soma das metas gravadas em cada turno apontado. Hora extra e dia anulado não entram, e o retrabalho não conta como produção."
+                  ? "A meta de um período é a soma das metas de cada turno apontado. Hora extra e dia anulado ficam fora, e retrabalho não conta como produção."
                   : `Meta por dia = meta por turno × turnos ativos. Meta do mês = meta por dia × ${WORKING_DAYS} dias úteis.`}
               </p>
             </section>
@@ -211,7 +402,7 @@ export function HelpPage() {
             <h2 id="support" className="font-heading-small text-default">
               Precisa de mais ajuda?
             </h2>
-            <p className="mt-025 text-subtle">Fale com o suporte de TI da fábrica. Versão 0.5 · {DATA_ORIGIN === "backend" ? "dados do banco" : `dados de demonstração de ${PERIOD_LABEL}`}.</p>
+            <p className="mt-025 text-subtle">Fale com o TI da fábrica. Versão 0.5 · {DATA_ORIGIN === "backend" ? "dados do banco" : `dados de demonstração de ${PERIOD_LABEL}`}.</p>
           </div>
         </section>
       </PageBody>

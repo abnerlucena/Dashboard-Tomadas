@@ -258,10 +258,52 @@ test("histórico da máquina abre o Histórico já filtrado", async ({ page }) =
   await page.getByRole("row", { name: new RegExp(maquina.replace(/[()]/g, "\\$&")) }).getByRole("button", { name: /ações/i }).click();
   await page.getByRole("menuitem", { name: "Histórico da máquina" }).click();
   await expect(page.getByRole("heading", { name: "Histórico", level: 1 })).toBeVisible();
-  await expect(page.getByRole("button", { name: `Máquina: ${maquina}` })).toBeVisible();
+  await expect(page.getByRole("button", { name: `Máquinas: ${maquina}` })).toBeVisible();
   await expect(page.getByRole("table", { name: new RegExp(`· ${maquina.replace(/[()]/g, "\\$&")}$`) })).toBeVisible();
   await page.getByRole("button", { name: "Limpar filtro" }).click();
-  await expect(page.getByRole("button", { name: "Máquina: Todas" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Máquinas: Todas" })).toBeVisible();
+});
+
+test("histórico: tirar máquinas da conta, devolver e deixar só algumas", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  const painel = page.getByRole("dialog", { name: "Escolher as máquinas da conta" });
+  await page.goto("/#/historico");
+  await expect(page.getByRole("button", { name: "Máquinas: Todas" })).toBeVisible();
+  // tirar as duas Embaladoras de kit parafusos: busca "kit" e "Tirar as encontradas"
+  await page.getByRole("button", { name: "Máquinas: Todas" }).click();
+  await painel.getByLabel("Buscar máquina").fill("kit");
+  await painel.getByRole("button", { name: "Tirar as encontradas" }).click();
+  await expect(painel.getByText("20 de 22 máquinas na conta")).toBeVisible();
+  await painel.getByRole("button", { name: "Concluir" }).click();
+  await expect(page.getByRole("button", { name: "Máquinas: Sem 2 máquinas" })).toBeVisible();
+  await expect(page.getByRole("group", { name: "Máquinas do filtro" })).toContainText("Embaladora kit parafusos nº 1");
+  await expect(page.getByText("só as 20 máquinas da conta")).toBeVisible();
+  // o endereço guarda o filtro e dá para abrir o link
+  await expect(page).toHaveURL(/#\/historico\/sem%3A/);
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Máquinas: Sem 2 máquinas" })).toBeVisible();
+  // o ✕ devolve uma máquina; a outra continua fora
+  await page.getByRole("button", { name: "Voltar Embaladora kit parafusos nº 1 para a conta" }).click();
+  await expect(page.getByRole("button", { name: "Máquinas: Sem 1 máquina" })).toBeVisible();
+  // limpar volta a todas
+  await page.getByRole("button", { name: "Limpar filtro" }).click();
+  await expect(page.getByRole("button", { name: "Máquinas: Todas" })).toBeVisible();
+  // só algumas: desmarcar todas, buscar e deixar só as encontradas
+  await page.getByRole("button", { name: "Máquinas: Todas" }).click();
+  await painel.getByRole("button", { name: "Desmarcar todas" }).click();
+  await expect(painel.getByText("0 de 22 máquinas na conta")).toBeVisible();
+  await painel.getByLabel("Buscar máquina").fill("Composé");
+  await painel.getByRole("button", { name: "Só as encontradas" }).click();
+  await painel.getByRole("button", { name: "Concluir" }).click();
+  await expect(page.getByRole("button", { name: "Máquinas: 2 máquinas" })).toBeVisible();
+  await expect(page.getByText("Só estas na conta:")).toBeVisible();
+  // nenhuma na conta: avisa e oferece marcar todas
+  await page.getByRole("button", { name: "Máquinas: 2 máquinas" }).click();
+  await painel.getByRole("button", { name: "Desmarcar todas" }).click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByText("Nenhuma máquina na conta").first()).toBeVisible();
+  await page.getByRole("button", { name: "Marcar todas" }).click();
+  await expect(page.getByRole("button", { name: "Máquinas: Todas" })).toBeVisible();
 });
 
 test("quantidade acima de 2× a meta pede conferência, sem impedir", async ({ page }) => {

@@ -357,6 +357,32 @@ test("a aba Montagem mostra também os postos por demanda, fora do atingimento",
   await expect(page.getByRole("heading", { name: "Postos por demanda" })).toHaveCount(0);
 });
 
+test("histórico: as setas do mês não mudam de lugar quando o nome do mês muda", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await page.goto("/#/historico");
+  const anterior = page.getByRole("button", { name: /^Mês anterior/ });
+  const proximo = page.getByRole("button", { name: /^Próximo mês/ });
+  const a = await anterior.boundingBox();
+  const p = await proximo.boundingBox();
+  // as setas vêm antes do nome do mês (que muda de largura), então não andam
+  const titulo = await page.getByRole("region", { name: /^Calendário de / }).getByRole("heading", { level: 2 }).boundingBox();
+  expect(a!.x).toBeLessThan(p!.x);
+  expect(p!.x + p!.width).toBeLessThanOrEqual(titulo!.x);
+  // vai e volta pelos meses disponíveis: a posição das setas é sempre a mesma
+  for (let i = 0; i < 3; i++) {
+    if (!(await anterior.isEnabled())) break;
+    await anterior.click();
+    expect(await anterior.boundingBox()).toEqual(a);
+    expect(await proximo.boundingBox()).toEqual(p);
+  }
+  for (let i = 0; i < 3; i++) {
+    if (!(await proximo.isEnabled())) break;
+    await proximo.click();
+    expect(await anterior.boundingBox()).toEqual(a);
+    expect(await proximo.boundingBox()).toEqual(p);
+  }
+});
+
 test("quantidade acima de 2× a meta pede conferência, sem impedir", async ({ page }) => {
   await entrar(page, "gestor@demo.weg");
   await iniciarTurno(page);

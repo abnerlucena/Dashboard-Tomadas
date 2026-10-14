@@ -474,9 +474,7 @@ export function HistoryPage({ notify, machineParam }: { notify: Notify; machineP
               onSelect={(d) => selectDate(new Date(year, month, d))}
               header={
                 <div className="flex items-center gap-100">
-                  <h2 aria-live="polite" className="font-heading-small text-default first-letter:uppercase">
-                    {monthTitle.format(date)}
-                  </h2>
+                  {/* As setas ficam antes do nome do mês: o nome muda de largura (Maio, Setembro…) e, depois dele, as setas andariam a cada clique */}
                   {/* Os meses disponíveis vêm da janela de dados (DATA_START → DATA_END) */}
                   <span className="flex gap-050">
                     <IconButton
@@ -494,6 +492,9 @@ export function HistoryPage({ notify, machineParam }: { notify: Notify; machineP
                       onClick={() => nextMonth && selectDate(nextMonth)}
                     />
                   </span>
+                  <h2 aria-live="polite" className="font-heading-small text-default first-letter:uppercase">
+                    {monthTitle.format(date)}
+                  </h2>
                 </div>
               }
               getDay={(d) => {

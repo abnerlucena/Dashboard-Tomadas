@@ -31,7 +31,8 @@ import { PageBody, PageHeader } from "@/components/layout/PageHeader";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { EmptyState } from "@/components/ui/Feedback";
-import { FilterPill } from "@/components/ui/FilterPill";
+import { MachineFilterPicker } from "./MachineFilterPicker";
+import { filterLabel, filterToken, parseMachineFilter } from "./machineFilter";
 import { Lozenge } from "@/components/ui/Lozenge";
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuRadioGroup, MenuRadioItem, MenuSeparator, MenuTrigger } from "@/components/ui/Menu";
 import { Modal } from "@/components/ui/Modal";
@@ -66,15 +67,16 @@ type Dialog =
   | { kind: "record"; order: ProductionOrder; original: EditOriginal }
   | null;
 
-/** Dia a abrir com uma máquina filtrada: o último em que ela apontou (ou o último dia com dados) */
-function lastDayOf(orders: ProductionOrder[], machineId: string) {
-  const days = orders.filter((o) => o.machineId === machineId && o.date <= DATA_END).map((o) => o.date.getTime());
+/** Dia a abrir com máquinas filtradas: o último em que alguma delas apontou (ou o último dia com dados) */
+function lastDayOf(orders: ProductionOrder[], machineIds: ReadonlySet<string>) {
+  const days = orders.filter((o) => machineIds.has(o.machineId) && o.date <= DATA_END).map((o) => o.date.getTime());
   return days.length ? new Date(Math.max(...days)) : DATA_END;
 }
 
 /**
- * `machineParam` vem da rota "#/historico/<id da máquina>": é por ele que o
- * "Histórico da máquina" do Dashboard abre esta tela já filtrada.
+ * `machineParam` vem da rota "#/historico/<filtro>" (ver machineFilter.ts): é por
+ * ele que o "Histórico da máquina" do Dashboard abre esta tela já filtrada, e que
+ * dá para mandar o link de uma visão sem algumas máquinas.
  */
 export function HistoryPage({ notify, machineParam }: { notify: Notify; machineParam?: string }) {
   const [orders, setOrders] = useState<ProductionOrder[]>(ALL_ORDERS);
@@ -93,11 +95,13 @@ export function HistoryPage({ notify, machineParam }: { notify: Notify; machineP
   const LAST_DAY = endOfMonth(DATA_END);
   /** Meta do dia: com o banco, a soma das metas dos turnos apontados; na demonstração, a meta diária da fábrica */
   // Filtro de máquina: vale para o calendário e para a tabela do dia
-  const [machineFilter, setMachineFilter] = useState<string>(() => (machineParam && MACHINES.some((m) => m.id === machineParam) ? machineParam : "all"));
-  const filtered = machineFilter === "all" ? null : machineById(machineFilter);
-  const dayTarget = (d: Date) => targetOn(filtered ? [filtered] : MACHINES, d);
+  // Quais máquinas entram na conta: todas, ou as que sobram depois de tirar algumas (ou de marcar só algumas)
+  const allIds = useMemo(() => MACHINES.map((m) => m.id), []);
+  const [included, setIncluded] = useState<Set<string>>(() => parseMachineFilter(machineParam, allIds));
+  const filtered = included.size !== allIds.length;
+  const dayTarget = (d: Date) => targetOn(filtered ? MACHINES.filter((m) => included.has(m.id)) : MACHINES, d);
   // Dia aberto (data completa: o calendário navega entre os meses da janela de dados)
-  const [date, setDate] = useState<Date>(() => (machineFilter === "all" ? DATA_END : lastDayOf(ALL_ORDERS, machineFilter)));
+  const [date, setDate] = useState<Date>(() => (filtered ? lastDayOf(ALL_ORDERS, included) : DATA_END));
   const year = date.getFullYear();
   const month = date.getMonth();
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -107,17 +111,26 @@ export function HistoryPage({ notify, machineParam }: { notify: Notify; machineP
 
   const byDay = useMemo(() => {
     const map = new Map<string, ProductionOrder[]>();
-    for (const o of orders) if (machineFilter === "all" || o.machineId === machineFilter) map.set(toIsoDate(o.date), [...(map.get(toIsoDate(o.date)) ?? []), o]);
+    for (const o of orders) if (included.has(o.machineId)) map.set(toIsoDate(o.date), [...(map.get(toIsoDate(o.date)) ?? []), o]);
     return map;
-  }, [orders, machineFilter]);
+  }, [orders, included]);
 
-  const changeMachine = (id: string) => {
-    setMachineFilter(id);
+  const changeIncluded = (next: Set<string>) => {
+    setIncluded(next);
     setSelected(new Set());
     // O endereço acompanha o filtro, para dar para guardar ou mandar o link
-    window.history.replaceState(null, "", id === "all" ? "#/historico" : `#/historico/${encodeURIComponent(id)}`);
-    if (id !== "all" && !orders.some((o) => o.machineId === id && sameDay(o.date, date))) setDate(lastDayOf(orders, id));
+    const token = filterToken(next, allIds);
+    window.history.replaceState(null, "", token ? `#/historico/${encodeURIComponent(token)}` : "#/historico");
+    // Se nenhuma das máquinas da conta apontou no dia aberto, vai ao último dia em que alguma apontou
+    if (next.size && next.size !== allIds.length && !orders.some((o) => next.has(o.machineId) && sameDay(o.date, date))) setDate(lastDayOf(orders, next));
   };
+  const machineLabel = filterLabel(included, MACHINES);
+  /** Produção do dia aberto por máquina (todas, mesmo as tiradas), para ver o peso de cada uma no filtro */
+  const dayQuantities = useMemo(() => {
+    const q: Record<string, number> = {};
+    for (const o of orders) if (sameDay(o.date, date) && !o.rework) q[o.machineId] = (q[o.machineId] ?? 0) + o.quantity;
+    return q;
+  }, [orders, date]);
 
   const allDayOrders = (byDay.get(toIsoDate(date)) ?? []).slice().sort((a, b) => a.shift - b.shift || a.machineId.localeCompare(b.machineId));
   const dayOrders = shiftFilter === "all" ? allDayOrders : allDayOrders.filter((o) => o.shift === shiftFilter);
@@ -442,19 +455,14 @@ export function HistoryPage({ notify, machineParam }: { notify: Notify; machineP
       />
       <PageBody>
         <div role="group" aria-label="Filtros" className="flex flex-wrap items-center gap-100">
-          <FilterPill
-            label="Máquina"
-            value={machineFilter}
-            defaultValue="all"
-            onChange={changeMachine}
-            options={[{ value: "all", label: "Todas" }, ...MACHINES.map((m) => ({ value: m.id, label: m.name }))]}
-          />
+          <MachineFilterPicker machines={MACHINES} included={included} onChange={changeIncluded} quantities={dayQuantities} />
           {filtered && (
-            <Button appearance="subtle" iconBefore={FilterX} onClick={() => changeMachine("all")}>
+            <Button appearance="subtle" iconBefore={FilterX} onClick={() => changeIncluded(new Set(allIds))}>
               Limpar filtro
             </Button>
           )}
         </div>
+        {filtered && <MachineChips included={included} onChange={changeIncluded} />}
         {/* Calendário em cima, na largura toda; o dia escolhido abre embaixo, com a tabela sem rolagem lateral */}
         <div className="flex flex-col gap-400">
           <section aria-label={`Calendário de ${monthTitle.format(date)}`} className="rounded-large bg-surface-raised p-250 shadow-raised">
@@ -539,6 +547,7 @@ export function HistoryPage({ notify, machineParam }: { notify: Notify; machineP
                   <p className="flex flex-wrap items-center gap-100 text-subtle">
                     <span>
                       <span className="font-semibold tabular-nums text-default">{formatNumber(dayTotal)}</span> unidades em {plural(allDayOrders.length)}
+                      {filtered && <span className="text-subtlest"> · só as {included.size} máquinas da conta</span>}
                     </span>
                     {openTarget > 0 ? (
                       <Lozenge appearance={STATUS_META[statusFor(dayPct)].appearance}>
@@ -610,7 +619,7 @@ export function HistoryPage({ notify, machineParam }: { notify: Notify; machineP
             )}
 
             <DataTable
-              caption={`Apontamentos de ${formatLongDate(date)}${filtered ? ` · ${filtered.name}` : ""}`}
+              caption={`Apontamentos de ${formatLongDate(date)}${filtered ? ` · ${machineLabel}` : ""}`}
               columns={columns}
               rows={dayOrders}
               getRowId={(o) => o.id}
@@ -631,23 +640,29 @@ export function HistoryPage({ notify, machineParam }: { notify: Notify; machineP
                         ? "Dia ainda não chegou"
                         : allDayOrders.length && shiftFilter !== "all"
                           ? `Nenhum apontamento no ${SHIFT_META[shiftFilter].label.toLowerCase()}`
-                          : filtered
-                            ? "Nenhum apontamento desta máquina neste dia"
-                            : "Nenhum apontamento neste dia"
+                          : !included.size
+                            ? "Nenhuma máquina na conta"
+                            : filtered
+                              ? "Nenhum apontamento das máquinas da conta neste dia"
+                              : "Nenhum apontamento neste dia"
                   }
                   hint={
                     isWeekend(date) || isFuture
                       ? `Escolha um dia útil até ${formatLongDate(DATA_END)} para ver os apontamentos.`
                       : allDayOrders.length && shiftFilter !== "all"
                         ? "Escolha outro turno ou Todos para ver os demais apontamentos do dia."
+                        : !included.size
+                        ? "Marque pelo menos uma máquina no filtro Máquinas para ver os apontamentos."
                         : filtered
-                          ? "Escolha outro dia no calendário: os dias com produção dela mostram a quantidade."
+                          ? "Escolha outro dia no calendário: os dias com produção das máquinas da conta mostram a quantidade."
                           : "Nenhuma máquina registrou produção neste dia."
                   }
                   action={
-                    !isWeekend(date) && !isFuture
-                      ? { label: "Fazer apontamento", onClick: () => (window.location.hash = "/apontamento") }
-                      : undefined
+                    !included.size
+                      ? { label: "Marcar todas", onClick: () => changeIncluded(new Set(allIds)) }
+                      : !isWeekend(date) && !isFuture
+                        ? { label: "Fazer apontamento", onClick: () => (window.location.hash = "/apontamento") }
+                        : undefined
                   }
                 />
               }
@@ -780,6 +795,44 @@ function ReachNote({ action, rows, picked, children }: { action: "apaga" | "move
         {extra > 0 && <>, {extra} além das marcadas</>}).
       </p>
       <p>{children}</p>
+    </div>
+  );
+}
+
+/**
+ * Lembrete do filtro, sempre à vista: quais máquinas ficaram de fora (ou, se o filtro
+ * deixa poucas, quais são as únicas na conta). O ✕ devolve ou tira a máquina.
+ */
+function MachineChips({ included, onChange }: { included: ReadonlySet<string>; onChange: (next: Set<string>) => void }) {
+  const inside = MACHINES.filter((m) => included.has(m.id));
+  const outside = MACHINES.filter((m) => !included.has(m.id));
+  const showOutside = outside.length <= inside.length;
+  const list = (showOutside ? outside : inside).slice(0, 6);
+  const rest = (showOutside ? outside : inside).length - list.length;
+  const toggle = (id: string) => {
+    const next = new Set(included);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    onChange(next);
+  };
+  if (!inside.length) return null;
+  return (
+    <div role="group" aria-label="Máquinas do filtro" className="flex flex-wrap items-center gap-100 font-body-small text-subtle">
+      <span>{showOutside ? "Fora da conta:" : "Só estas na conta:"}</span>
+      {list.map((m) => (
+        <span key={m.id} className={cn("inline-flex h-control-compact items-center gap-050 rounded-full pl-100 pr-025 font-medium", showOutside ? "bg-warning text-warning" : "bg-selected text-selected")}>
+          {m.name}
+          <button
+            type="button"
+            onClick={() => toggle(m.id)}
+            aria-label={showOutside ? `Voltar ${m.name} para a conta` : `Tirar ${m.name} da conta`}
+            className="ds-pressable inline-flex size-control-compact items-center justify-center rounded-full hover:bg-neutral-subtle-hovered"
+          >
+            <X aria-hidden className="size-icon-small" />
+          </button>
+        </span>
+      ))}
+      {rest > 0 && <span>e mais {rest}</span>}
     </div>
   );
 }

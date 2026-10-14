@@ -1,0 +1,263 @@
+<title>Filtro de máquinas do Histórico</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: bandeja lateral (recolhe no ambiente de apontamento) + barra de passos no topo; passo 2 = lista de status fixa à esquerda + todas as máquinas em sequência à direita,
+   cada uma com "Concluir" (o distribuidor aponta as 22 em sequência, sem abrir e fechar telas).
+   Cores e tipos copiados do Dash de Produção (tokens.css), para o protótipo parecer a tela real. */
+:root {
+  --bg: #F7F9FA;
+  --surface: #FFFFFF;
+  --sunken: #EEF1F4;
+  --fg: #161F2D;
+  --subtle: #434F60;
+  --subtlest: #5D6979;
+  --border: #D9DEE5;
+  --border-strong: #AEB7C2;
+  --brand: #0062B2;
+  --brand-hover: #00508F;
+  --on-brand: #FFFFFF;
+  --selected-bg: #E7F3FE;
+  --selected-fg: #105893;
+  --success: #126836; --success-bg: #E7F8ED;
+  --warning: #914808; --warning-bg: #FFF1D1;
+  --danger: #AD1F1F; --danger-bg: #FEE9E9;
+  --neutral-bg: #EEF1F4;
+  --banner: #2C3644; --on-banner: #FFFFFF;
+  --shadow: 0 1px 2px rgba(22,31,45,.08), 0 0 1px rgba(22,31,45,.18);
+  --overlay: rgba(22,31,45,.45);
+  --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101722; --surface: #18212E; --sunken: #121A25; --fg: #E6EAF0; --subtle: #B4BDC9; --subtlest: #96A1AF;
+    --border: #2F3B4B; --border-strong: #4A5A70; --brand: #4C9EEB; --brand-hover: #74B5F2; --on-brand: #0B1420;
+    --selected-bg: #11304D; --selected-fg: #9CCBF7;
+    --success: #6FD39A; --success-bg: #12301F; --warning: #F5B25C; --warning-bg: #3A2A10; --danger: #F38B8B; --danger-bg: #3D1717;
+    --neutral-bg: #222D3B; --banner: #050A12; --on-banner: #E6EAF0;
+    --shadow: 0 0 0 1px #2F3B4B; --overlay: rgba(0,0,0,.6); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101722; --surface: #18212E; --sunken: #121A25; --fg: #E6EAF0; --subtle: #B4BDC9; --subtlest: #96A1AF;
+  --border: #2F3B4B; --border-strong: #4A5A70; --brand: #4C9EEB; --brand-hover: #74B5F2; --on-brand: #0B1420;
+  --selected-bg: #11304D; --selected-fg: #9CCBF7;
+  --success: #6FD39A; --success-bg: #12301F; --warning: #F5B25C; --warning-bg: #3A2A10; --danger: #F38B8B; --danger-bg: #3D1717;
+  --neutral-bg: #222D3B; --banner: #050A12; --on-banner: #E6EAF0;
+  --shadow: 0 0 0 1px #2F3B4B; --overlay: rgba(0,0,0,.6); color-scheme: dark;
+}
+
+[hidden] { display: none !important; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 400 15px/1.45 var(--font); margin: 0; padding-inline: 16px; padding-block: 20px 56px; }
+button, input { font: inherit; color: inherit; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+.num { font-variant-numeric: tabular-nums; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.page { max-width: 1040px; margin: 0 auto; display: grid; gap: 16px; }
+.note { background: var(--sunken); border: 1px dashed var(--border-strong); border-radius: 10px; padding: 10px 14px; font-size: 13px; color: var(--subtle); }
+.note b { color: var(--fg); }
+.page > h1 { font-size: 22px; font-weight: 700; }
+.page > p.d { margin: -8px 0 0; color: var(--subtle); }
+
+/* filtros */
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; position: relative; }
+.pill { height: 32px; display: inline-flex; align-items: center; border-radius: 6px; border: 1px solid var(--border-strong); background: var(--surface); cursor: pointer; padding: 0; }
+.pill:hover { background: var(--sunken); }
+.pill .k { padding: 0 8px 0 12px; color: var(--subtlest); }
+.pill .sep { height: 16px; border-left: 1px solid var(--border-strong); }
+.pill .v { padding: 0 10px 0 8px; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+.pill.on { background: var(--selected-bg); border-color: var(--brand); color: var(--selected-fg); }
+.pill.on .k { color: var(--selected-fg); } .pill.on .sep { border-color: var(--brand); }
+.btn { height: 32px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--subtle); font-weight: 500; cursor: pointer; font-size: 14px; }
+.btn:hover { background: var(--sunken); }
+.btn.link { border: 0; background: transparent; color: var(--brand); padding: 0 6px; }
+.btn.primary { background: var(--brand); border-color: var(--brand); color: var(--on-brand); font-weight: 600; }
+.panel { position: absolute; top: 40px; left: 0; z-index: 20; width: min(26rem, calc(100vw - 32px)); max-height: min(34rem, 80vh); display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 36px rgba(0,0,0,.22); }
+.panel header { padding: 12px 14px 8px; display: grid; gap: 8px; border-bottom: 1px solid var(--border); }
+.panel header .t { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.panel header h2 { font-size: 14px; font-weight: 600; }
+.panel header small { color: var(--subtlest); font-size: 12px; }
+.search { height: 32px; border: 1px solid var(--border-strong); border-radius: 6px; padding: 0 10px; background: var(--surface); width: 100%; }
+.quick { display: flex; flex-wrap: wrap; gap: 6px; }
+.quick button { height: 26px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--subtle); font-size: 12px; font-weight: 500; cursor: pointer; }
+.quick button:hover { background: var(--sunken); }
+.list { overflow-y: auto; padding: 4px 6px 8px; }
+.grp { margin-top: 6px; }
+.grp > label { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px; color: var(--subtle); }
+.grp > label small { margin-left: auto; font-weight: 400; color: var(--subtlest); }
+.row { display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 30px; border-radius: 8px; cursor: pointer; min-height: 36px; }
+.row:hover, .grp > label:hover { background: var(--sunken); }
+.row .nm { flex: 1; min-width: 0; font-size: 14px; }
+.row .qt { font-size: 12px; color: var(--subtlest); }
+.row.off .nm { color: var(--subtlest); text-decoration: line-through; text-decoration-color: var(--border-strong); }
+input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--brand); flex: none; margin: 0; cursor: pointer; }
+.panel footer { padding: 10px 14px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.panel footer span { font-size: 13px; color: var(--subtle); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; color: var(--subtle); }
+.chip { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 4px 0 10px; border-radius: 999px; background: var(--warning-bg); color: var(--warning); font-weight: 500; }
+.chip button { border: 0; background: transparent; width: 22px; height: 22px; border-radius: 50%; cursor: pointer; color: inherit; font-size: 14px; line-height: 1; }
+.chip button:hover { background: rgba(0,0,0,.1); }
+.chip.only { background: var(--selected-bg); color: var(--selected-fg); }
+
+/* resumo e tabela */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); border: 1px solid var(--border); border-radius: 12px; background: var(--surface); overflow: hidden; box-shadow: var(--shadow); }
+.kpi { padding: 14px 16px; display: grid; gap: 2px; border-left: 1px solid var(--border); }
+.kpi:first-child { border-left: 0; }
+.kpi span { font-size: 13px; color: var(--subtle); }
+.kpi b { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.kpi small { font-size: 12px; color: var(--subtlest); }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.card h2 { font-size: 15px; font-weight: 600; padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+.card h2 small { font-weight: 400; color: var(--subtlest); font-size: 13px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; font-size: 12px; font-weight: 600; color: var(--subtle); padding: 8px 16px; border-bottom: 1px solid var(--border); }
+td { padding: 8px 16px; border-top: 1px solid var(--border); }
+th.r, td.r { text-align: right; font-variant-numeric: tabular-nums; }
+tr:first-child td { border-top: 0; }
+tr.out td { color: var(--subtlest); background: var(--sunken); }
+tr.out td:first-child { text-decoration: line-through; }
+tfoot td { font-weight: 600; background: var(--sunken); }
+.tag { font-size: 12px; padding: 1px 8px; border-radius: 6px; background: var(--neutral-bg); color: var(--subtle); }
+.scroll { overflow-x: auto; }
+.empty { padding: 28px 16px; text-align: center; display: grid; gap: 8px; justify-items: center; color: var(--subtle); }
+.empty b { color: var(--fg); font-size: 16px; }
+.link-line { font-size: 12px; color: var(--subtlest); }
+.link-line code { font-family: var(--mono); background: var(--sunken); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; color: var(--fg); }
+.veil { position: fixed; inset: 0; z-index: 10; }
+</style>
+
+<div class="page">
+  <div class="note"><b>Protótipo do filtro de máquinas do Histórico.</b> Dados fictícios de um dia. Tire as duas Embaladoras de kit parafusos e veja a produção do dia sem elas. Também dá para marcar só algumas.</div>
+  <h1>Histórico</h1>
+  <p class="d">Confira e corrija os apontamentos de cada dia.</p>
+
+  <div class="filters" role="group" aria-label="Filtros" id="filters"></div>
+  <div class="chips" id="chips"></div>
+  <div class="link-line" id="linkline"></div>
+  <div class="kpis" id="kpis"></div>
+  <div class="card" id="tbl"></div>
+</div>
+<div id="veil" class="veil" hidden></div>
+
+<script>
+var GROUPS = [
+  { id: "montagem", name: "Montagem", ms: [
+    ["Máquina de interruptores Composé nº 1", 6120, 5800], ["Máquina de tomadas Composé (Aumaq)", 14096, 12000], ["Máquina de plugue Slin (Aumaq)", 5210, 5800],
+    ["Embaladora kit parafusos nº 1", 6546, 0], ["Embaladora kit parafusos nº 2", 3180, 0],
+    ["Bancada nº 1 · teste de interruptores", 2253, 0], ["Bancada nº 2 · montagem de interruptores", 1810, 0], ["Bancada nº 3 · diversos", 2280, 0], ["Bancada nº 4 · diversos", 940, 0], ["Bancada nº 5 · eletrônicos", 1209, 0],
+    ["Prensa de inserção de contatos", 7400, 0], ["Prensa Tox", 4620, 0], ["Prensa placa Refinatto", 3890, 0] ] },
+  { id: "embalagem", name: "Embalagem", ms: [
+    ["Embaladora vertical conjuntos nº 1", 9800, 9000], ["Embaladora vertical conjuntos nº 2", 8420, 9000], ["Embaladora horizontal nº 1", 11200, 10000], ["Embaladora horizontal nº 2", 9650, 10000],
+    ["Embaladora 4×2 suportes/placas nº 1", 5400, 6000], ["Embaladora 4×2 suportes/placas nº 2", 6100, 6000], ["Embaladora vertical módulos nº 1", 7300, 7500], ["Embaladora vertical módulos nº 2", 6950, 7500] ] },
+  { id: "granel", name: "Granel", ms: [ ["Bancada de embalagem a granel", 4300, 4000] ] }
+];
+var M = []; GROUPS.forEach(function (g) { g.ms.forEach(function (m) { M.push({ id: M.length, g: g.id, gname: g.name, name: m[0], qty: m[1], meta: m[2] }); }); });
+var fmt = function (n) { return n.toLocaleString("pt-BR"); };
+var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+var included = {}; M.forEach(function (m) { included[m.id] = true; });
+var open = false, q = "", showOut = false;
+
+function counts() { var inc = M.filter(function (m) { return included[m.id]; }).length; return { inc: inc, out: M.length - inc }; }
+function pillText() {
+  var c = counts(), outs = M.filter(function (m) { return !included[m.id]; });
+  if (!c.out) return "Todas";
+  if (!c.inc) return "Nenhuma";
+  if (c.inc <= 3) return c.inc === 1 ? M.filter(function (m) { return included[m.id]; })[0].name : c.inc + " marcadas";
+  return "Sem " + c.out + (c.out === 1 ? " máquina" : " máquinas");
+}
+function token() {
+  var c = counts(); if (!c.out) return "#/historico";
+  var inc = M.filter(function (m) { return included[m.id]; }).map(function (m) { return m.id; }), out = M.filter(function (m) { return !included[m.id]; }).map(function (m) { return m.id; });
+  return c.out <= c.inc ? "#/historico/sem:" + out.join(",") : "#/historico/so:" + inc.join(",");
+}
+function groupState(g) { var ms = M.filter(function (m) { return m.g === g.id; }), n = ms.filter(function (m) { return included[m.id]; }).length; return { n: n, total: ms.length, all: n === ms.length, none: n === 0 }; }
+
+function renderFilters() {
+  var c = counts(), el = document.getElementById("filters");
+  var on = c.out > 0;
+  var h = '<button class="pill' + (on ? " on" : "") + '" type="button" id="pillbtn" aria-haspopup="dialog" aria-expanded="' + open + '" aria-label="Máquinas: ' + esc(pillText()) + '"><span class="k">Máquinas</span><span class="sep"></span><span class="v">' + esc(pillText()) + ' <span aria-hidden="true">▾</span></span></button>';
+  if (on) h += '<button class="btn" type="button" data-a="all">Limpar filtro</button>';
+  if (open) {
+    var vis = M.filter(function (m) { return !q || m.name.toLowerCase().indexOf(q.toLowerCase()) >= 0; });
+    h += '<div class="panel" role="dialog" aria-label="Escolher as máquinas da conta"><header><div class="t"><h2>Máquinas na conta</h2><small>Desmarque para tirar da conta</small></div>' +
+      '<input class="search" id="search" type="search" placeholder="Buscar máquina (ex.: kit)" value="' + esc(q) + '" aria-label="Buscar máquina">' +
+      '<div class="quick"><button type="button" data-a="all">Marcar todas</button><button type="button" data-a="none">Desmarcar todas</button><button type="button" data-a="kits">Tirar as de kit parafusos</button>' + (q && vis.length ? '<button type="button" data-a="only-found">Só as encontradas</button>' : '') + '</div></header><div class="list">';
+    GROUPS.forEach(function (g) {
+      var rows = vis.filter(function (m) { return m.g === g.id; }); if (!rows.length) return;
+      var st = groupState(g);
+      h += '<div class="grp"><label><input type="checkbox" data-grp="' + g.id + '"' + (st.all ? " checked" : "") + ' aria-label="Grupo ' + g.name + '"' + (!st.all && !st.none ? ' data-ind="1"' : "") + '>' + g.name + '<small>' + st.n + ' de ' + st.total + '</small></label>';
+      rows.forEach(function (m) { h += '<label class="row' + (included[m.id] ? "" : " off") + '"><input type="checkbox" data-m="' + m.id + '"' + (included[m.id] ? " checked" : "") + '><span class="nm">' + esc(m.name) + '</span><span class="qt num">' + fmt(m.qty) + '</span></label>'; });
+      h += '</div>';
+    });
+    if (!vis.length) h += '<p style="padding:16px;color:var(--subtle);margin:0">Nenhuma máquina com esse nome.</p>';
+    h += '</div><footer><span><b class="num">' + c.inc + '</b> de ' + M.length + ' máquinas na conta</span><button class="btn primary" type="button" data-a="close">Concluir</button></footer></div>';
+  }
+  el.innerHTML = h;
+  document.getElementById("veil").hidden = !open;
+  document.querySelectorAll("[data-ind]").forEach(function (i) { i.indeterminate = true; });
+}
+function renderChips() {
+  var c = counts(), el = document.getElementById("chips"), outs = M.filter(function (m) { return !included[m.id]; });
+  if (!c.out) { el.innerHTML = ""; document.getElementById("linkline").textContent = "Todas as máquinas na conta."; return; }
+  var h = "";
+  if (c.out <= c.inc) { h += "<span>Fora da conta:</span>"; outs.slice(0, 6).forEach(function (m) { h += '<span class="chip">' + esc(m.name) + '<button type="button" data-back="' + m.id + '" aria-label="Voltar ' + esc(m.name) + ' para a conta">✕</button></span>'; }); if (outs.length > 6) h += "<span>e mais " + (outs.length - 6) + "</span>"; }
+  else { h += "<span>Só estas na conta:</span>"; M.filter(function (m) { return included[m.id]; }).slice(0, 6).forEach(function (m) { h += '<span class="chip only">' + esc(m.name) + '<button type="button" data-out="' + m.id + '" aria-label="Tirar ' + esc(m.name) + ' da conta">✕</button></span>'; }); if (c.inc > 6) h += "<span>e mais " + (c.inc - 6) + "</span>"; }
+  h += '<button class="btn link" type="button" data-a="toggleout">' + (showOut ? "Esconder as que ficaram de fora" : "Ver as que ficaram de fora") + '</button>';
+  el.innerHTML = h;
+  document.getElementById("linkline").innerHTML = 'Link deste filtro: <code>' + token() + '</code>';
+}
+function renderBody() {
+  var inc = M.filter(function (m) { return included[m.id]; }), c = counts();
+  var prod = inc.reduce(function (s, m) { return s + m.qty; }, 0);
+  var withMeta = inc.filter(function (m) { return m.meta > 0; }), meta = withMeta.reduce(function (s, m) { return s + m.meta; }, 0), prodM = withMeta.reduce(function (s, m) { return s + m.qty; }, 0);
+  var pct = meta ? Math.round(prodM / meta * 100) : null;
+  var scope = c.out ? "Só as " + c.inc + " máquinas da conta" : "Todas as 22 máquinas";
+  document.getElementById("kpis").innerHTML =
+    '<div class="kpi"><span>Produção do dia</span><b>' + fmt(prod) + '</b><small>' + scope + '</small></div>' +
+    '<div class="kpi"><span>Máquinas na conta</span><b>' + c.inc + ' <small style="font-size:14px;font-weight:400">de ' + M.length + '</small></b><small>' + (c.out ? c.out + " fora da conta" : "Nenhuma tirada") + '</small></div>' +
+    '<div class="kpi"><span>Atingimento da meta</span><b>' + (pct == null ? "–" : pct + "%") + '</b><small>' + (pct == null ? "Sem máquina com meta na conta" : "Só máquinas com meta: " + fmt(prodM) + " de " + fmt(meta)) + '</small></div>';
+  var rows = M.filter(function (m) { return included[m.id] || showOut; });
+  var t = '<h2>Apontamentos do dia <small>27 de março · ' + (c.out ? "com o filtro de máquinas" : "todas as máquinas") + '</small></h2>';
+  if (!c.inc) { t += '<div class="empty"><b>Nenhuma máquina na conta</b><span>Marque pelo menos uma máquina para ver os apontamentos.</span><button class="btn primary" type="button" data-a="all">Marcar todas</button></div>'; }
+  else {
+    t += '<div class="scroll"><table><thead><tr><th>Máquina</th><th>Linha</th><th class="r">Quantidade</th><th class="r">Meta</th></tr></thead><tbody>' +
+      rows.map(function (m) { var inn = included[m.id]; return '<tr class="' + (inn ? "" : "out") + '"><td>' + esc(m.name) + (inn ? "" : ' <span class="tag">fora da conta</span>') + '</td><td><span class="tag">' + m.gname + '</span></td><td class="r">' + fmt(m.qty) + '</td><td class="r">' + (m.meta ? fmt(m.meta) : "–") + '</td></tr>'; }).join("") +
+      '</tbody><tfoot><tr><td colspan="2">Produção da conta</td><td class="r">' + fmt(prod) + '</td><td class="r">' + (meta ? fmt(meta) : "–") + '</td></tr></tfoot></table></div>';
+  }
+  document.getElementById("tbl").innerHTML = t;
+}
+function render() { renderFilters(); renderChips(); renderBody(); }
+document.addEventListener("click", function (e) {
+  var t = e.target;
+  if (t.closest("#pillbtn")) { open = !open; render(); if (open) { var s = document.getElementById("search"); if (s) s.focus(); } return; }
+  if (t.id === "veil") { open = false; render(); return; }
+  var b = t.closest("[data-back]"); if (b) { included[+b.getAttribute("data-back")] = true; render(); return; }
+  var o = t.closest("[data-out]"); if (o) { included[+o.getAttribute("data-out")] = false; render(); return; }
+  var a = t.closest("[data-a]");
+  if (a) {
+    var act = a.getAttribute("data-a");
+    if (act === "all") M.forEach(function (m) { included[m.id] = true; });
+    else if (act === "none") M.forEach(function (m) { included[m.id] = false; });
+    else if (act === "kits") M.forEach(function (m) { if (/kit parafusos/i.test(m.name)) included[m.id] = false; });
+    else if (act === "only-found") { M.forEach(function (m) { included[m.id] = m.name.toLowerCase().indexOf(q.toLowerCase()) >= 0; }); }
+    else if (act === "close") open = false;
+    else if (act === "toggleout") showOut = !showOut;
+    render(); return;
+  }
+});
+document.addEventListener("change", function (e) {
+  var t = e.target, id = t.getAttribute("data-m"), g = t.getAttribute("data-grp");
+  if (id != null) included[+id] = t.checked;
+  else if (g) M.forEach(function (m) { if (m.g === g) included[m.id] = t.checked; });
+  else return;
+  var s = document.getElementById("search"), pos = s ? s.selectionStart : 0, list = document.querySelector(".list"), top = list ? list.scrollTop : 0;
+  render();
+  var l2 = document.querySelector(".list"); if (l2) l2.scrollTop = top;
+});
+document.addEventListener("input", function (e) { if (e.target.id !== "search") return; q = e.target.value; var pos = e.target.selectionStart; render(); var s = document.getElementById("search"); s.focus(); try { s.setSelectionRange(pos, pos); } catch (er) {} });
+document.addEventListener("keydown", function (e) { if (e.key === "Escape" && open) { open = false; render(); document.getElementById("pillbtn").focus(); } });
+render();
+</script>

@@ -5,7 +5,7 @@
 // degraus com vigência, feriados e as operações de gravação. Cada chamada de
 // gravação fica em window.__calls, para o teste conferir o que a tela mandou.
 //
-// Uso (servidor: VITE_DATA_SOURCE=mock npx vite --config prototype/vite.config.ts):
+// Uso (servidor: VITE_DATA_SOURCE=mock npx vite --config app/vite.config.ts):
 //   import { moduleSource } from "./e2e/support/banco-falso.mjs";
 //   await page.route(/repositories\/mock\/index\.ts/, (r) =>
 //     r.fulfill({ contentType: "application/javascript", body: moduleSource }));

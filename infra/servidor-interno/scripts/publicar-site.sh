@@ -1,6 +1,6 @@
 #!/bin/sh
 # ─── Gera o site e põe no ar ──────────────────────────────────
-# Compila o app (prototype/) apontando para ESTE servidor e copia o
+# Compila o app (app/) apontando para ESTE servidor e copia o
 # resultado para ./site, que o Nginx serve. Roda o Node dentro de um
 # container: o servidor não precisa ter Node instalado.
 #
@@ -43,7 +43,7 @@ docker run --rm --network host \
     cd /app
     npm ci --no-audit --no-fund --loglevel=error
     npm run build
-    cp -r prototype/dist/. /saida/
+    cp -r app/dist/. /saida/
     chown -R "$DONO" /saida
   '
 

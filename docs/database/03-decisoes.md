@@ -75,6 +75,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D66 | O motivo do retrabalho é um campo próprio da OP, em texto livre | Aprovada | 08/10/2026 |
 | D67 | "Não produziu": motivo da parada no apontamento; só a parada planejada sai da meta | Aprovada | 09/10/2026 |
 | D68 | OP não informada: o apontamento grava sem número, sem inventar a "OP 0" | Aprovada | 12/10/2026 |
+| D69 | A pasta da interface deixa de se chamar `prototype/` e passa a `app/` | Aprovada | 14/10/2026 |
 
 ---
 
@@ -1451,3 +1452,29 @@ máquina**.
      confirmar na fábrica** se a exportação é possível.
 - **Dados:** nada a limpar. Conferido em 12/10, antes de aplicar: nenhuma OP
   "0" em `work_orders` nem em `production_orders`.
+
+### D69 — A pasta da interface deixa de se chamar `prototype/` e passa a `app/`
+- **Status:** Aprovada (14/10/2026), a pedido do usuário. Cumpre o que a D44
+  deixou para depois e a D56 registrou como pendência.
+- **Contexto:** desde a D44 a pasta `prototype/` guarda a interface oficial, e
+  desde a D56 a única. O nome contradizia o conteúdo, e o `README.md` da pasta
+  precisava avisar em letras grandes que aquilo não era um protótipo.
+- **Decisão:** a pasta passa a se chamar **`app/`**. É o nome que o próprio
+  projeto já usa para a interface ("o app", no `README.md` da raiz e no guia do
+  servidor interno) e não se confunde com `src/`, que guarda a camada de dados.
+- **O que mudou junto:** os scripts do `package.json`, o `playwright.config.ts`,
+  o `tsconfig.node.json`, o `.gitignore`, o `deploy.yml`, o
+  `publicar-site.sh` do servidor interno, o `.claude/launch.json`, o
+  `CLAUDE.md`, os `README.md` e as referências vivas desta pasta.
+- **O que NÃO mudou:** as notas datadas de `notas/` e as decisões antigas
+  continuam dizendo `prototype/`, porque registram um momento. As chaves do
+  `localStorage` (`dash-proto.*`) ficam como estão: trocá-las desconectaria
+  todo mundo e apagaria as preferências salvas no navegador.
+- **Alternativas descartadas:** `web/` (correto, mas o projeto nunca chamou a
+  interface assim); `interface/` (em português, contra a convenção de nomes em
+  inglês do repositório); levar as telas para dentro de `src/` (misturaria a
+  interface com a camada de dados, que tem outro dono).
+- **Custo:** um branch aberto que mexa em `prototype/` precisa trazer a `main`;
+  o Git acompanha a renomeação na maior parte dos casos. Quem tem o arquivo
+  ignorado `capacityBaseline.local.ts` precisa movê-lo à mão para
+  `app/src/features/capacity/`.

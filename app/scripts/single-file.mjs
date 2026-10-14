@@ -1,6 +1,6 @@
-// Junta o build (prototype/dist) num único HTML com CSS e JS embutidos,
+// Junta o build (app/dist) num único HTML com CSS e JS embutidos,
 // para abrir sem servidor ou publicar como página.
-// Uso: npm run build:html  →  prototype/dist/dash-producao.html
+// Uso: npm run build:html  →  app/dist/dash-producao.html
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

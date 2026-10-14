@@ -106,6 +106,19 @@ select shift_id, count(*) from public.production_records
  where production_date = '2026-09-21' group by 1;
 ```
 
+### `--exceto`: deixar dias de fora
+
+Tira dias avulsos de dentro da janela (lista separada por vírgula):
+
+```bash
+node supabase/import/extrair.cjs planilha.xlsx saida.sql --desde=2026-10-01 --ate=2026-10-31 --exceto=2026-10-12
+```
+
+### Hora extra escrita na data (`03/10/2026 H.E.`)
+
+A aba `OUT 26` escreve a hora extra como texto na coluna A, com `T1`/`T2` na coluna
+B. O extrator lê a data escrita e marca o apontamento como hora extra (D35.4).
+
 ### Linhas com a data errada na planilha
 
 A data de uma linha vem da coluna A, e quando falta o extrator repete a de cima

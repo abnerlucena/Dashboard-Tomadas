@@ -525,6 +525,24 @@ valor foi apagado ou editado desde a primeira carga.
 
 O gestor decidiu em 01/10/2026 **ignorar as divergências anteriores a setembro**.
 O registro fica aqui porque um dia alguém vai somar abril e achar 1 a mais.
+##### Carga de outubro/2026: hora extra escrita na data e `--exceto` (14/10/2026)
+
+A aba `OUT 26` trouxe duas novidades que o extrator não conhecia:
+
+1. **Hora extra escrita na coluna A**, como texto (`03/10/2026 H.E.`), com `T1`/`T2`
+   na coluna B. Sem data de verdade na coluna A, a linha herdava a de cima e virava
+   turno **regular** do dia anterior: o sábado 03/10 cairia em 02/10 e a carga
+   abortaria na restrição `unique (machine_id, production_date, shift_id, work_mode)`
+   (ou, pior, entraria como produção regular de 02/10).
+   **Decisão:** o extrator lê `dd/mm/aaaa H.E.`, usa a data escrita e marca o
+   apontamento como `overtime`, no turno que a coluna B diz. As linhas sem essa
+   marca continuam exatamente como antes (conferido: os meses anteriores geram o
+   mesmo SQL).
+2. **`--exceto=AAAA-MM-DD[,...]`** tira dias avulsos de dentro da janela. Pedido do
+   gestor: carregar outubro **sem o dia 12** (feriado, com hora extra lançada na
+   planilha; desde 12/10 a fábrica aponta pelo site). Entra no id do lote e na
+   descrição, como `--desde` e `--ate`.
+
 ### D36 — Atingimento × disponibilidade (máquinas contínuas e sob demanda)
 - **Status:** Proposta (21/09/2026) — opção escolhida pelo usuário; **a classificação das máquinas precisa ser revisada pelo gestor**.
 - **Contexto:** um turno com produção zero pode ser parada (máquina contínua) ou simplesmente falta de pedido (máquina sob demanda). Contar todo zero no atingimento castiga as máquinas sob demanda; ignorar todo zero esconde as paradas das contínuas.

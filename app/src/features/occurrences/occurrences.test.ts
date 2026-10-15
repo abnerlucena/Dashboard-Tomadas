@@ -13,10 +13,10 @@ import {
 } from "./occurrences";
 
 const people: Collaborator[] = [
-  { id: "c1", name: "Gabriel Martins", badge: "40211", shift: 1, line: "Montagem", active: true },
-  { id: "c2", name: "Ana Paula Ribeiro", badge: "40378", shift: 1, line: "Embalagem", active: true },
-  { id: "c3", name: "Ângela Souza", badge: null, shift: 2, line: null, active: true },
-  { id: "c4", name: "Luciana Prado", badge: "39987", shift: 1, line: null, active: false },
+  { id: "c1", name: "Gabriel Martins", badge: "40211", shift: 1, process: "assembly", active: true },
+  { id: "c2", name: "Ana Paula Ribeiro", badge: "40378", shift: 1, process: "packaging", active: true },
+  { id: "c3", name: "Ângela Souza", badge: null, shift: 2, process: null, active: true },
+  { id: "c4", name: "Luciana Prado", badge: "39987", shift: 1, process: null, active: false },
 ];
 
 describe("tidyName", () => {
@@ -27,7 +27,7 @@ describe("tidyName", () => {
 });
 
 describe("validateCollaborator", () => {
-  const draft = { name: "Carla Mendes", badge: "", shift: 1 as const, line: null };
+  const draft = { name: "Carla Mendes", badge: "", shift: 1 as const, process: null };
   it("aceita nome e sobrenome novos", () => {
     expect(validateCollaborator(draft, people)).toBeNull();
   });
@@ -78,14 +78,13 @@ describe("materiais", () => {
 describe("sheetLines", () => {
   it("monta o bloco como na planilha", () => {
     const shortages: MaterialShortage[] = [
-      { id: "s1", date: "2026-03-27", shift: 1, materialCode: "19189479", materialDescription: "FILME PET+PE 0,5X270mm REF CONCEPT ITJ", machineIds: [], note: null },
+      { id: "s1", date: "2026-03-27", shift: 1, materialCode: "19189479", materialDescription: "FILME PET+PE 0,5X270mm REF CONCEPT ITJ", machineIds: [], note: null, mine: false },
     ];
     const absences: Absence[] = [
-      { id: "a1", date: "2026-03-27", shift: 1, collaboratorId: "c1", kind: "left_early", time: "14:30", note: null },
-      { id: "a2", date: "2026-03-27", shift: 1, collaboratorId: "c2", kind: "absent", time: null, note: "Atestado" },
+      { id: "a1", date: "2026-03-27", shift: 1, collaboratorId: "c1", name: "Gabriel Martins", kind: "left_early", time: "14:30", note: null, mine: false },
+      { id: "a2", date: "2026-03-27", shift: 1, collaboratorId: "c2", name: "Ana Paula Ribeiro", kind: "absent", time: null, note: "Atestado", mine: false },
     ];
-    const name = (id: string) => people.find((p) => p.id === id)!.name;
-    expect(sheetLines(shortages, absences, name)).toEqual({
+    expect(sheetLines(shortages, absences)).toEqual({
       materials: ["19189479 - FILME PET+PE 0,5X270mm REF CONCEPT ITJ"],
       people: ["01 Colaborador saiu mais cedo às 14:30 – Gabriel Martins", "01 Colaborador faltou – Ana Paula Ribeiro"],
     });
@@ -94,8 +93,10 @@ describe("sheetLines", () => {
 
 describe("monthCounts", () => {
   it("separa faltas de saídas e atrasos, só no mês pedido", () => {
-    const a = (id: string, date: string, kind: Absence["kind"]): Absence => ({ id, date, shift: 1, collaboratorId: "c1", kind, time: null, note: null });
-    const counts = monthCounts([a("1", "2026-03-02", "absent"), a("2", "2026-03-10", "late"), a("3", "2026-03-11", "left_early"), a("4", "2026-02-27", "absent")], "2026-03");
+    const a = (id: string, date: string, kind: Absence["kind"]): Absence => ({ id, date, shift: 1, collaboratorId: "c1", name: "Gabriel Martins", kind, time: null, note: null, mine: false });
+    // a que perdeu o nome (colaborador inativado) não conta para ninguém
+    const lost: Absence = { ...a("5", "2026-03-12", "absent"), collaboratorId: null, name: null };
+    const counts = monthCounts([a("1", "2026-03-02", "absent"), a("2", "2026-03-10", "late"), a("3", "2026-03-11", "left_early"), a("4", "2026-02-27", "absent"), lost], "2026-03");
     expect(counts.get("c1")).toEqual({ absent: 1, other: 2 });
   });
 });

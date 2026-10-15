@@ -1,6 +1,10 @@
 import { Pencil, Plus, Power, PowerOff, Search, UserRound, Users } from "lucide-react";
 import { useMemo, useState } from "react";
-import { DATA_END, SHIFTS, SHIFT_META, toIsoDate, type Line, type Shift } from "@/data/machines";
+import { DATA_END, SHIFTS, SHIFT_META, toIsoDate, type Shift } from "@/data/machines";
+import type { MachineProcess } from "../../../../src/lib/repositories/types";
+import { mensagemDeErro } from "../../../../src/lib/erros";
+import { PROCESS_LABEL } from "@/features/registry/registry";
+import { ErrorMessage } from "@/components/ui/Feedback";
 import { PageBody, PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/Feedback";
@@ -9,7 +13,7 @@ import { Modal } from "@/components/ui/Modal";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { TextField } from "@/components/ui/TextField";
 import { cn, type Notify } from "@/lib/utils";
-import { ABSENCE_META, monthCounts, normalize, validateCollaborator, type Collaborator, type CollaboratorDraft } from "./occurrences";
+import { ABSENCE_META, monthCounts, namedAbsencesOf, normalize, validateCollaborator, type Collaborator, type CollaboratorDraft } from "./occurrences";
 import { useOccurrences } from "./OccurrencesStore";
 
 /*
@@ -19,11 +23,11 @@ import { useOccurrences } from "./OccurrencesStore";
  */
 
 type Filter = "active" | "inactive" | "all";
-const LINES: Line[] = ["Montagem", "Embalagem", "Granel"];
+const PROCESSES: MachineProcess[] = ["assembly", "packaging"];
 const monthName = new Intl.DateTimeFormat("pt-BR", { month: "long" });
 
 export function CollaboratorsPage({ notify }: { notify: Notify }) {
-  const { available, collaborators, absences, addCollaborator, updateCollaborator, setCollaboratorActive } = useOccurrences();
+  const { status, error, retry, collaborators, absences, addCollaborator, updateCollaborator, setCollaboratorActive } = useOccurrences();
   const [filter, setFilter] = useState<Filter>("active");
   const [shift, setShift] = useState<Shift | "all">("all");
   const [query, setQuery] = useState("");
@@ -44,12 +48,18 @@ export function CollaboratorsPage({ notify }: { notify: Notify }) {
     .filter((c) => !q || normalize(c.name).includes(q) || (c.badge ?? "").includes(q))
     .sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name, "pt-BR"));
 
-  if (!available)
+  if (status !== "ready")
     return (
       <>
         <PageHeader title="Colaboradores" breadcrumbs={["Administração"]} />
         <PageBody>
-          <EmptyState icon={Users} title="Ainda não disponível" hint="O cadastro de colaboradores chega junto com as ocorrências do turno, quando o banco estiver pronto." />
+          {status === "loading" ? (
+            <EmptyState icon={Users} title="Carregando os colaboradores" hint="Só um instante." />
+          ) : (
+            <ErrorMessage title="Não foi possível carregar os colaboradores" actions={<Button onClick={retry}>Tentar de novo</Button>}>
+              {error}
+            </ErrorMessage>
+          )}
         </PageBody>
       </>
     );
@@ -149,7 +159,7 @@ export function CollaboratorsPage({ notify }: { notify: Notify }) {
                       </th>
                       <td className="px-150 py-100 font-code tabular-nums">{c.badge ?? "–"}</td>
                       <td className="whitespace-nowrap px-150 py-100">{SHIFT_META[c.shift].label}</td>
-                      <td className="px-150 py-100">{c.line ?? <span className="text-subtlest">Sem linha fixa</span>}</td>
+                      <td className="px-150 py-100">{c.process ? PROCESS_LABEL[c.process] : <span className="text-subtlest">Sem linha fixa</span>}</td>
                       <td className="px-150 py-100">
                         {n ? (
                           <Button appearance="subtle" spacing="compact" onClick={() => setHistory(c)}>
@@ -186,7 +196,7 @@ export function CollaboratorsPage({ notify }: { notify: Notify }) {
           </div>
         )}
         <p className="font-body-small text-subtlest">
-          O turno do cadastro só ordena a lista do apontamento: dá para registrar a falta de alguém em outro turno. Só líderes e gestor veem esta tela.
+          O turno do cadastro só ordena a lista do apontamento: dá para registrar a falta de alguém em outro turno. Só o gestor vê esta tela.
         </p>
       </PageBody>
 
@@ -199,6 +209,7 @@ export function CollaboratorsPage({ notify }: { notify: Notify }) {
             setEditing(null);
           }}
           onSave={async (d) => {
+            // O erro do banco (nome repetido, cadastro de outra pessoa) sobe e aparece no diálogo
             if (editing) {
               await updateCollaborator(editing.id, d);
               notify("Cadastro atualizado", d.name);
@@ -213,31 +224,19 @@ export function CollaboratorsPage({ notify }: { notify: Notify }) {
         />
       )}
 
-      {toggling && (
-        <Modal
-          open
-          onOpenChange={(o) => !o && setToggling(null)}
-          title={toggling.active ? "Inativar o colaborador?" : "Reativar o colaborador?"}
-          primary={{
-            label: toggling.active ? "Inativar" : "Reativar",
-            appearance: toggling.active ? "danger" : "primary",
-            onClick: async () => {
-              await setCollaboratorActive(toggling.id, !toggling.active);
-              notify(toggling.active ? "Colaborador inativado" : "Colaborador reativado", toggling.name);
-              setToggling(null);
-            },
-          }}
-        >
-          <p>
-            <strong>{toggling.name}</strong>
-          </p>
-          <p className="mt-100 text-subtle">
-            {toggling.active
-              ? "A pessoa sai da lista do apontamento. As faltas já registradas continuam com o nome, e dá para reativar depois."
-              : "A pessoa volta para a lista do apontamento."}
-          </p>
-        </Modal>
-      )}
+      {toggling && <ToggleDialog collaborator={toggling} lose={namedAbsencesOf(absences, toggling.id)} onClose={() => setToggling(null)} onConfirm={async () => {
+        const c = toggling;
+        try {
+          const lost = await setCollaboratorActive(c.id, !c.active);
+          notify(
+            c.active ? "Colaborador inativado" : "Colaborador reativado",
+            c.active ? `${c.name}${lost ? `: ${lost === 1 ? "1 falta perdeu" : `${lost} faltas perderam`} o nome` : ""}.` : c.name,
+          );
+        } catch (e) {
+          notify(c.active ? "Não foi possível inativar" : "Não foi possível reativar", mensagemDeErro(e), "error");
+        }
+        setToggling(null);
+      }} />}
 
       {history && (
         <HistoryDialog collaborator={history} month={month} monthLabel={monthLabel} onClose={() => setHistory(null)} />
@@ -261,11 +260,12 @@ function CollaboratorDialog({
 }) {
   const [draft, setDraft] = useState<CollaboratorDraft>(() =>
     collaborator
-      ? { name: collaborator.name, badge: collaborator.badge ?? "", shift: collaborator.shift, line: collaborator.line }
-      : { name: "", badge: "", shift: 1, line: null },
+      ? { name: collaborator.name, badge: collaborator.badge ?? "", shift: collaborator.shift, process: collaborator.process }
+      : { name: "", badge: "", shift: 1, process: null },
   );
   const [touched, setTouched] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const errors = validateCollaborator(draft, all, collaborator?.id);
   const set = (patch: Partial<CollaboratorDraft>) => setDraft((d) => ({ ...d, ...patch }));
 
@@ -282,7 +282,13 @@ function CollaboratorDialog({
           setTouched(true);
           if (errors) return;
           setSaving(true);
-          await onSave(draft);
+          setSaveError(null);
+          try {
+            await onSave(draft);
+          } catch (e) {
+            setSaving(false);
+            setSaveError(mensagemDeErro(e));
+          }
         },
       }}
     >
@@ -324,11 +330,59 @@ function CollaboratorDialog({
             label="Linha"
             iconOnly={false}
             size="control"
-            value={draft.line ?? "none"}
-            onChange={(v) => set({ line: v === "none" ? null : (v as Line) })}
-            options={[{ value: "none", label: "Sem linha fixa" }, ...LINES.map((l) => ({ value: l, label: l }))]}
+            value={draft.process ?? "none"}
+            onChange={(v) => set({ process: v === "none" ? null : (v as MachineProcess) })}
+            options={[{ value: "none", label: "Sem linha fixa" }, ...PROCESSES.map((p) => ({ value: p, label: PROCESS_LABEL[p] }))]}
           />
+          <p className="font-body-small text-subtlest">As bancadas a granel ficam na Embalagem.</p>
         </div>
+        {saveError && <ErrorMessage title={collaborator ? "Não foi possível salvar" : "Não foi possível cadastrar"}>{saveError}</ErrorMessage>}
+      </div>
+    </Modal>
+  );
+}
+
+/* ---------- Inativar / reativar ---------- */
+
+/**
+ * Inativar = a pessoa saiu da empresa. As faltas dela perdem o nome, sem volta
+ * (D70): a janela mostra quantas antes de confirmar. Afastamento não é motivo.
+ */
+function ToggleDialog({ collaborator, lose, onClose, onConfirm }: { collaborator: Collaborator; lose: number; onClose: () => void; onConfirm: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  const off = collaborator.active;
+  return (
+    <Modal
+      open
+      onOpenChange={(o) => !o && !busy && onClose()}
+      title={off ? "Inativar o colaborador?" : "Reativar o colaborador?"}
+      primary={{
+        label: off ? (lose ? `Inativar e tirar o nome de ${lose === 1 ? "1 falta" : `${lose} faltas`}` : "Inativar") : "Reativar",
+        appearance: off ? "danger" : "primary",
+        isLoading: busy,
+        onClick: async () => {
+          setBusy(true);
+          await onConfirm();
+        },
+      }}
+    >
+      <div className="flex flex-col gap-100">
+        <p>
+          <strong>{collaborator.name}</strong>
+        </p>
+        {off ? (
+          <>
+            <p className="text-subtle">Use só quando a pessoa saiu da empresa. Para afastamento ou férias, não inative.</p>
+            <p className="rounded-large bg-danger px-150 py-100 text-danger">
+              {lose
+                ? `${lose === 1 ? "1 falta registrada vai perder" : `${lose} faltas registradas vão perder`} o nome e a observação, sem volta. Elas continuam contando no turno, sem dizer quem foi.`
+                : "Nenhuma falta registrada tem o nome desta pessoa."}{" "}
+              Ela também sai da lista do apontamento.
+            </p>
+          </>
+        ) : (
+          <p className="text-subtle">A pessoa volta para a lista do apontamento. As faltas antigas continuam sem o nome.</p>
+        )}
       </div>
     </Modal>
   );

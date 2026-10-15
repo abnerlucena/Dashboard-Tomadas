@@ -33,7 +33,7 @@ import {
  * próprio desde a D66 (lacuna 2 fechada).
  */
 
-export type ReadSource = Pick<DataSource, "production" | "machines" | "targets" | "calendar" | "workOrders">;
+export type ReadSource = Pick<DataSource, "production" | "machines" | "targets" | "calendar" | "workOrders" | "occurrences">;
 
 export interface BackendInput {
   records: ProdRecord[];

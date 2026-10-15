@@ -1,13 +1,13 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { ClipboardCopy, PackageX, Pencil, UserX, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { SHIFTS, SHIFT_META, machineById, type Shift } from "@/data/machines";
+import { SHIFTS, SHIFT_META, type Shift } from "@/data/machines";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Lozenge } from "@/components/ui/Lozenge";
 import { useAccess } from "@/features/access/AccessContext";
 import { SHIFT_FILL } from "@/components/data/shiftColors";
 import { cn, type Notify } from "@/lib/utils";
-import { ABSENCE_META, sheetLines } from "./occurrences";
+import { ABSENCE_KINDS, ABSENCE_META, machineName, sheetLines, type Absence } from "./occurrences";
 import { occurrencesOf, useOccurrences } from "./OccurrencesStore";
 import { ShiftOccurrences } from "./ShiftOccurrences";
 
@@ -23,11 +23,10 @@ export function DayOccurrences({ date, shift, notify }: { date: string; shift: S
   const { can } = useAccess();
   const [editing, setEditing] = useState<Shift | null>(null);
   if (!store.available) return null;
-  const showNames = can("collaborators.manage");
+  const showNames = store.canSeeNames;
   const canEdit = can("production.edit") || can("production.create");
   const shifts = (shift === "all" ? SHIFTS : [shift]).map((s) => ({ s, ...occurrencesOf(store, date, s) }));
   const any = shifts.some((x) => x.absences.length || x.shortages.length);
-  const nameOf = (id: string) => store.collaborators.find((c) => c.id === id)?.name ?? "Colaborador removido";
 
   /** Até a virada, a planilha continua sendo a fonte: o bloco sai pronto para colar (coluna B de "Informações adicionais") */
   const copy = async (s: Shift, lines: { materials: string[]; people: string[] }) => {
@@ -70,7 +69,7 @@ export function DayOccurrences({ date, shift, notify }: { date: string; shift: S
                     icon={ClipboardCopy}
                     label={`Copiar as ocorrências do ${label.toLowerCase()} no formato da planilha`}
                     spacing="compact"
-                    onClick={() => copy(s, sheetLines(shortages, absences, nameOf))}
+                    onClick={() => copy(s, sheetLines(shortages, absences))}
                   />
                 )}
                 {canEdit && <IconButton icon={Pencil} label={`Corrigir as ocorrências do ${label.toLowerCase()}`} spacing="compact" onClick={() => setEditing(s)} />}
@@ -86,7 +85,7 @@ export function DayOccurrences({ date, shift, notify }: { date: string; shift: S
                     {m.machineIds.length > 0 && (
                       <span className="flex flex-wrap gap-050">
                         {m.machineIds.map((id) => (
-                          <Lozenge key={id}>{machineById(id).name}</Lozenge>
+                          <Lozenge key={id}>{machineName(id)}</Lozenge>
                         ))}
                       </span>
                     )}
@@ -100,7 +99,7 @@ export function DayOccurrences({ date, shift, notify }: { date: string; shift: S
                   absences.map((a) => (
                     <li key={a.id} className="flex flex-col gap-025 border-t py-100 first:border-t-0 first:pt-0 last:pb-0">
                       <span className="flex flex-wrap items-center justify-between gap-x-100 gap-y-025">
-                        <span className="min-w-0 break-words text-default">{nameOf(a.collaboratorId)}</span>
+                        <span className={cn("min-w-0 break-words", a.name ? "text-default" : "text-subtle")}>{a.name ?? "Sem nome (colaborador inativado)"}</span>
                         <Lozenge appearance={ABSENCE_META[a.kind].appearance}>
                           {ABSENCE_META[a.kind].label}
                           {a.time ? ` · ${a.time}` : ""}
@@ -111,8 +110,8 @@ export function DayOccurrences({ date, shift, notify }: { date: string; shift: S
                   ))
                 ) : (
                   <li className="text-default">
-                    {absences.length === 1 ? "1 pessoa" : `${absences.length} pessoas`}
-                    <span className="block font-body-small text-subtlest">Os nomes ficam só com líderes e gestor.</span>
+                    {absences.length === 1 ? "1 pessoa" : `${absences.length} pessoas`}: {kindSummary(absences)}
+                    <span className="block font-body-small text-subtlest">Os nomes ficam só com o gestor.</span>
                   </li>
                 )}
               </Block>
@@ -165,4 +164,12 @@ function Block({ icon: Icon, title, count, empty, children }: { icon: typeof Pac
       {count > 0 ? <ul className="flex flex-col">{children}</ul> : <p className="font-body-small text-subtlest">{empty}</p>}
     </div>
   );
+}
+
+/** "1 faltou, 1 saiu mais cedo": o que quem não é gestor vê */
+function kindSummary(absences: Absence[]) {
+  return ABSENCE_KINDS.map((k) => [k, absences.filter((a) => a.kind === k).length] as const)
+    .filter(([, n]) => n > 0)
+    .map(([k, n]) => `${n} ${ABSENCE_META[k].label.toLowerCase()}`)
+    .join(", ");
 }

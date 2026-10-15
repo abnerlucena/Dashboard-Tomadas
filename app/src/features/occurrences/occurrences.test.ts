@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  canFixShortage,
   monthCounts,
   searchCollaborators,
   searchMaterials,
@@ -78,7 +79,7 @@ describe("materiais", () => {
 describe("sheetLines", () => {
   it("monta o bloco como na planilha", () => {
     const shortages: MaterialShortage[] = [
-      { id: "s1", date: "2026-03-27", shift: 1, materialCode: "19189479", materialDescription: "FILME PET+PE 0,5X270mm REF CONCEPT ITJ", machineIds: [], note: null, mine: false },
+      { id: "s1", date: "2026-03-27", shift: 1, materialCode: "19189479", materialDescription: "FILME PET+PE 0,5X270mm REF CONCEPT ITJ", machineIds: [], note: null, mine: false, editableUntil: null },
     ];
     const absences: Absence[] = [
       { id: "a1", date: "2026-03-27", shift: 1, collaboratorId: "c1", name: "Gabriel Martins", kind: "left_early", time: "14:30", note: null, mine: false },
@@ -88,6 +89,18 @@ describe("sheetLines", () => {
       materials: ["19189479 - FILME PET+PE 0,5X270mm REF CONCEPT ITJ"],
       people: ["01 Colaborador saiu mais cedo às 14:30 – Gabriel Martins", "01 Colaborador faltou – Ana Paula Ribeiro"],
     });
+  });
+});
+
+describe("canFixShortage", () => {
+  const s: MaterialShortage = { id: "s1", date: "2026-03-27", shift: 1, materialCode: "1", materialDescription: "X", machineIds: [], note: null, mine: true, editableUntil: "2026-10-16T12:00:00Z" };
+  const now = new Date("2026-10-16T11:00:00Z");
+  it("quem registrou corrige até a hora do banco; depois, só quem edita apontamentos", () => {
+    expect(canFixShortage(s, false, now)).toBe(true);
+    expect(canFixShortage(s, false, new Date("2026-10-16T12:00:01Z"))).toBe(false);
+    expect(canFixShortage({ ...s, mine: false }, false, now)).toBe(false);
+    expect(canFixShortage({ ...s, editableUntil: null }, false, now)).toBe(false);
+    expect(canFixShortage({ ...s, mine: false, editableUntil: null }, true, now)).toBe(true);
   });
 });
 

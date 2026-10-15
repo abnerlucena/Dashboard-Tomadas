@@ -13,6 +13,7 @@ import { cn, type Notify } from "@/lib/utils";
 import {
   ABSENCE_KINDS,
   ABSENCE_META,
+  canFixShortage,
   isMaterialCode,
   machineName,
   searchCollaborators,
@@ -294,8 +295,8 @@ function MaterialsCard({
 }) {
   const { materials, saveShortage, removeShortage } = useOccurrences();
   const { can } = useAccess();
-  // Corrigir ou apagar: quem edita apontamentos, ou quem registrou (o banco confere as 24 h)
-  const canFix = (s: MaterialShortage) => can("production.edit") || s.mine;
+  // Corrigir ou apagar: quem edita apontamentos, ou quem registrou, até as 24 h (editableUntil)
+  const canFix = (s: MaterialShortage) => canFixShortage(s, can("production.edit"));
   const [form, setForm] = useState<MaterialForm | null>(null);
   const [touched, setTouched] = useState(false);
   const [saving, setSaving] = useState(false);

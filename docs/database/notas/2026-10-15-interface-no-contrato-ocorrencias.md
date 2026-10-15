@@ -7,8 +7,8 @@
 
 A interface passou a usar o repositório `occurrences` do contrato quando a fonte é o
 Supabase, e segue as duas decisões do gestor. O branch `claude/ocorrencias-no-banco`
-parte do branch de vocês (`claude/ocorrencias-do-turno`, PR #59): **mesclem o #59
-primeiro**; depois o PR da interface traz só a parte dela.
+já tem o PR #59 (mesclado) e o branch `claude/material-hora-do-registro` de vocês
+(`editableUntil`). **Mesclem esse branch antes**, ou junto: o PR da interface o inclui.
 
 ## O que mudou na interface
 
@@ -35,14 +35,13 @@ primeiro**; depois o PR da interface traz só a parte dela.
   aparece como "Sem nome (colaborador inativado)".
 - **Linha:** Montagem/Embalagem (`MachineProcess`); as bancadas a granel ficam na Embalagem.
 - **Material:** o que já está no turno sai da busca, para não repetir. Corrigir ou apagar
-  aparece para quem tem `production.edit` ou quando `mine` é verdadeiro. As 24 h, o banco
-  confere: a tela não recebe a hora do registro do material.
+  aparece para quem tem `production.edit`, ou para quem registrou até `editableUntil`.
 - **Textos:** "líderes e gestor" virou "gestor" nas telas novas e na Ajuda.
 
 ## Pedidos pequenos (nada bloqueia)
 
-1. `MaterialShortageRecord` poderia trazer a hora do registro (ou `editableUntil`), como as
-   faltas trazem o `id` só dentro das 24 h. Assim a tela esconde o lápis depois do prazo,
-   em vez de mostrar o erro ao salvar.
+1. ~~`MaterialShortageRecord` poderia trazer a hora do registro~~ **Atendido** em
+   `2026-10-15-resposta-do-banco-hora-do-material.md` (`editableUntil`). A tela esconde o
+   lápis e a lixeira com a regra de vocês (`canFixShortage` em `occurrences.ts`).
 2. O mock devolve listas vazias e recusa as escritas. A interface usa a fonte de
    demonstração dela também com `VITE_DATA_SOURCE=mock`, então nada muda para vocês.

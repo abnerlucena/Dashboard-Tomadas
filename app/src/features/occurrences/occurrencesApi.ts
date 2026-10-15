@@ -72,6 +72,7 @@ export const shortageFromRecord = (r: MaterialShortageRecord): MaterialShortage 
   machineIds: r.machineIds.map(String),
   note: r.note,
   mine: r.mine,
+  editableUntil: r.editableUntil,
 });
 
 export function backendApi(source: DataSource["occurrences"], getSession: () => Session | null): OccurrencesApi {
@@ -124,7 +125,7 @@ interface StoredAbsence extends Omit<Absence, "id" | "name" | "mine"> {
   by: string;
   at: number;
 }
-interface StoredShortage extends Omit<MaterialShortage, "mine"> {
+interface StoredShortage extends Omit<MaterialShortage, "mine" | "editableUntil"> {
   by: string;
   at: number;
 }
@@ -185,7 +186,9 @@ export function demoApi(getSession: () => Session | null, seed = demoSeed()): Oc
               ? { ...a, name: a.collaboratorId ? (nameOf.get(a.collaboratorId) ?? null) : null, mine }
               : { ...a, id: fresh(a.at, a.by) ? a.id : null, collaboratorId: null, name: null, time: null, note: null, mine };
           }),
-        shortages: shortages.filter((s) => s.date >= from && s.date <= to).map((s) => ({ ...s, mine: s.by === me() })),
+        shortages: shortages
+          .filter((s) => s.date >= from && s.date <= to)
+          .map((s) => ({ ...s, mine: s.by === me(), editableUntil: s.by === me() ? new Date(s.at + DAY_MS).toISOString() : null })),
       };
     },
     async saveAbsence(input) {

@@ -59,6 +59,8 @@ export interface MaterialShortage {
   machineIds: string[];
   note: string | null;
   mine: boolean;
+  /** até quando quem registrou pode corrigir ou apagar (ISO, 24 h depois); nulo se não veio */
+  editableUntil: string | null;
 }
 
 export interface Material {
@@ -168,6 +170,13 @@ export function monthCounts(absences: Absence[], monthIso: string) {
   }
   return out;
 }
+
+/**
+ * Pode corrigir ou apagar o material? Quem edita apontamentos, sempre; quem
+ * registrou, até `editableUntil` (a regra que o banco confere).
+ */
+export const canFixShortage = (s: MaterialShortage, canEditProduction: boolean, now = new Date()) =>
+  canEditProduction || (s.mine && !!s.editableUntil && new Date(s.editableUntil) > now);
 
 /** Faltas que perdem o nome se a pessoa for inativada (a confirmação mostra o número) */
 export const namedAbsencesOf = (absences: Absence[], collaboratorId: string) => absences.filter((a) => a.collaboratorId === collaboratorId).length;

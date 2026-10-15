@@ -15,7 +15,7 @@ export interface Collaborator {
   id: string;
   /** nome e sobrenome, como a liderança chama a pessoa */
   name: string;
-  /** matrícula, só números (opcional) */
+  /** número de cadastro da pessoa na empresa, só números (opcional) */
   badge: string | null;
   /** turno de costume: só ordena a lista do apontamento */
   shift: Shift;
@@ -45,8 +45,8 @@ export interface MaterialShortage {
   /** código do material, só números (até 18, como nas OPs) */
   materialCode: string;
   materialDescription: string;
-  /** máquina que ficou sem o material; vazio = o turno inteiro */
-  machineId: string | null;
+  /** máquinas que ficaram sem o material (pode ser nenhuma, uma ou várias) */
+  machineIds: string[];
   note: string | null;
 }
 
@@ -96,13 +96,13 @@ export function validateCollaborator(d: CollaboratorDraft, all: Collaborator[], 
   else if (name.split(" ").length < 2) errors.name = "Escreva nome e sobrenome, para não confundir pessoas com o mesmo nome.";
   else if (all.some((c) => c.id !== editingId && normalize(c.name) === normalize(name)))
     errors.name = "Já existe alguém com este nome. Confira a lista ou acrescente outro sobrenome.";
-  if (badge && !/^\d{1,12}$/.test(badge)) errors.badge = "A matrícula tem só números.";
-  else if (badge && all.some((c) => c.id !== editingId && c.badge === badge)) errors.badge = "Esta matrícula já é de outra pessoa.";
+  if (badge && !/^\d{1,12}$/.test(badge)) errors.badge = "O cadastro tem só números.";
+  else if (badge && all.some((c) => c.id !== editingId && c.badge === badge)) errors.badge = "Este cadastro já é de outra pessoa.";
   return errors.name || errors.badge ? errors : null;
 }
 
 /**
- * Busca do apontamento: por nome (sem acento) ou matrícula. Sem busca, só os
+ * Busca do apontamento: por nome (sem acento) ou cadastro. Sem busca, só os
  * do turno (ou todos, se pedido); com busca, qualquer turno. O turno do
  * apontamento vem primeiro.
  */

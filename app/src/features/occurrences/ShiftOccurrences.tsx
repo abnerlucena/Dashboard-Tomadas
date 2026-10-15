@@ -1,6 +1,6 @@
-import { Lock, PackageX, Pencil, Plus, Trash2, UserX } from "lucide-react";
+import { PackageX, Pencil, Plus, Trash2, UserX, X } from "lucide-react";
 import { useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { MACHINES, machineById, type Shift } from "@/data/machines";
+import { MACHINE_GROUPS, machineById, type Shift } from "@/data/machines";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Lozenge } from "@/components/ui/Lozenge";
@@ -227,9 +227,53 @@ function Chosen({ title, hint, onChange }: { title: ReactNode; hint: ReactNode; 
 
 const selectClass = cn(inputBase, "h-control border-input px-100");
 
+/* ---------- Máquinas afetadas (várias) ---------- */
+
+/** As escolhidas viram etiquetas com ✕; a lista abaixo acrescenta mais uma, agrupada por linha */
+function MachinePicker({ id, value, onChange }: { id: string; value: string[]; onChange: (ids: string[]) => void }) {
+  const chosen = new Set(value);
+  return (
+    <div className="flex min-w-0 flex-col gap-050">
+      <label htmlFor={id} className="font-body-small font-semibold text-subtle">
+        Máquinas afetadas <span className="font-normal text-subtlest">(opcional, pode escolher mais de uma)</span>
+      </label>
+      {value.length > 0 && (
+        <ul aria-label="Máquinas escolhidas" className="flex flex-wrap gap-050">
+          {value.map((mid) => (
+            <li key={mid} className="flex items-center gap-025 rounded-medium bg-selected py-025 pl-100 pr-025 font-body-small text-selected">
+              {machineById(mid).name}
+              <IconButton icon={X} label={`Tirar ${machineById(mid).name}`} spacing="compact" showTooltip={false} onClick={() => onChange(value.filter((x) => x !== mid))} />
+            </li>
+          ))}
+        </ul>
+      )}
+      <select
+        id={id}
+        value=""
+        onChange={(e) => e.target.value && onChange([...value, e.target.value])}
+        className={cn(selectClass, "text-subtle")}
+      >
+        <option value="">{value.length ? "Adicionar outra máquina…" : "Escolher a máquina…"}</option>
+        {MACHINE_GROUPS.map((g) => {
+          const free = g.machineIds.map(machineById).filter((m) => !m.inactive && !chosen.has(m.id));
+          return free.length ? (
+            <optgroup key={g.id} label={g.label}>
+              {free.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </optgroup>
+          ) : null;
+        })}
+      </select>
+    </div>
+  );
+}
+
 /* ---------- Materiais faltantes ---------- */
 
-type MaterialForm = { id?: string; picked: Material | null; typing: boolean; query: string; code: string; description: string; machineId: string; note: string };
+type MaterialForm = { id?: string; picked: Material | null; typing: boolean; query: string; code: string; description: string; machineIds: string[]; note: string };
 
 function MaterialsCard({
   date,
@@ -252,11 +296,11 @@ function MaterialsCard({
   const set = (patch: Partial<MaterialForm>) => setForm((f) => (f ? { ...f, ...patch } : f));
 
   // Máquina parada por falta de material que ainda não disse qual material
-  const missing = materialStops.filter((id) => !items.some((s) => s.machineId === id));
+  const missing = materialStops.filter((id) => !items.some((s) => s.machineIds.includes(id)));
 
   const open = (patch: Partial<MaterialForm> = {}) => {
     setTouched(false);
-    setForm({ picked: null, typing: false, query: "", code: "", description: "", machineId: "", note: "", ...patch });
+    setForm({ picked: null, typing: false, query: "", code: "", description: "", machineIds: [], note: "", ...patch });
   };
   const close = () => {
     setForm(null);
@@ -283,7 +327,7 @@ function MaterialsCard({
       shift,
       materialCode: material.code,
       materialDescription: material.description,
-      machineId: form.machineId || null,
+      machineIds: form.machineIds,
       note: form.note.trim() || null,
     });
     setSaving(false);
@@ -330,7 +374,7 @@ function MaterialsCard({
           <span className="min-w-0 flex-1 basis-[16rem]">
             <span className="font-semibold">{machineById(id).name}</span> não produziu por falta de material. Qual material faltou?
           </span>
-          <Button appearance="outline" spacing="compact" onClick={() => open({ machineId: id })}>
+          <Button appearance="outline" spacing="compact" onClick={() => open({ machineIds: [id] })}>
             Informar o material
           </Button>
         </div>
@@ -347,12 +391,12 @@ function MaterialsCard({
                   <span className="font-code">{s.materialCode}</span> · {s.materialDescription}
                 </>
               }
-              sub={[s.machineId ? machineById(s.machineId).name : "Turno inteiro", s.note].filter(Boolean).join(" · ")}
+              sub={[s.machineIds.map((id) => machineById(id).name).join(", ") || "Sem máquina informada", s.note].filter(Boolean).join(" · ")}
               onEdit={() =>
                 open({
                   id: s.id,
                   picked: { code: s.materialCode, description: s.materialDescription },
-                  machineId: s.machineId ?? "",
+                  machineIds: s.machineIds,
                   note: s.note ?? "",
                 })
               }
@@ -419,22 +463,8 @@ function MaterialsCard({
               Voltar à busca
             </Button>
           )}
-          <div className="grid gap-200 s:grid-cols-2">
-            <div className="flex min-w-0 flex-col gap-050">
-              <label htmlFor={`mat-machine-${date}-${shift}`} className="font-body-small font-semibold text-subtle">
-                Máquina afetada <span className="font-normal text-subtlest">(opcional)</span>
-              </label>
-              <select id={`mat-machine-${date}-${shift}`} value={form.machineId} onChange={(e) => set({ machineId: e.target.value })} className={selectClass}>
-                <option value="">Turno inteiro, sem máquina</option>
-                {MACHINES.filter((m) => !m.inactive).map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <TextField label="Observação (opcional)" value={form.note} maxLength={200} onChange={(e) => set({ note: e.target.value })} placeholder="Ex.: chegou só às 10h" />
-          </div>
+          <MachinePicker id={`mat-machines-${date}-${shift}`} value={form.machineIds} onChange={(machineIds) => set({ machineIds })} />
+          <TextField label="Observação (opcional)" value={form.note} maxLength={200} onChange={(e) => set({ note: e.target.value })} placeholder="Ex.: chegou só às 10h" />
           <div className="flex flex-wrap justify-end gap-100">
             <Button appearance="subtle" onClick={close}>
               Cancelar
@@ -509,7 +539,7 @@ function PeopleCard({ date, shift, items, notify }: { date: string; shift: Shift
     ...results.slice(0, 8).map((c) => ({
       key: c.id,
       label: c.name,
-      hint: [c.badge && `Matrícula ${c.badge}`, `Turno ${c.shift}`, c.line].filter(Boolean).join(" · "),
+      hint: [c.badge && `Cadastro ${c.badge}`, `Turno ${c.shift}`, c.line].filter(Boolean).join(" · "),
       onPick: () => set({ collaboratorId: c.id }),
     })),
     ...(canCreate
@@ -518,7 +548,7 @@ function PeopleCard({ date, shift, items, notify }: { date: string; shift: Shift
             key: "novo",
             action: true,
             label: `Cadastrar “${typed}” no turno ${shift} e usar`,
-            hint: "Entra em Colaboradores; matrícula e linha dá para completar lá",
+            hint: "Entra em Colaboradores; cadastro e linha dá para completar lá",
             onPick: async () => {
               const c = await addCollaborator({ name: typed, badge: "", shift, line: null });
               set({ collaboratorId: c.id });
@@ -544,11 +574,6 @@ function PeopleCard({ date, shift, items, notify }: { date: string; shift: Shift
         )
       }
     >
-      <p className="flex items-start gap-075 rounded-large bg-discovery px-150 py-100 font-body-small text-discovery">
-        <Lock aria-hidden className="mt-025 size-icon-small shrink-0" />
-        Os nomes só aparecem para líderes e gestor. Nunca vão para o Modo TV nem para os rankings.
-      </p>
-
       {items.length > 0 ? (
         <ul className="flex flex-col">
           {items.map((a) => {
@@ -567,7 +592,7 @@ function PeopleCard({ date, shift, items, notify }: { date: string; shift: Shift
                     </Lozenge>
                   </span>
                 }
-                sub={[c?.badge && `Matrícula ${c.badge}`, c?.line, a.note].filter(Boolean).join(" · ") || "Sem observação"}
+                sub={[c?.badge && `Cadastro ${c.badge}`, c?.line, a.note].filter(Boolean).join(" · ") || "Sem observação"}
                 onEdit={() => open({ id: a.id, collaboratorId: a.collaboratorId, kind: a.kind, time: a.time ?? "", note: a.note ?? "" })}
                 onRemove={async () => {
                   await removeAbsence(a.id);
@@ -587,7 +612,7 @@ function PeopleCard({ date, shift, items, notify }: { date: string; shift: Shift
           {picked ? (
             <Chosen
               title={picked.name}
-              hint={[picked.badge && `Matrícula ${picked.badge}`, `Turno ${picked.shift}`, picked.line].filter(Boolean).join(" · ")}
+              hint={[picked.badge && `Cadastro ${picked.badge}`, `Turno ${picked.shift}`, picked.line].filter(Boolean).join(" · ")}
               onChange={() => set({ collaboratorId: null, query: "" })}
             />
           ) : (
@@ -596,7 +621,7 @@ function PeopleCard({ date, shift, items, notify }: { date: string; shift: Shift
                 label="Colaborador"
                 value={form.query}
                 onChange={(v) => set({ query: v })}
-                placeholder="Digite o nome ou a matrícula"
+                placeholder="Digite o nome ou o cadastro"
                 error={touched ? errors.who : null}
                 options={options}
                 empty={

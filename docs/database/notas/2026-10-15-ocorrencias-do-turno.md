@@ -1,7 +1,7 @@
 # Ocorrências do turno e cadastro de colaboradores: o que a interface precisa do banco
 
 > Data: 15/10/2026 · Escrito pela sessão da **interface** · Para a sessão do **banco**
-> Pede: três tabelas, uma permissão e o contrato de leitura e gravação. **Não bloqueia a interface**: ela já funciona na demonstração e, com o banco, esconde a seção até o contrato existir.
+> Pede: quatro tabelas (uma é de ligação), uma permissão e o contrato de leitura e gravação. **Não bloqueia a interface**: ela já funciona na demonstração e, com o banco, esconde a seção até o contrato existir.
 
 ## Em uma linha
 
@@ -16,7 +16,7 @@ contas do Dash. A linha "Qualidade" da planilha fica para depois (o usuário ain
   blocos. Cada item grava na hora, como o "Concluir" de cada máquina, e nenhum é obrigatório.
   - *Materiais faltantes:* busca por código ou descrição entre os materiais das OPs e os
     que já faltaram; se não achar, a pessoa digita código (só números, até 18) e descrição.
-    Máquina afetada e observação são opcionais. Uma máquina que marcou "Não produziu" com
+    As máquinas afetadas (pode ser mais de uma) e a observação são opcionais. Uma máquina que marcou "Não produziu" com
     motivo de falta de material faz o Dash perguntar qual material faltou, já com a máquina.
   - *Falta de pessoas:* escolhe o colaborador (os do turno primeiro), o tipo (faltou, saiu
     mais cedo, chegou atrasado), o horário (opcional, só nos dois últimos) e uma observação.
@@ -34,7 +34,7 @@ contas do Dash. A linha "Qualidade" da planilha fica para depois (o usuário ain
 ### Tabelas (nomes em inglês, como o resto do schema)
 
 1. **`collaborators`**: `id`, `name text not null` (nome e sobrenome), `badge_number text null`
-   (só números, único quando preenchido), `shift_id` (turno de costume, só ordena a lista),
+   (o "Cadastro" da pessoa na empresa: só números, único quando preenchido), `shift_id` (turno de costume, só ordena a lista),
    `process null` (linha), `active boolean not null default true`, `created_at`, `created_by`.
    **Sem delete**: inativar mantém o nome nas ocorrências antigas. Nome único sem acento e
    sem diferença de maiúsculas (a interface já valida; o banco garante).
@@ -44,7 +44,8 @@ contas do Dash. A linha "Qualidade" da planilha fica para depois (o usuário ain
    (`production_date`, `shift_id`, `collaborator_id`).
 3. **`material_shortages`**: `id`, `production_date`, `shift_id`, `material_code text`
    (check só números, até 18, como `work_orders.material_code`), `material_description text`,
-   `machine_id null`, `note null`, `created_by`, `created_at`.
+   `note null`, `created_by`, `created_at`, e as máquinas afetadas numa tabela de ligação
+   **`material_shortage_machines`** (`material_shortage_id`, `machine_id`; nenhuma, uma ou várias).
 
 ### Permissão e RLS
 

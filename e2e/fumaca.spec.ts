@@ -632,11 +632,14 @@ test("ocorrências do turno: material da máquina parada, falta de pessoa, cadas
   const materiais = page.getByRole("region", { name: "Materiais faltantes" });
   // a parada por falta de material pede o material, com a máquina já escolhida
   await materiais.getByRole("button", { name: "Informar o material" }).click();
-  await expect(page.getByLabel("Máquina afetada (opcional)")).toHaveValue(/.+/);
+  // a máquina parada já vem escolhida; dá para juntar outra
+  await expect(materiais.getByRole("list", { name: "Máquinas escolhidas" })).toContainText(maquina);
+  await materiais.getByLabel(/Máquinas afetadas/).selectOption({ label: "Embaladora horizontal nº 1" });
+  await expect(materiais.getByRole("list", { name: "Máquinas escolhidas" })).toContainText("Embaladora horizontal nº 1");
   await page.getByRole("combobox", { name: "Material" }).fill("filme");
   await page.getByRole("option", { name: /19189479/ }).click();
   await materiais.getByRole("button", { name: "Adicionar", exact: true }).click();
-  await expect(materiais.getByText(maquina)).toBeVisible();
+  await expect(materiais.getByText(`${maquina}, Embaladora horizontal nº 1`)).toBeVisible();
   await expect(materiais.getByRole("button", { name: "Informar o material" })).toHaveCount(0);
 
   // falta de pessoa: sem escolher, não adiciona; quem não está no cadastro é cadastrado ali
@@ -661,4 +664,22 @@ test("ocorrências do turno: material da máquina parada, falta de pessoa, cadas
   const occ = page.getByRole("region", { name: "Ocorrências do turno" });
   await expect(occ.getByText("João da Silva")).toBeVisible();
   await expect(occ.getByText(maquina)).toBeVisible();
+});
+
+test("filtro de período aceita a data digitada", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await page.evaluate(() => (window.location.hash = "#/ranking"));
+  await page.getByRole("button", { name: /^Período:/ }).click();
+  const de = page.getByLabel("Data inicial, dd/mm/aaaa");
+  const ate = page.getByLabel("Data final, dd/mm/aaaa");
+  // fim antes do início: avisa e não aplica
+  await de.fill("20032026");
+  await ate.fill("10032026");
+  await expect(page.getByText("A data final vem antes da inicial.")).toBeVisible();
+  await ate.fill("");
+  await ate.pressSequentially("25032026");
+  await expect(de).toHaveValue("20/03/2026");
+  await expect(ate).toHaveValue("25/03/2026");
+  await ate.press("Enter");
+  await expect(page.getByRole("button", { name: /^Período: 20 – 25 mar/ })).toBeVisible();
 });

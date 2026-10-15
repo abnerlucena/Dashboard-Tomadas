@@ -99,7 +99,7 @@ const CONSUMABLES: Material[] = [
 
 /** Os últimos dias com dados, do mais recente para trás */
 const recent = (n: number) => toIsoDate(ELAPSED_DATES[Math.max(0, ELAPSED_DATES.length - 1 - n)]);
-const machineId = (part: string) => MACHINES.find((m) => m.name.includes(part))?.id ?? null;
+const machineIds = (...parts: string[]) => parts.flatMap((part) => MACHINES.find((m) => m.name.includes(part))?.id ?? []);
 
 function seedAbsences(): Absence[] {
   const rows: Array<[number, Shift, string, Absence["kind"], string | null, string | null]> = [
@@ -117,18 +117,18 @@ function seedAbsences(): Absence[] {
 }
 
 function seedShortages(): MaterialShortage[] {
-  const rows: Array<[number, Shift, string, string, string | null, string | null]> = [
-    [0, 1, "19189479", "FILME PET+PE 0,5X270mm REF CONCEPT ITJ", machineId("horizontal nº 1"), null],
-    [2, 1, "10045821", "CAIXA PAPELÃO ONDULADO 300X200X150", null, "Chegou às 10h"],
-    [4, 2, "19189479", "FILME PET+PE 0,5X270mm REF CONCEPT ITJ", machineId("horizontal nº 1"), null],
+  const rows: Array<[number, Shift, string, string, string[], string | null]> = [
+    [0, 1, "19189479", "FILME PET+PE 0,5X270mm REF CONCEPT ITJ", machineIds("horizontal nº 1", "horizontal nº 2"), null],
+    [2, 1, "10045821", "CAIXA PAPELÃO ONDULADO 300X200X150", [], "Chegou às 10h"],
+    [4, 2, "19189479", "FILME PET+PE 0,5X270mm REF CONCEPT ITJ", machineIds("horizontal nº 1"), null],
   ];
-  return rows.map(([d, shift, materialCode, materialDescription, machine, note], i) => ({
+  return rows.map(([d, shift, materialCode, materialDescription, machines, note], i) => ({
     id: `s${i + 1}`,
     date: recent(d),
     shift,
     materialCode,
     materialDescription,
-    machineId: machine,
+    machineIds: machines,
     note,
   }));
 }

@@ -38,7 +38,7 @@ describe("validateCollaborator", () => {
     expect(validateCollaborator({ ...draft, name: "angela souza" }, people)?.name).toMatch(/Já existe/);
     expect(validateCollaborator({ ...draft, name: "Ângela Souza" }, people, "c3")).toBeNull();
   });
-  it("matrícula só com números e sem repetir", () => {
+  it("cadastro só com números e sem repetir", () => {
     expect(validateCollaborator({ ...draft, badge: "40a" }, people)?.badge).toMatch(/só números/);
     expect(validateCollaborator({ ...draft, badge: "40211" }, people)?.badge).toMatch(/outra pessoa/);
   });
@@ -49,7 +49,7 @@ describe("searchCollaborators", () => {
     expect(searchCollaborators(people, "", 1).map((c) => c.id)).toEqual(["c2", "c1"]);
     expect(searchCollaborators(people, "", 1, { allShifts: true }).map((c) => c.id)).toEqual(["c2", "c1", "c3"]);
   });
-  it("com busca, acha em qualquer turno, sem acento, e pela matrícula", () => {
+  it("com busca, acha em qualquer turno, sem acento, e pelo cadastro", () => {
     expect(searchCollaborators(people, "angela", 1).map((c) => c.id)).toEqual(["c3"]);
     expect(searchCollaborators(people, "40378", 3).map((c) => c.id)).toEqual(["c2"]);
   });
@@ -78,7 +78,7 @@ describe("materiais", () => {
 describe("sheetLines", () => {
   it("monta o bloco como na planilha", () => {
     const shortages: MaterialShortage[] = [
-      { id: "s1", date: "2026-03-27", shift: 1, materialCode: "19189479", materialDescription: "FILME PET+PE 0,5X270mm REF CONCEPT ITJ", machineId: null, note: null },
+      { id: "s1", date: "2026-03-27", shift: 1, materialCode: "19189479", materialDescription: "FILME PET+PE 0,5X270mm REF CONCEPT ITJ", machineIds: [], note: null },
     ];
     const absences: Absence[] = [
       { id: "a1", date: "2026-03-27", shift: 1, collaboratorId: "c1", kind: "left_early", time: "14:30", note: null },

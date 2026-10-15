@@ -133,7 +133,7 @@ const FAQ_GROUPS: Array<{ title: string; faq: Faq[] }> = [
       {
         q: "Como cadastro um colaborador?",
         a: [
-          "Em Administração › Colaboradores, clique em Cadastrar colaborador e informe nome e sobrenome, a matrícula (opcional), o turno e a linha.",
+          "Em Administração › Colaboradores, clique em Cadastrar colaborador e informe nome e sobrenome, o número de cadastro (opcional), o turno e a linha.",
           "Quem sai da empresa é inativado, não apagado: as faltas antigas continuam com o nome. Líderes também podem cadastrar alguém na hora, pela busca da Falta de pessoas.",
           "No Histórico, cada turno do dia mostra as ocorrências, com um botão para copiar no formato da planilha.",
         ],

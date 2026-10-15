@@ -89,7 +89,7 @@ export function CollaboratorsPage({ notify }: { notify: Notify }) {
           <TextField
             label="Buscar colaborador"
             hideLabel
-            placeholder="Buscar por nome ou matrícula"
+            placeholder="Buscar por nome ou cadastro"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             elemAfter={<Search aria-hidden className="size-icon-small" />}
@@ -103,7 +103,7 @@ export function CollaboratorsPage({ notify }: { notify: Notify }) {
             title={q ? "Ninguém encontrado" : filter === "inactive" ? "Nenhum colaborador inativo" : "Nenhum colaborador cadastrado"}
             hint={
               q
-                ? `Nenhum nome ou matrícula tem "${query.trim()}". Confira a busca ou cadastre a pessoa.`
+                ? `Nenhum nome ou cadastro tem "${query.trim()}". Confira a busca ou cadastre a pessoa.`
                 : filter === "inactive"
                   ? "Quem for inativado aparece aqui e pode ser reativado."
                   : "Cadastre as pessoas de cada turno para registrar as faltas no apontamento."
@@ -120,7 +120,7 @@ export function CollaboratorsPage({ notify }: { notify: Notify }) {
                     Nome
                   </th>
                   <th scope="col" className="px-150 py-100 font-semibold">
-                    Matrícula
+                    Cadastro
                   </th>
                   <th scope="col" className="px-150 py-100 font-semibold">
                     Turno
@@ -299,12 +299,11 @@ function CollaboratorDialog({
           autoFocus
         />
         <TextField
-          label="Matrícula"
+          label="Cadastro"
           inputMode="numeric"
           value={draft.badge}
           onChange={(e) => set({ badge: e.target.value.replace(/\D/g, "").slice(0, 12) })}
           error={touched || errors?.badge?.includes("outra pessoa") ? errors?.badge : null}
-          helper="Opcional. Ajuda a separar pessoas com nomes parecidos."
           inputClassName="font-code"
           className="w-column-name"
         />

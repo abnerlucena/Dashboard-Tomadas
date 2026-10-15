@@ -4,8 +4,8 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { cn, plural } from "@/lib/utils";
 import { Button, IconButton } from "./Button";
 import {
-  WEEKDAYS, addDays, clamp, isWeekday, longDay, monthName, presetsFor, rangeLabel,
-  same, startOf, workingDaysBetween, type Range,
+  WEEKDAYS, addDays, checkTypedRange, clamp, isWeekday, longDay, maskBrDate, monthName, presetsFor, rangeLabel,
+  same, startOf, toBrDate, workingDaysBetween, type Range,
 } from "./dateRange";
 
 // O tipo continua acessível por aqui (reexportar tipo não afeta o react-refresh).
@@ -38,14 +38,42 @@ export function DateRangePicker({ label, value, onChange, min, max, dataEnd, def
   const [focused, setFocused] = useState<Date>(value.to);
   const grid = useRef<HTMLDivElement>(null);
   const presets = presetsFor(dataEnd, min, max);
+  // Datas digitadas (dd/mm/aaaa): acompanham o calendário e vice-versa
+  const [typed, setTyped] = useState({ from: toBrDate(value.from), to: toBrDate(value.to) });
+  const [typedError, setTypedError] = useState<string | null>(null);
+  /** enquanto a pessoa digita, o foco fica no campo (o calendário não o rouba) */
+  const typing = useRef(false);
 
   const onOpenChange = (next: boolean) => {
     if (next) {
       setDraft(value);
       setFocused(value.to);
       setHover(null);
+      setTyped({ from: toBrDate(value.from), to: toBrDate(value.to) });
+      setTypedError(null);
+      typing.current = false;
     }
     setOpen(next);
+  };
+
+  /** Clique no calendário ou atalho: os campos mostram o novo período */
+  const setDraftFromCalendar = (d: { from: Date; to: Date | null }) => {
+    typing.current = false;
+    setDraft(d);
+    setTyped({ from: toBrDate(d.from), to: d.to ? toBrDate(d.to) : "" });
+    setTypedError(null);
+  };
+
+  const onType = (which: "from" | "to", raw: string) => {
+    typing.current = true;
+    const next = { ...typed, [which]: maskBrDate(raw) };
+    setTyped(next);
+    const checked = checkTypedRange(next.from, next.to, min, max);
+    if ("range" in checked) {
+      setDraft(checked.range);
+      setFocused(which === "from" ? checked.range.from : checked.range.to);
+      setTypedError(null);
+    } else setTypedError(checked.error);
   };
 
   const view = focused;
@@ -59,12 +87,12 @@ export function DateRangePicker({ label, value, onChange, min, max, dataEnd, def
 
   const focusDay = () => grid.current?.querySelector<HTMLButtonElement>('[tabindex="0"]')?.focus();
   useEffect(() => {
-    if (open) focusDay();
+    if (open && !typing.current) focusDay();
   }, [focused, open]);
 
   const pick = (d: Date) => {
     if (d < min || d > max) return;
-    setDraft((cur) => (cur.to === null && d >= cur.from ? { from: cur.from, to: d } : { from: d, to: null }));
+    setDraftFromCalendar(draft.to === null && d >= draft.from ? { from: draft.from, to: d } : { from: d, to: null });
   };
 
   // intervalo exibido: o rascunho, estendido até o dia sob o mouse enquanto escolhe o fim
@@ -159,7 +187,7 @@ export function DateRangePicker({ label, value, onChange, min, max, dataEnd, def
                     <button
                       type="button"
                       onClick={() => {
-                        setDraft(p.range);
+                        setDraftFromCalendar(p.range);
                         setFocused(p.range.to);
                       }}
                       className={cn(
@@ -175,8 +203,40 @@ export function DateRangePicker({ label, value, onChange, min, max, dataEnd, def
               })}
             </ul>
 
-            {/* Calendário de intervalo */}
+            {/* Calendário de intervalo, com as datas também digitáveis */}
             <div className="p-150">
+              <div className="mb-150 flex flex-col gap-050">
+                <div className="flex items-end gap-100">
+                  {(["from", "to"] as const).map((which) => (
+                    <label key={which} className="flex min-w-0 flex-1 flex-col gap-025 font-body-small font-semibold text-subtle">
+                      {which === "from" ? "De" : "Até"}
+                      <input
+                        value={typed[which]}
+                        onChange={(e) => onType(which, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            apply();
+                          }
+                        }}
+                        inputMode="numeric"
+                        placeholder="dd/mm/aaaa"
+                        aria-label={which === "from" ? "Data inicial, dd/mm/aaaa" : "Data final, dd/mm/aaaa"}
+                        aria-invalid={typedError ? true : undefined}
+                        className={cn(
+                          "h-control w-full min-w-0 rounded-medium border bg-input px-100 font-body font-normal tabular-nums text-default placeholder:text-subtlest hover:bg-input-hovered focus:border-focused",
+                          typedError ? "border-danger" : "border-input",
+                        )}
+                      />
+                    </label>
+                  ))}
+                </div>
+                {typedError && (
+                  <p role="alert" className="max-w-[18rem] font-body-small text-danger">
+                    {typedError}
+                  </p>
+                )}
+              </div>
               <div className="mb-100 flex items-center justify-between gap-100">
                 <IconButton icon={ChevronLeft} label="Mês anterior" showTooltip={false} isDisabled={!canPrev} onClick={() => canPrev && setFocused(new Date(year, month - 1, 1))} />
                 <span aria-live="polite" className="font-heading-xsmall first-letter:uppercase">
@@ -184,7 +244,7 @@ export function DateRangePicker({ label, value, onChange, min, max, dataEnd, def
                 </span>
                 <IconButton icon={ChevronRight} label="Próximo mês" showTooltip={false} isDisabled={!canNext} onClick={() => canNext && setFocused(new Date(year, month + 1, 1))} />
               </div>
-              <div ref={grid} role="grid" aria-label={monthName.format(view)} onKeyDown={onKeyDown} onMouseLeave={() => setHover(null)} className="flex flex-col gap-025">
+              <div ref={grid} role="grid" aria-label={monthName.format(view)} onKeyDown={(e) => { typing.current = false; onKeyDown(e); }} onMouseLeave={() => setHover(null)} className="flex flex-col gap-025">
                 <div role="row" className="grid grid-cols-7">
                   {WEEKDAYS.map((w) => (
                     <span key={w} role="columnheader" className="pb-050 text-center font-body-small text-subtlest">

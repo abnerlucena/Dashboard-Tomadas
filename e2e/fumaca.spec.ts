@@ -620,3 +620,45 @@ test("ajuda: respostas por assunto, em passos, e a busca acha o texto da respost
   await page.getByPlaceholder(/Buscar na ajuda/).fill("xyzxyz");
   await expect(page.getByText("Nada encontrado")).toBeVisible();
 });
+
+test("ocorrências do turno: material da máquina parada, falta de pessoa, cadastro e histórico", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await iniciarTurno(page);
+  const maquina = "Máquina de plugue Slin (Aumaq)";
+  await page.getByRole("button", { name: `Marcar que ${maquina} não produziu` }).click();
+  await page.getByRole("radio", { name: "Falta de material" }).click();
+  await page.getByRole("button", { name: `Concluir ${maquina}` }).click();
+  await page.getByRole("button", { name: /Conferir e terminar/ }).first().click();
+  const materiais = page.getByRole("region", { name: "Materiais faltantes" });
+  // a parada por falta de material pede o material, com a máquina já escolhida
+  await materiais.getByRole("button", { name: "Informar o material" }).click();
+  await expect(page.getByLabel("Máquina afetada (opcional)")).toHaveValue(/.+/);
+  await page.getByRole("combobox", { name: "Material" }).fill("filme");
+  await page.getByRole("option", { name: /19189479/ }).click();
+  await materiais.getByRole("button", { name: "Adicionar", exact: true }).click();
+  await expect(materiais.getByText(maquina)).toBeVisible();
+  await expect(materiais.getByRole("button", { name: "Informar o material" })).toHaveCount(0);
+
+  // falta de pessoa: sem escolher, não adiciona; quem não está no cadastro é cadastrado ali
+  const pessoas = page.getByRole("region", { name: "Falta de pessoas" });
+  await pessoas.getByRole("button", { name: "Adicionar pessoa" }).click();
+  await pessoas.getByRole("button", { name: "Adicionar", exact: true }).click();
+  await expect(pessoas.getByText("Escolha a pessoa na lista.")).toBeVisible();
+  await page.getByRole("combobox", { name: "Colaborador" }).fill("joão da silva");
+  await page.getByRole("option", { name: /Cadastrar “João da Silva”/ }).click();
+  await pessoas.getByRole("radio", { name: "Saiu mais cedo" }).click();
+  await pessoas.getByLabel("Saiu às (opcional)").fill("11:30");
+  await pessoas.getByRole("button", { name: "Adicionar", exact: true }).click();
+  await expect(pessoas.getByText("Saiu mais cedo · 11:30")).toBeVisible();
+
+  // o cadastro novo aparece em Colaboradores, com a ocorrência do mês
+  await page.evaluate(() => (window.location.hash = "#/colaboradores"));
+  const linha = page.getByRole("row", { name: /João da Silva/ });
+  await expect(linha).toContainText("1 saída ou atraso");
+
+  // no Histórico do dia, por turno, com o material e o nome
+  await page.evaluate(() => (window.location.hash = "#/historico"));
+  const occ = page.getByRole("region", { name: "Ocorrências do turno" });
+  await expect(occ.getByText("João da Silva")).toBeVisible();
+  await expect(occ.getByText(maquina)).toBeVisible();
+});

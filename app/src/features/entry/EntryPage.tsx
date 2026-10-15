@@ -1,5 +1,5 @@
 import { ArrowRight, Ban, Check, ChevronDown, ChevronUp, CircleAlert, CircleCheck, History, LogOut, MessageSquarePlus, Plus, RefreshCw, RotateCcw, Save, Search, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ProdRecord } from "../../../../src/lib/api";
 import { mensagemDeErro } from "../../../../src/lib/erros";
 import { exigeOperadores, metaDoTurno } from "../../../../src/lib/metas";
@@ -48,6 +48,8 @@ import { useDayTargets, type DayTarget } from "./dayTargets";
 import { STOP_SUGGESTIONS, plannedFor, planSaves, type ExistingRecord } from "./payload";
 import { listDrafts, removeDraft, saveDraft, type Draft, type DraftMachine } from "./draft";
 import { usePrefs, userKeyOf } from "@/features/preferences/PreferencesContext";
+import { ShiftOccurrences } from "@/features/occurrences/ShiftOccurrences";
+import { useOccurrences } from "@/features/occurrences/OccurrencesStore";
 
 /**
  * No ambiente de apontamento os controles têm a área de toque de 44px (a do Dash é 32px):
@@ -204,6 +206,7 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
   const start = useMemo(() => (live ? currentShift() : { date: toIsoDate(DATA_END), shift: 1 as Shift }), [live]);
   const [date, setDate] = useState(start.date);
   const [shift, setShift] = useState<Shift>(start.shift);
+  const occurrences = useOccurrences();
   const [overtime, setOvertime] = useState(false);
   const [loaded, setLoaded] = useState(() => loadForm(start.date, start.shift, false));
   const form = loaded.form;
@@ -719,6 +722,17 @@ export function EntryPage({ notify, search, onClearSearch }: EntryPageProps) {
             onBack={() => goStep(2)}
             onFinish={askFinish}
             finishing={saving}
+            occurrences={
+              occurrences.available && (
+                <ShiftOccurrences
+                  date={date}
+                  shift={shift}
+                  // "Não produziu" por falta de material pede o material logo aqui
+                  materialStops={stoppedIds.filter((id) => /material/i.test(existing[id]?.stopped ?? ""))}
+                  notify={notify}
+                />
+              )
+            }
           />
         ) : (
           <>
@@ -1740,6 +1754,7 @@ function ReviewStep({
   onBack,
   onFinish,
   finishing,
+  occurrences,
 }: {
   apontadas: number;
   /** máquinas que constam como "não produziu" neste turno */
@@ -1753,6 +1768,8 @@ function ReviewStep({
   onBack: () => void;
   onFinish: () => void;
   finishing: boolean;
+  /** materiais faltantes e falta de pessoas do turno */
+  occurrences?: ReactNode;
 }) {
   const kpi = "flex flex-col gap-025 border-r px-250 py-200 last:border-r-0";
   return (
@@ -1821,6 +1838,8 @@ function ReviewStep({
           </ul>
         </section>
       )}
+
+      {occurrences}
 
       <div className="flex flex-wrap items-center justify-end gap-100">
         <Button appearance="default" onClick={onBack}>

@@ -725,3 +725,20 @@ test("colaboradores: inativar avisa quantas faltas perdem o nome, e elas perdem"
   await page.evaluate(() => (window.location.hash = "#/historico"));
   await expect(page.getByRole("region", { name: "Ocorrências do turno" }).getByText("Sem nome (colaborador inativado)").first()).toBeVisible();
 });
+
+test("acumulado vs meta: duas leituras com a mesma base dos dois lados, e o resumo que explica a distância", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await page.getByText("Gráficos", { exact: true }).first().click();
+  const card = page.getByRole("region", { name: "Produção acumulada vs meta" });
+  await expect(card.getByText("Atingimento", { exact: true })).toBeVisible();
+  await expect(card.getByText("Meta coberta por apontamento")).toBeVisible();
+  await expect(card.getByText("Fora da meta", { exact: true })).toBeVisible();
+  // padrão: turnos apontados (a conta do atingimento)
+  await expect(card.getByText("Meta dos turnos apontados", { exact: true })).toBeVisible();
+  await card.getByRole("radio", { name: "Calendário" }).click();
+  await expect(card.getByText("Meta do calendário", { exact: true })).toBeVisible();
+  await expect(card.getByText("Meta dos turnos apontados", { exact: true })).toHaveCount(0);
+  // a tabela segue a leitura escolhida
+  await card.getByRole("radio", { name: "Tabela" }).click();
+  await expect(card.getByRole("columnheader", { name: "Produção total" })).toBeVisible();
+});

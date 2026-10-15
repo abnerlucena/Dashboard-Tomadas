@@ -14,8 +14,9 @@ import { formatDecimal, formatLongDate, formatNumber, formatShortDate, plural } 
 import { ChartCard, MiniTable, type LegendItem } from "@/components/data/Chart";
 import { KpiStrip, type KpiItem } from "@/components/data/KpiStrip";
 import { SHIFT_FILL } from "@/components/data/shiftColors";
-import { AttainmentBars, BurnupChart, ComboChart, DailyColumns, HBars, type ComboSeries } from "@/components/echarts";
-import { BURNUP_LEGEND, DAILY_LEGEND } from "@/components/echarts/legends";
+import { AttainmentBars, ComboChart, DailyColumns, HBars, type ComboSeries } from "@/components/echarts";
+import { DAILY_LEGEND } from "@/components/echarts/legends";
+import { BurnupCard } from "./BurnupCard";
 import { useOps } from "@/features/ops/OpsStore";
 import { REWORK_LIMIT, SHIFT_NAMES, insights } from "./insights";
 
@@ -170,36 +171,7 @@ export function ChartsView({
       <KpiStrip items={kpis} isLoading={isLoading} label="Indicadores de operação do período" />
 
       <Section title="Produção" hint={`Soma de ${scopeLabel}, dias úteis de ${periodText}`}>
-        <ChartCard
-          {...card}
-          className="basis-full"
-          title="Produção acumulada vs meta"
-          subtitle="Duas metas: a dos turnos apontados (a base do atingimento) e a do calendário (todos os dias úteis). A distância entre elas é o que ficou sem apontamento."
-          legend={BURNUP_LEGEND}
-          table={
-            <MiniTable
-              caption="Produção acumulada e as duas metas acumuladas por dia útil"
-              columns={[
-                { header: "Dia" },
-                { header: "Realizado acumulado", align: "end" },
-                { header: "Meta dos apontados", align: "end" },
-                { header: "% dos apontados", align: "end" },
-                { header: "Meta do calendário", align: "end" },
-                { header: "% do calendário", align: "end" },
-              ]}
-              rows={series.map((p) => [
-                formatShortDate(p.date),
-                p.cumulative != null ? formatNumber(p.cumulative) : "—",
-                p.recordedTargetCumulative != null ? formatNumber(p.recordedTargetCumulative) : "—",
-                p.cumulative != null && p.recordedTargetCumulative ? `${Math.round((p.cumulative / p.recordedTargetCumulative) * 100)}%` : "—",
-                formatNumber(p.targetCumulative),
-                p.cumulative != null && p.targetCumulative ? `${Math.round((p.cumulative / p.targetCumulative) * 100)}%` : "—",
-              ])}
-            />
-          }
-        >
-          <BurnupChart series={series} label="Produção acumulada vs meta" />
-        </ChartCard>
+        <BurnupCard rows={rows} range={range} {...card} />
 
         <ChartCard
           {...card}

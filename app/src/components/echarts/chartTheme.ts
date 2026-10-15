@@ -152,7 +152,7 @@ export function tooltipHtml(title: string, rows: TooltipRow[]) {
         }<span class="shrink-0 font-semibold tabular-nums text-default">${r.value}</span><span class="min-w-0 font-body-small text-subtle">${r.label}</span></li>`,
     )
     .join("");
-  return `<div class="w-chart-tooltip rounded-medium bg-surface-overlay p-150 shadow-overlay"><p class="pb-075 font-body-small text-subtlest">${title}</p><ul class="flex flex-col gap-050">${items}</ul></div>`;
+  return `<div class="min-w-chart-tooltip max-w-[20rem] rounded-medium bg-surface-overlay p-150 shadow-overlay"><p class="pb-075 font-body-small text-subtlest">${title}</p><ul class="flex flex-col gap-050">${items}</ul></div>`;
 }
 
 /** Mesma informação do tooltip, em texto corrido, para o leitor de tela */

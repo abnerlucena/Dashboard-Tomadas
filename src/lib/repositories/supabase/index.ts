@@ -5,6 +5,7 @@ import { supabaseProduction } from "./production";
 import { supabaseCalendar, supabaseMachines, supabaseTargets } from "./catalog";
 import { supabaseUsers } from "./users";
 import { supabaseWorkOrders } from "./workOrders";
+import { supabaseOccurrences } from "./occurrences";
 
 export const supabaseDataSource: DataSource = {
   kind: "supabase",
@@ -15,6 +16,7 @@ export const supabaseDataSource: DataSource = {
   calendar: supabaseCalendar,
   users: supabaseUsers,
   workOrders: supabaseWorkOrders,
+  occurrences: supabaseOccurrences,
 };
 
 export { BadgeRequiredError } from "./auth";

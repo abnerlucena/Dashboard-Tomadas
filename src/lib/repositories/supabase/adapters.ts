@@ -14,7 +14,9 @@
 //     atingimento.
 import type { Tables } from "../../database.types";
 import type { Holiday, HolidayScope, Machine, OrdemProducao, ProdRecord } from "../../api";
-import type { MachineChanges, NewMachineInput, UpdateEntryChanges, WorkOrderMessage, WorkOrderRecord, WorkOrderStage } from "../types";
+import type {
+  AbsenceKind, CollaboratorChanges, CollaboratorRecord, MachineChanges, MachineProcess, MaterialShortageInput, MaterialShortageRecord, NewCollaborator, NewMachineInput, ShiftAbsenceInput, ShiftAbsenceRecord, UpdateEntryChanges, WorkOrderMessage, WorkOrderRecord, WorkOrderStage,
+} from "../types";
 
 export type SummaryRow = Tables<"production_summary">;
 export type OrderRow = Pick<Tables<"production_orders">, "production_record_id" | "order_number" | "quantity" | "is_rework" | "notes" | "rework_reason">;
@@ -301,3 +303,108 @@ export const PROFILE_STATUS_TO_LEGACY: Record<string, string> = {
   blocked: "bloqueado",
   pending: "pendente",
 };
+
+// ─── Ocorrências do turno (D70) ─────────────────────────────────────────────
+
+type CollaboratorRow = Tables<"collaborators">;
+type ShortageRow = Tables<"material_shortage_summary">;
+export interface AbsenceRow {
+  id: string | null;
+  production_date: string;
+  shift_id: number;
+  kind: string;
+  at_time: string | null;
+  note: string | null;
+  collaborator_id: string | null;
+  collaborator_name: string | null;
+  is_mine: boolean | null;
+}
+
+/** "12:30:00" (banco) → "12:30" (tela). */
+export const toHoraMinuto = (t: string | null | undefined) => (t ? t.slice(0, 5) : null);
+
+const asProcess = (p: string | null | undefined): MachineProcess | null =>
+  p === "assembly" || p === "packaging" ? p : null;
+
+export function toCollaborator(row: CollaboratorRow): CollaboratorRecord {
+  return {
+    id: row.id,
+    name: row.name,
+    badgeNumber: row.badge_number,
+    shiftId: row.shift_id,
+    process: asProcess(row.process),
+    active: row.active,
+  };
+}
+
+export function toAbsence(row: AbsenceRow): ShiftAbsenceRecord {
+  return {
+    id: row.id,
+    date: row.production_date,
+    shiftId: row.shift_id,
+    kind: row.kind as AbsenceKind,
+    time: toHoraMinuto(row.at_time),
+    note: row.note,
+    collaboratorId: row.collaborator_id,
+    collaboratorName: row.collaborator_name,
+    mine: row.is_mine === true,
+  };
+}
+
+export function toShortage(row: ShortageRow, userId: string | undefined): MaterialShortageRecord {
+  return {
+    id: row.id ?? "",
+    date: row.production_date ?? "",
+    shiftId: row.shift_id ?? 0,
+    materialCode: row.material_code ?? "",
+    materialDescription: row.material_description ?? "",
+    machineIds: row.machine_ids ?? [],
+    note: row.note,
+    mine: !!userId && row.created_by === userId,
+  };
+}
+
+export function toCreateCollaboratorArgs(input: NewCollaborator) {
+  return {
+    p_name: input.name,
+    p_shift_id: input.shiftId,
+    p_badge_number: input.badgeNumber?.trim() || undefined,
+    p_process: input.process,
+  };
+}
+
+/** Só entra o que veio: no banco, ausente = mantém; "" apaga cadastro e linha. */
+export function toUpdateCollaboratorArgs(id: string, c: CollaboratorChanges) {
+  const args: { p_id: string; p_name?: string; p_shift_id?: number; p_badge_number?: string; p_process?: string } = { p_id: id };
+  if (c.name !== undefined) args.p_name = c.name;
+  if (c.shiftId !== undefined) args.p_shift_id = c.shiftId;
+  if (c.badgeNumber !== undefined) args.p_badge_number = c.badgeNumber;
+  if (c.process !== undefined) args.p_process = c.process ?? "";
+  if (Object.keys(args).length === 1) throw new Error("Nada para alterar.");
+  return args;
+}
+
+export function toSaveAbsenceArgs(input: ShiftAbsenceInput) {
+  return {
+    p_production_date: input.date,
+    p_shift_id: input.shiftId,
+    p_collaborator_id: input.collaboratorId,
+    p_kind: input.kind,
+    // "Faltou" não tem horário: o banco recusa se vier.
+    p_at_time: input.kind === "absent" ? undefined : input.time || undefined,
+    p_note: input.note?.trim() || undefined,
+    p_id: input.id,
+  };
+}
+
+export function toSaveShortageArgs(input: MaterialShortageInput) {
+  return {
+    p_production_date: input.date,
+    p_shift_id: input.shiftId,
+    p_material_code: input.materialCode.trim(),
+    p_material_description: input.materialDescription.trim(),
+    p_machine_ids: [...new Set(input.machineIds ?? [])],
+    p_note: input.note?.trim() || undefined,
+    p_id: input.id,
+  };
+}

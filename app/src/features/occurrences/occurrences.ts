@@ -1,4 +1,7 @@
-import type { Line, Shift } from "@/data/machines";
+import { MACHINES, type Shift } from "@/data/machines";
+import type { AbsenceKind, MachineProcess } from "../../../../src/lib/repositories/types";
+
+export type { AbsenceKind };
 
 /*
  * Ocorrências do turno: materiais que faltaram e pessoas que faltaram, saíram
@@ -6,36 +9,43 @@ import type { Line, Shift } from "@/data/machines";
  * como o bloco "Informações adicionais" da planilha de produção. A linha
  * Qualidade da planilha fica para depois.
  *
- * O formato abaixo é a proposta de contrato para a sessão de banco
- * (docs/database/notas/2026-10-15-ocorrencias-do-turno.md). Até o banco ter as
- * tabelas, só a demonstração grava.
+ * Contrato: `occurrences` em src/lib/repositories/types.ts (D70). Estes são os
+ * formatos das telas; a conversão (turno, máquinas como texto) fica em
+ * occurrencesApi.ts. Regras do banco que a tela segue:
+ * - o nome das faltas só chega para quem tem `collaborators.manage` (gestor e
+ *   admin). Os outros recebem só o tipo; quem registrou pode desfazer em 24 h;
+ * - inativar o colaborador (saiu da empresa) tira o nome de todas as faltas dele.
  */
 
 export interface Collaborator {
   id: string;
-  /** nome e sobrenome, como a liderança chama a pessoa */
+  /** nome e sobrenome */
   name: string;
-  /** número de cadastro da pessoa na empresa, só números (opcional) */
+  /** o "Cadastro" da pessoa na empresa, só números (opcional) */
   badge: string | null;
   /** turno de costume: só ordena a lista do apontamento */
   shift: Shift;
-  line: Line | null;
-  /** quem sai da empresa é inativado, nunca apagado: as ocorrências antigas mantêm o nome */
+  /** linha: Montagem ou Embalagem (as bancadas a granel ficam na Embalagem) */
+  process: MachineProcess | null;
+  /** quem saiu da empresa é inativado, nunca apagado */
   active: boolean;
 }
 
-export type AbsenceKind = "absent" | "left_early" | "late";
-
 export interface Absence {
-  id: string;
+  /** nulo: a falta não é sua (ou passou de 24 h) e você não é gestor; não dá para corrigir */
+  id: string | null;
   /** dia do turno, aaaa-mm-dd */
   date: string;
   shift: Shift;
-  collaboratorId: string;
+  /** nulos para quem não é gestor, e depois que o colaborador é inativado */
+  collaboratorId: string | null;
+  name: string | null;
   kind: AbsenceKind;
   /** "hh:mm": saída ou chegada (só nos dois últimos tipos, opcional) */
   time: string | null;
   note: string | null;
+  /** fui eu que registrei */
+  mine: boolean;
 }
 
 export interface MaterialShortage {
@@ -48,6 +58,9 @@ export interface MaterialShortage {
   /** máquinas que ficaram sem o material (pode ser nenhuma, uma ou várias) */
   machineIds: string[];
   note: string | null;
+  mine: boolean;
+  /** até quando quem registrou pode corrigir ou apagar (ISO, 24 h depois); nulo se não veio */
+  editableUntil: string | null;
 }
 
 export interface Material {
@@ -84,7 +97,7 @@ export interface CollaboratorDraft {
   name: string;
   badge: string;
   shift: Shift;
-  line: Line | null;
+  process: MachineProcess | null;
 }
 
 /** Erros do cadastro; `null` = pode salvar */
@@ -135,12 +148,12 @@ export const isMaterialCode = (s: string) => /^\d{1,18}$/.test(s.trim());
  * "19189479 - FILME PET+PE 0,5X270mm REF CONCEPT ITJ" e
  * "01 Colaborador saiu mais cedo – Gabriel Martins".
  */
-export function sheetLines(shortages: MaterialShortage[], absences: Absence[], nameOf: (id: string) => string) {
+export function sheetLines(shortages: MaterialShortage[], absences: Absence[]) {
   return {
     materials: shortages.map((s) => `${s.materialCode} - ${s.materialDescription}`),
     people: absences.map((a) => {
       const meta = ABSENCE_META[a.kind];
-      return `01 Colaborador ${meta.sheet}${a.time ? ` às ${a.time}` : ""} – ${nameOf(a.collaboratorId)}`;
+      return `01 Colaborador ${meta.sheet}${a.time ? ` às ${a.time}` : ""}${a.name ? ` – ${a.name}` : ""}`;
     }),
   };
 }
@@ -149,7 +162,7 @@ export function sheetLines(shortages: MaterialShortage[], absences: Absence[], n
 export function monthCounts(absences: Absence[], monthIso: string) {
   const out = new Map<string, { absent: number; other: number }>();
   for (const a of absences) {
-    if (!a.date.startsWith(monthIso)) continue;
+    if (!a.date.startsWith(monthIso) || !a.collaboratorId) continue;
     const c = out.get(a.collaboratorId) ?? { absent: 0, other: 0 };
     if (a.kind === "absent") c.absent++;
     else c.other++;
@@ -157,3 +170,16 @@ export function monthCounts(absences: Absence[], monthIso: string) {
   }
   return out;
 }
+
+/**
+ * Pode corrigir ou apagar o material? Quem edita apontamentos, sempre; quem
+ * registrou, até `editableUntil` (a regra que o banco confere).
+ */
+export const canFixShortage = (s: MaterialShortage, canEditProduction: boolean, now = new Date()) =>
+  canEditProduction || (s.mine && !!s.editableUntil && new Date(s.editableUntil) > now);
+
+/** Faltas que perdem o nome se a pessoa for inativada (a confirmação mostra o número) */
+export const namedAbsencesOf = (absences: Absence[], collaboratorId: string) => absences.filter((a) => a.collaboratorId === collaboratorId).length;
+
+/** Nome da máquina; a que saiu da lista (desativada, sem dados no período) aparece pelo número */
+export const machineName = (id: string) => MACHINES.find((m) => m.id === id)?.name ?? `Máquina ${id}`;

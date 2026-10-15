@@ -119,6 +119,11 @@ export interface ProductionOrder {
   note: OrderNote | null;
   /** Só com dados do banco: o apontamento (máquina + dia + turno + regime) a que esta linha pertence */
   record?: ProductionRecordInfo;
+  /**
+   * Só com dados do banco: o apontamento conta para a meta (`counts_toward_target`).
+   * Falso em hora extra, dia ou turno anulado e parada planejada. Ausente = conta.
+   */
+  counts?: boolean;
 }
 
 /** O apontamento no banco: um por máquina + dia + turno + regime (D10, D27); as linhas acima são as ordens dele */
@@ -842,28 +847,20 @@ export function recordedTargetOn(m: Machine, date: Date) {
   return m.daily.has(dayKey(date)) ? m.dailyTarget : 0;
 }
 
-/**
- * Série diária da fábrica no período (dias úteis): realizado acumulado e as duas metas acumuladas.
- * - `targetCumulative` (meta do calendário): a meta vigente em todos os dias úteis, apontados ou não.
- * - `recordedTargetCumulative` (meta dos turnos apontados): só o que os apontamentos trouxeram;
- *   com o banco, é a mesma base do cartão "Atingimento da meta". Nula nos dias que ainda não chegaram.
- */
+/** Série diária da fábrica no período (dias úteis) e acumulado vs meta do calendário */
 export function plantSeries(machines: Machine[], range: DateRange = MONTH_RANGE) {
   // soma das metas diárias (já no recorte de turno de cada máquina)
   const dailyTarget = machines.reduce((s, m) => s + m.dailyTarget, 0);
   let cumulative = 0;
-  let recorded = 0;
   return workingDatesIn(range).map((date, i) => {
     const elapsed = date <= DATA_END;
     const value = elapsed ? machines.reduce((s, m) => s + (m.daily.get(dayKey(date)) ?? 0), 0) : null;
     if (value != null) cumulative += value;
-    if (elapsed) recorded += machines.reduce((s, m) => s + recordedTargetOn(m, date), 0);
     return {
       date,
       value,
       cumulative: elapsed ? cumulative : null,
       targetCumulative: Math.round(dailyTarget * (i + 1)),
-      recordedTargetCumulative: elapsed ? Math.round(recorded) : null,
       dailyTarget: Math.round(dailyTarget),
     };
   });

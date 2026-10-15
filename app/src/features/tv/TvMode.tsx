@@ -19,7 +19,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { DATA_ORIGIN, LINE_ACCENT, REFERENCE_DATE, SHIFTS, SHIFT_META, STATUS_META, plantSeries, statusFor, type Status } from "@/data/machines";
+import { DATA_ORIGIN, LINE_ACCENT, MONTH_RANGE, REFERENCE_DATE, SHIFTS, SHIFT_META, STATUS_META, statusFor, type Status } from "@/data/machines";
+import { burnupSeries } from "@/features/machines/burnup";
 import { cn, formatDecimal, formatNumber, formatShortDate, plural, readToken } from "@/lib/utils";
 import { BurnupChart, ShiftStackBars } from "@/components/echarts";
 import { BURNUP_LEGEND } from "@/components/echarts/legends";
@@ -126,9 +127,9 @@ export function TvMode({ scope: scopeParam, onExit }: { scope?: string; onExit: 
       title: "Produção acumulada vs meta",
       body: (
         <div className="flex h-full flex-col gap-200">
-          <Legend items={BURNUP_LEGEND} className="[&>li]:font-tv-body" />
+          <Legend items={BURNUP_LEGEND.recorded} className="[&>li]:font-tv-body" />
           <div className="min-h-0 flex-1">
-            <BurnupChart series={plantSeries(withTarget)} label={`Produção acumulada vs meta · ${scopeLabel}`} heightClass="h-full" variant="tv" />
+            <BurnupChart series={burnupSeries(withTarget, MONTH_RANGE)} basis="recorded" label={`Produção acumulada vs meta · ${scopeLabel}`} heightClass="h-full" variant="tv" />
           </div>
         </div>
       ),

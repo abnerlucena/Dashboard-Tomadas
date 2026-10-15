@@ -216,6 +216,8 @@ export function buildBackendData(input: BackendInput): BackendData {
         recordedAt,
         note: note ? { id: `n-${base}-${orders.length}`, text: note, author: operator } : null,
         record,
+        // meta 0 = o apontamento não conta (hora extra, dia anulado, parada planejada)
+        counts: rec.meta > 0,
       });
 
     for (const o of rec.ordensProducao ?? []) {

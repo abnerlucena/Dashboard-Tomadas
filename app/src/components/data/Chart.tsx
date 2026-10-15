@@ -91,10 +91,12 @@ interface ChartCardProps {
   /** Recarregando: mantém o quadro anterior com opacidade reduzida (sem skeleton, sem salto) */
   isRefetching?: boolean;
   className?: string;
+  /** controles próprios do gráfico, ao lado do Gráfico/Tabela (ex.: qual meta comparar) */
+  actions?: ReactNode;
   children: ReactNode;
 }
 
-export function ChartCard({ title, subtitle, legend, table, isLoading, isRefetching, className, children }: ChartCardProps) {
+export function ChartCard({ title, subtitle, legend, table, isLoading, isRefetching, className, actions, children }: ChartCardProps) {
   const [view, setView] = useState<"chart" | "table">("chart");
   const titleId = useId();
   return (
@@ -109,6 +111,8 @@ export function ChartCard({ title, subtitle, legend, table, isLoading, isRefetch
           </h3>
           {subtitle && <p className="mt-025 font-body-small text-subtlest">{subtitle}</p>}
         </div>
+        <div className="flex flex-wrap items-center gap-100">
+        {actions}
         <SegmentedControl
           label={`Modo de exibição: ${title}`}
           value={view}
@@ -118,6 +122,7 @@ export function ChartCard({ title, subtitle, legend, table, isLoading, isRefetch
             { value: "table", label: "Tabela", icon: Table2 },
           ]}
         />
+        </div>
       </header>
       {legend && view === "chart" && !isLoading && <Legend items={legend} />}
       {isLoading ? (

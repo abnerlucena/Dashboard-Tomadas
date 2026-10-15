@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { STATUS_META, type Machine, type plantSeries } from "@/data/machines";
 import { formatCompact, formatLongDate, formatNumber, formatShortDate, readToken } from "@/lib/utils";
+import type { BurnupPoint } from "@/features/machines/burnup";
 import { EChart } from "./EChart";
 import { axisStyle, baseOption, tooltipBase, tooltipHtml, tooltipText, useChartTheme, type TooltipRow } from "./chartTheme";
 
@@ -24,8 +25,15 @@ function grid(top: string, right: string) {
 const lastIndex = <T,>(list: T[], has: (x: T) => boolean) => list.reduce((idx, x, i) => (has(x) ? i : idx), -1);
 
 /* ---------- Acumulado vs meta (burn-up) ---------- */
+export type BurnupBasis = "recorded" | "calendar";
+
 export interface BurnupChartProps {
-  series: Point[];
+  series: BurnupPoint[];
+  /**
+   * recorded: produção que conta × meta dos turnos apontados, só nos dias com dados (a base do atingimento).
+   * calendar: produção total × meta do calendário, até o fim do período (onde o mês precisa chegar).
+   */
+  basis: BurnupBasis;
   label: string;
   /** altura (token); o Modo TV usa h-full */
   heightClass?: string;
@@ -33,42 +41,33 @@ export interface BurnupChartProps {
   variant?: "default" | "tv";
 }
 
-export function BurnupChart({ series, label, heightClass = "h-chart-large", variant = "default" }: BurnupChartProps) {
+const pctLabel = (a: number, b: number | null) => (b ? `${Math.round((a / b) * 100)}%` : "—");
+
+export function BurnupChart({ series, basis, label, heightClass = "h-chart-large", variant = "default" }: BurnupChartProps) {
   const t = useChartTheme();
   const isTv = variant === "tv";
-  const last = lastIndex(series, (p) => p.cumulative != null);
+  const recorded = basis === "recorded";
+  // Turnos apontados: só os dias com dados (a meta deles não existe no futuro); calendário: o período inteiro
+  const points = useMemo(() => (recorded ? series.filter((p) => p.elapsed) : series), [series, recorded]);
+  const last = lastIndex(points, (p) => p.elapsed);
+  const actual = (p: BurnupPoint) => (recorded ? p.counted : p.produced);
+  const target = (p: BurnupPoint) => (recorded ? p.recordedTarget : p.calendarTarget);
 
-  const pctOf = (a: number, b: number | null) => (b ? `${Math.round((a / b) * 100)}%` : "—");
   const rows = useCallback(
-    (p: Point): TooltipRow[] => [
-      ...(p.cumulative != null
-        ? [
-            {
-              value: formatNumber(p.cumulative),
-              label: "Realizado acumulado",
-              swatch: t.brand,
-            },
-          ]
-        : []),
-      ...(p.recordedTargetCumulative != null
-        ? [
-            {
-              value: formatNumber(p.recordedTargetCumulative),
-              label: `Meta dos apontados${p.cumulative != null ? ` · ${pctOf(p.cumulative, p.recordedTargetCumulative)}` : ""}`,
-              swatch: t.target,
-              dashed: true,
-            },
-          ]
-        : []),
-      {
-        value: formatNumber(p.targetCumulative),
-        label: `Meta do calendário${p.cumulative != null ? ` · ${pctOf(p.cumulative, p.targetCumulative)}` : ""}`,
-        swatch: t.target,
-        dotted: true,
-      },
-      ...(p.cumulative == null ? [{ value: "—", label: "dia ainda não apontado" }] : []),
-    ],
-    [t],
+    (p: BurnupPoint): TooltipRow[] => {
+      const a = recorded ? p.counted : p.produced;
+      const goal = recorded ? p.recordedTarget : p.calendarTarget;
+      if (a == null) return [{ value: formatNumber(p.calendarTarget), label: "Meta do calendário até aqui", swatch: t.target, dotted: true }, { value: "—", label: "dia ainda não chegou" }];
+      return [
+        { value: formatNumber(a), label: recorded ? "Produção que conta" : "Produção total", swatch: t.brand },
+        recorded
+          ? { value: formatNumber(goal ?? 0), label: "Meta dos turnos apontados", swatch: t.target, dashed: true }
+          : { value: formatNumber(goal ?? 0), label: "Meta do calendário", swatch: t.target, dotted: true },
+        goal ? { value: pctLabel(a, goal), label: recorded ? "de atingimento" : "da meta do calendário" } : { value: "—", label: "nenhum turno que conta para a meta até aqui" },
+        ...(recorded && p.outsideDay ? [{ value: `+${formatNumber(p.outsideDay)}`, label: "no dia, fora da meta (hora extra, dia anulado ou parada planejada)" }] : []),
+      ];
+    },
+    [t, recorded],
   );
 
   const option = useMemo(() => {
@@ -87,7 +86,7 @@ export function BurnupChart({ series, label, heightClass = "h-chart-large", vari
       xAxis: {
         type: "category",
         boundaryGap: false,
-        data: series.map((p) => formatShortDate(p.date)),
+        data: points.map((p) => formatShortDate(p.date)),
         ...axisStyle(t, font),
         splitLine: { show: false },
       },
@@ -109,50 +108,42 @@ export function BurnupChart({ series, label, heightClass = "h-chart-large", vari
         trigger: "axis",
         axisPointer: { type: "line", lineStyle: { color: t.target, width: 1 } },
         formatter: (params: Array<{ dataIndex: number }>) => {
-          const p = series[params[0].dataIndex];
+          const p = points[params[0].dataIndex];
           return tooltipHtml(formatLongDate(p.date), rows(p));
         },
       },
       series: [
         {
-          name: "Realizado acumulado",
+          name: recorded ? "Produção que conta" : "Produção total",
           type: "line",
           symbol: "circle",
           symbolSize: (isTv ? 2 : 1) * t.marker * 2,
-          // Só o último dia apontado leva marcador: "onde o mês está hoje"
-          data: series.map((p, i) => (i === last ? p.cumulative : { value: p.cumulative, symbol: "none" })),
+          // Só o último dia apontado leva marcador: "onde o período está hoje"
+          data: points.map((p, i) => (i === last ? actual(p) : { value: actual(p), symbol: "none" })),
           itemStyle: { color: t.brand },
           lineStyle: { width: line, color: t.brand },
           areaStyle: { color: t.brand, opacity: t.areaOpacity },
         },
         {
-          // A base do atingimento: só os turnos que foram apontados
-          name: "Meta dos turnos apontados",
+          name: recorded ? "Meta dos turnos apontados" : "Meta do calendário",
           type: "line",
-          data: series.map((p) => p.recordedTargetCumulative),
+          data: points.map(target),
           symbol: "none",
           silent: true,
-          lineStyle: { width: line, color: t.target, type: t.dash },
-        },
-        {
-          // A meta vigente em todos os dias úteis, apontados ou não: o tamanho da distância é o que faltou apontar
-          name: "Meta do calendário",
-          type: "line",
-          data: series.map((p) => p.targetCumulative),
-          symbol: "none",
-          silent: true,
-          lineStyle: { width: line, color: t.target, type: "dotted" },
+          lineStyle: { width: line, color: t.target, type: recorded ? t.dash : "dotted" },
         },
       ],
     };
-  }, [series, t, isTv, rows, last]);
+    // actual/target só dependem de `recorded`
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [points, t, isTv, rows, last, recorded]);
 
-  const end = series[last];
+  const end = points[last];
   const summary = end
-    ? `${label}. Até ${formatShortDate(end.date)}: ${formatNumber(end.cumulative!)} realizados; meta dos turnos apontados ${formatNumber(
-        end.recordedTargetCumulative ?? 0,
-      )}; meta do calendário ${formatNumber(end.targetCumulative)} (período inteiro: ${formatNumber(series[series.length - 1].targetCumulative)}).`
-    : label;
+    ? recorded
+      ? `${label}. Até ${formatShortDate(end.date)}: ${formatNumber(end.counted ?? 0)} peças nos turnos que contam, contra ${formatNumber(end.recordedTarget ?? 0)} de meta desses turnos (${pctLabel(end.counted ?? 0, end.recordedTarget)}).`
+      : `${label}. Até ${formatShortDate(end.date)}: ${formatNumber(end.produced ?? 0)} peças, contra ${formatNumber(end.calendarTarget)} da meta do calendário; no período inteiro, ${formatNumber(points.at(-1)?.calendarTarget ?? 0)}.`
+    : `${label}. Nenhum dia com dados no período.`;
 
   return (
     <EChart
@@ -164,10 +155,10 @@ export function BurnupChart({ series, label, heightClass = "h-chart-large", vari
         isTv
           ? undefined
           : {
-              count: series.length,
+              count: points.length,
               start: Math.max(0, last),
               axis: "x",
-              describe: (i) => tooltipText(formatLongDate(series[i].date), rows(series[i])),
+              describe: (i) => tooltipText(formatLongDate(points[i].date), rows(points[i])),
             }
       }
     />

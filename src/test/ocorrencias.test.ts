@@ -47,9 +47,11 @@ describe("ocorrências do turno: adaptadores", () => {
       .toMatchObject({ p_material_code: "19189479", p_machine_ids: [3, 5] });
     const row = {
       id: "s1", production_date: "2026-10-16", shift_id: 2, material_code: "19189479", material_description: "FILME",
-      note: null, machine_ids: [3], created_by: "u1", created_at: "",
+      note: null, machine_ids: [3], created_by: "u1", created_at: "2026-10-16T10:00:00Z",
     };
     expect(toShortage(row, "u1").mine).toBe(true);
     expect(toShortage(row, "u2").mine).toBe(false);
+    expect(toShortage(row, "u1").editableUntil).toBe("2026-10-17T10:00:00.000Z");
+    expect(toShortage({ ...row, created_at: null }, "u1").editableUntil).toBeNull();
   });
 });

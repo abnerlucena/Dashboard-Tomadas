@@ -361,6 +361,8 @@ export function toShortage(row: ShortageRow, userId: string | undefined): Materi
     machineIds: row.machine_ids ?? [],
     note: row.note,
     mine: !!userId && row.created_by === userId,
+    // As mesmas 24 h que o banco confere (foi_eu_ha_pouco).
+    editableUntil: row.created_at ? new Date(Date.parse(row.created_at) + 24 * 3600 * 1000).toISOString() : null,
   };
 }
 

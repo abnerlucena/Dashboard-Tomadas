@@ -53,10 +53,11 @@ const statusOf = (produced: number, target: number): Status | null =>
 const elapsedDates = (range: DateRange) => workingDatesIn(range).filter((d) => d <= DATA_END);
 
 /** Produção boa de uma máquina num dia e turno */
-function perDayShift(m: Machine) {
+/** `onlyCounted`: só a produção que conta para a meta (o numerador do atingimento) */
+function perDayShift(m: Machine, onlyCounted = false) {
   const map = new Map<string, number>();
   for (const o of m.orders) {
-    if (o.rework) continue;
+    if (o.rework || (onlyCounted && o.counts === false)) continue;
     const k = `${dayKey(o.date)}-${o.shift}`;
     map.set(k, (map.get(k) ?? 0) + o.quantity);
   }
@@ -95,12 +96,14 @@ export async function buildDashboardReport(x: DashboardExport): Promise<Blob> {
   const days = elapsedDates(x.range);
   const shifts = shiftList(x.shift);
   const produced = x.rows.reduce((s, m) => s + m.produced, 0);
+  // atingimento: só a produção que conta (fora hora extra, dia anulado, parada planejada)
+  const counted = x.rows.reduce((s, m) => s + m.counted, 0);
   const target = x.rows.reduce((s, m) => s + m.target, 0);
   const rw = x.rows.reduce((s, m) => s + rework(m.orders), 0);
   const allOrders = x.rows.flatMap(withMachine);
   const active = x.rows.filter((m) => m.produced > 0).length;
-  const att = fraction(produced, target);
-  const st = statusOf(produced, target);
+  const att = fraction(counted, target);
+  const st = statusOf(counted, target);
   const fns = new Map(x.rows.map((m) => [m.id, perDayShift(m)]));
 
   const kpis: Kpi[] = [
@@ -160,7 +163,7 @@ export async function buildDashboardReport(x: DashboardExport): Promise<Blob> {
     charts.attainmentChart(
       x.rows
         .filter((m) => m.target > 0)
-        .map((m) => ({ name: m.name, percent: Math.round((m.produced / m.target) * 100), status: m.status })),
+        .map((m) => ({ name: m.name, percent: m.percent, status: m.status })),
     ),
   );
   const shiftTotals = shifts.map((s) => x.rows.reduce((t, m) => t + (m.byShift[s] ?? 0), 0));
@@ -201,21 +204,23 @@ export async function buildDashboardReport(x: DashboardExport): Promise<Blob> {
       { header: "Turnos (regime)", value: (m) => m.regime, format: "int" },
       { header: "Dias com apontamento", value: (m) => m.days, format: "int", total: "avg" },
       { header: "Produção", value: (m) => m.produced, format: "int", total: "sum", dataBar: true },
+      // Hora extra, dia anulado e parada planejada entram na produção, não no atingimento
+      { header: "Que conta para a meta", value: (m) => m.counted, format: "int", total: "sum" },
       { header: "Meta", value: (m) => Math.round(m.target), format: "int", total: "sum" },
       {
         header: "Atingimento",
-        value: (m) => fraction(m.produced, m.target),
+        value: (m) => fraction(m.counted, m.target),
         format: "percent",
         attainment: true,
         total: (ref, f, l) =>
-          `IFERROR(SUBTOTAL(109,${ref("Produção")}${f}:${ref("Produção")}${l})/SUBTOTAL(109,${ref("Meta")}${f}:${ref("Meta")}${l}),"")`,
+          `IFERROR(SUBTOTAL(109,${ref("Que conta para a meta")}${f}:${ref("Que conta para a meta")}${l})/SUBTOTAL(109,${ref("Meta")}${f}:${ref("Meta")}${l}),"")`,
       },
       {
         header: "Situação",
         value: (m) => (m.target > 0 ? STATUS_META[m.status].label : "Sem meta"),
         status: (m) => (m.target > 0 ? m.status : null),
       },
-      { header: "Diferença p/ meta", value: (m) => Math.round(m.produced - m.target), format: "int", total: "sum" },
+      { header: "Diferença p/ meta", value: (m) => Math.round(m.counted - m.target), format: "int", total: "sum" },
       { header: "Média por dia", value: (m) => (m.days ? Math.round(m.produced / m.days) : 0), format: "int", total: "avg" },
       ...SHIFTS.map((s) => ({
         header: SHIFT_META[s].label,
@@ -309,7 +314,7 @@ export async function buildDashboardReport(x: DashboardExport): Promise<Blob> {
         },
         {
           header: `${SHIFT_META[s].label} · atingimento`,
-          value: (m: Machine) => fraction(m.byShift[s] ?? 0, m.targetByShift[s] ?? 0),
+          value: (m: Machine) => fraction(m.countedByShift[s] ?? 0, m.targetByShift[s] ?? 0),
           format: "percent" as const,
           attainment: true,
         },
@@ -340,6 +345,7 @@ export async function buildMachineReport(
   const days = elapsedDates(x.range);
   const shifts = shiftList(x.shift);
   const fn = perDayShift(m);
+  const fnCounted = perDayShift(m, true);
   const rw = rework(m.orders);
   const st = m.target > 0 ? m.status : null;
   report.addSummary(
@@ -348,7 +354,7 @@ export async function buildMachineReport(
       { label: "Meta do período", value: Math.round(m.target), format: "int" },
       {
         label: "Atingimento",
-        value: fraction(m.produced, m.target) ?? "—",
+        value: fraction(m.counted, m.target) ?? "—",
         format: "percent",
         status: st,
         note: st ? STATUS_META[st].label : "sem meta",
@@ -380,10 +386,11 @@ export async function buildMachineReport(
   );
   report.addNotes(["Produção conta só as peças boas.", "Meta do dia = soma das metas dos turnos apontados naquele dia."]);
 
-  type Day = { date: Date; total: number; target: number; byShift: Record<Shift, number> };
+  type Day = { date: Date; total: number; counted: number; target: number; byShift: Record<Shift, number> };
   const rows: Day[] = days.map((d) => ({
     date: d,
     total: fn(d),
+    counted: fnCounted(d),
     target: targetOn([m], d),
     byShift: { 1: fn(d, 1), 2: fn(d, 2), 3: fn(d, 3) },
   }));
@@ -402,20 +409,21 @@ export async function buildMachineReport(
         total: "sum" as const,
       })),
       { header: "Produção do dia", value: (d) => d.total, format: "int", total: "sum", dataBar: true },
+      { header: "Que conta para a meta", value: (d) => d.counted, format: "int", total: "sum" },
       { header: "Meta do dia", value: (d) => d.target || null, format: "int", total: "sum" },
       {
         header: "Atingimento",
-        value: (d) => fraction(d.total, d.target),
+        value: (d) => fraction(d.counted, d.target),
         format: "percent",
         attainment: true,
         total: (ref, f, l) =>
-          `IFERROR(SUBTOTAL(109,${ref("Produção do dia")}${f}:${ref("Produção do dia")}${l})/SUBTOTAL(109,${ref("Meta do dia")}${f}:${ref("Meta do dia")}${l}),"")`,
+          `IFERROR(SUBTOTAL(109,${ref("Que conta para a meta")}${f}:${ref("Que conta para a meta")}${l})/SUBTOTAL(109,${ref("Meta do dia")}${f}:${ref("Meta do dia")}${l}),"")`,
       },
       {
         header: "Situação",
         value: (d) =>
-          d.target ? STATUS_META[statusFor(Math.round((d.total / d.target) * 100))].label : d.total ? "Sem meta" : "Sem apontamento",
-        status: (d) => (d.target && d.total ? statusFor(Math.round((d.total / d.target) * 100)) : null),
+          d.target ? STATUS_META[statusFor(Math.round((d.counted / d.target) * 100))].label : d.total ? "Fora da meta" : "Sem apontamento",
+        status: (d) => (d.target && d.total ? statusFor(Math.round((d.counted / d.target) * 100)) : null),
       },
     ],
   });

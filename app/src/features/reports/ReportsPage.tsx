@@ -11,7 +11,7 @@ import {
   MONTH_RANGE,
   SHIFTS,
   SHIFT_META,
-  goodQuantity,
+  goodQuantity, countedQuantity,
   machineById,
   opLabel,
   workingDatesIn,
@@ -110,7 +110,8 @@ export function ReportsPage({ notify }: { notify: Notify }) {
   const workingDays = workingDatesIn(range).length;
   // Meta do recorte: só os turnos escolhidos em que cada máquina trabalha, proporcional aos dias úteis do período
   const target = chosen.reduce((s, m) => s + scopedTarget(m, [...shifts], range), 0);
-  const producedWithTarget = goodQuantity(orders.filter((o) => machineById(o.machineId).hasTarget));
+  // só a produção que conta para a meta (fora hora extra, dia anulado, parada planejada)
+  const producedWithTarget = countedQuantity(orders.filter((o) => machineById(o.machineId).hasTarget));
   const period = `${br(range.from)} a ${br(range.to)}`;
   const name = `${TYPES[type].title} · ${period}`;
 

@@ -73,7 +73,8 @@ export function shiftScores(machines: Machine[], ops: WorkOrder[]): ShiftScore[]
   const scores = SHIFTS.map((shift) => {
     const withTarget = machines.filter((m) => m.hasTarget && m.targetByShift[shift] > 0);
     const target = Math.round(withTarget.reduce((s, m) => s + m.targetByShift[shift], 0));
-    const producedTarget = withTarget.reduce((s, m) => s + m.byShift[shift], 0);
+    // atingimento do turno: só a produção que conta para a meta
+    const producedTarget = withTarget.reduce((s, m) => s + m.countedByShift[shift], 0);
     const produced = machines.reduce((s, m) => s + m.byShift[shift], 0);
     const minutes = machines.reduce((s, m) => s + m.minutesByShift[shift], 0);
     const reworkQty = machines.reduce((s, m) => s + m.orders.filter((o) => o.shift === shift && o.rework).reduce((q, o) => q + o.quantity, 0), 0);
@@ -106,8 +107,8 @@ export function shiftScores(machines: Machine[], ops: WorkOrder[]): ShiftScore[]
 /* ---------- Ranking das máquinas (com variação desde a semana passada) ---------- */
 // "Semana passada" = COMPARISON_CUTOFF (demonstração: sexta, 20/03; com o banco, uma semana antes do último dado)
 const percentUntil = (m: Machine, cutoff: Date | null = null) => {
-  const { produced, target } = progressUntil(m, cutoff);
-  return target ? (produced / target) * 100 : 0;
+  const { counted, target } = progressUntil(m, cutoff);
+  return target ? (counted / target) * 100 : 0;
 };
 
 export interface MachineRank {

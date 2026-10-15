@@ -33,14 +33,14 @@ export const hintOf = (metric: Metric, monthly: boolean) => METRICS[metric].hint
  */
 export function rankingValue(m: Machine, metric: Metric, cutoff: Date | null = null, range: DateRange = MONTH_RANGE, reason = "all") {
   const orders = cutoff ? m.orders.filter((o) => o.date <= cutoff) : m.orders;
-  const { produced, target } = progressUntil(m, cutoff);
+  const { produced, counted, target } = progressUntil(m, cutoff);
   // Dias úteis que já aconteceram (até o último dado ou até a semana passada), como a taxa do Dashboard
   const until = cutoff && cutoff < DATA_END ? cutoff : range.to < DATA_END ? range.to : DATA_END;
   const workingDays = workingDatesIn({ from: range.from, to: until }).length;
   switch (metric) {
     case "percent":
-      // na semana passada, compara contra a meta até ali
-      return target ? (produced / target) * 100 : 0;
+      // na semana passada, compara contra a meta até ali; só a produção que conta (fora hora extra, dia anulado)
+      return target ? (counted / target) * 100 : 0;
     case "produced":
       return produced;
     case "entries":

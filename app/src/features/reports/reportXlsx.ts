@@ -44,6 +44,8 @@ const statusOf = (p: number, t: number): Status | null => (t > 0 ? statusFor(Mat
 interface Row {
   m: Machine;
   produced: number;
+  /** a parte da produção que conta para a meta (o numerador do atingimento) */
+  counted: number;
   rework: number;
   target: number;
   byShift: Record<Shift, number>;
@@ -75,6 +77,8 @@ export async function buildReportXlsx(x: ReportXlsxInput): Promise<Blob> {
     return {
       m,
       produced: own.reduce((s, o) => s + (o.rework ? 0 : o.quantity), 0),
+      // só o que conta para a meta (fora hora extra, dia anulado, parada planejada): o numerador do atingimento
+      counted: own.reduce((s, o) => s + (o.rework || o.counts === false ? 0 : o.quantity), 0),
       rework: own.reduce((s, o) => s + (o.rework ? o.quantity : 0), 0),
       target: scopedTarget(m, x.shifts, x.range),
       byShift,
@@ -86,7 +90,7 @@ export async function buildReportXlsx(x: ReportXlsxInput): Promise<Blob> {
   });
   const withTarget = rows.filter((r) => r.target > 0);
   const produced = rows.reduce((s, r) => s + r.produced, 0);
-  const producedT = withTarget.reduce((s, r) => s + r.produced, 0);
+  const producedT = withTarget.reduce((s, r) => s + r.counted, 0);
   const target = withTarget.reduce((s, r) => s + r.target, 0);
   const rework = rows.reduce((s, r) => s + r.rework, 0);
   const st = statusOf(producedT, target);
@@ -130,8 +134,8 @@ export async function buildReportXlsx(x: ReportXlsxInput): Promise<Blob> {
       charts.attainmentChart(
         withTarget.map((r) => ({
           name: r.m.name,
-          percent: Math.round((r.produced / r.target) * 100),
-          status: statusOf(r.produced, r.target)!,
+          percent: Math.round((r.counted / r.target) * 100),
+          status: statusOf(r.counted, r.target)!,
         })),
       ),
     );
@@ -160,7 +164,7 @@ export async function buildReportXlsx(x: ReportXlsxInput): Promise<Blob> {
   }));
   report.addTable<Row>("Máquinas", {
     title: "Máquinas",
-    description: "Uma linha por máquina escolhida. Atingimento = produção ÷ meta do recorte.",
+    description: "Uma linha por máquina escolhida. Atingimento = produção que conta para a meta ÷ meta do recorte (hora extra, dia anulado e parada planejada ficam fora).",
     rows: sorted,
     totals: true,
     columns: [
@@ -168,23 +172,24 @@ export async function buildReportXlsx(x: ReportXlsxInput): Promise<Blob> {
       { header: "Linha", value: (r) => r.m.line },
       { header: "Dias com apontamento", value: (r) => r.days, format: "int", total: "avg" },
       { header: "Produção", value: (r) => r.produced, format: "int", total: "sum", dataBar: true },
+      { header: "Que conta para a meta", value: (r) => r.counted, format: "int", total: "sum" },
       { header: "Meta", value: (r) => (r.target ? r.target : null), format: "int", total: "sum" },
       {
         header: "Atingimento",
-        value: (r) => fraction(r.produced, r.target),
+        value: (r) => fraction(r.counted, r.target),
         format: "percent",
         attainment: true,
-        // Só a produção das linhas com meta (por demanda fica fora, D38), e só das visíveis no filtro
+        // Só a produção que conta, das linhas com meta (por demanda fica fora, D38), e só das visíveis no filtro
         total: (ref, f, l) => {
-          const P = ref("Produção");
+          const P = ref("Que conta para a meta");
           const M = ref("Meta");
           return `IFERROR(SUMPRODUCT(SUBTOTAL(109,OFFSET(${P}${f},ROW(${P}${f}:${P}${l})-ROW(${P}${f}),0)),--(${M}${f}:${M}${l}>0))/SUBTOTAL(109,${M}${f}:${M}${l}),"")`;
         },
       },
       {
         header: "Situação",
-        value: (r) => (r.target ? STATUS_META[statusOf(r.produced, r.target)!].label : "Por demanda"),
-        status: (r) => statusOf(r.produced, r.target),
+        value: (r) => (r.target ? STATUS_META[statusOf(r.counted, r.target)!].label : "Por demanda"),
+        status: (r) => statusOf(r.counted, r.target),
       },
       ...shiftCols,
       { header: "Retrabalho", value: (r) => r.rework, format: "int", total: "sum" },

@@ -1,0 +1,688 @@
+<title>Ocorrências do turno</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: duas abas do protótipo. "Apontamento" = passo 3 (Conferir e terminar) com a seção Ocorrências do turno
+   à esquerda e, à direita, como o bloco sai no relatório (no formato da planilha). "Colaboradores" = cadastro na Administração.
+   Cores e tipos copiados do Dash de Produção (tokens.css), para o protótipo parecer a tela real. */
+:root {
+  --bg: #F7F9FA;
+  --surface: #FFFFFF;
+  --sunken: #EEF1F4;
+  --fg: #161F2D;
+  --subtle: #434F60;
+  --subtlest: #5D6979;
+  --border: #D9DEE5;
+  --border-strong: #AEB7C2;
+  --brand: #0062B2;
+  --brand-hover: #00508F;
+  --on-brand: #FFFFFF;
+  --selected-bg: #E7F3FE;
+  --selected-fg: #105893;
+  --success: #126836; --success-bg: #E7F8ED;
+  --warning: #914808; --warning-bg: #FFF1D1;
+  --danger: #AD1F1F; --danger-bg: #FEE9E9;
+  --discovery: #5E3BB0; --discovery-bg: #F1ECFC;
+  --neutral-bg: #EEF1F4;
+  --sheet-head: #BDD7EE; --sheet-fg: #000000; --sheet-line: #000000; --sheet-bg: #FFFFFF;
+  --shadow: 0 1px 2px rgba(22,31,45,.08), 0 0 1px rgba(22,31,45,.18);
+  --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101722; --surface: #18212E; --sunken: #121A25; --fg: #E6EAF0; --subtle: #B4BDC9; --subtlest: #96A1AF;
+    --border: #2F3B4B; --border-strong: #4A5A70; --brand: #4C9EEB; --brand-hover: #74B5F2; --on-brand: #0B1420;
+    --selected-bg: #11304D; --selected-fg: #9CCBF7;
+    --success: #6FD39A; --success-bg: #12301F; --warning: #F5B25C; --warning-bg: #3A2A10; --danger: #F38B8B; --danger-bg: #3D1717;
+    --discovery: #C3AEF5; --discovery-bg: #2A1F45;
+    --neutral-bg: #222D3B; --sheet-head: #1E3A55; --sheet-fg: #E6EAF0; --sheet-line: #6B7A8E; --sheet-bg: #18212E;
+    --shadow: 0 0 0 1px #2F3B4B; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101722; --surface: #18212E; --sunken: #121A25; --fg: #E6EAF0; --subtle: #B4BDC9; --subtlest: #96A1AF;
+  --border: #2F3B4B; --border-strong: #4A5A70; --brand: #4C9EEB; --brand-hover: #74B5F2; --on-brand: #0B1420;
+  --selected-bg: #11304D; --selected-fg: #9CCBF7;
+  --success: #6FD39A; --success-bg: #12301F; --warning: #F5B25C; --warning-bg: #3A2A10; --danger: #F38B8B; --danger-bg: #3D1717;
+  --discovery: #C3AEF5; --discovery-bg: #2A1F45;
+  --neutral-bg: #222D3B; --sheet-head: #1E3A55; --sheet-fg: #E6EAF0; --sheet-line: #6B7A8E; --sheet-bg: #18212E;
+  --shadow: 0 0 0 1px #2F3B4B; color-scheme: dark;
+}
+
+[hidden] { display: none !important; }
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font: 400 15px/1.45 var(--font); margin: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 48px;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+h1, h2, h3, h4 { text-wrap: balance; margin: 0; }
+p { margin: 0; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+.page { max-width: 1120px; margin: 0 auto; display: grid; gap: 16px; }
+.intro { display: grid; gap: 4px; }
+.intro h1 { font-size: 20px; font-weight: 700; }
+.intro p { color: var(--subtle); max-width: 75ch; }
+
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+.tab { border: 0; background: none; padding: 10px 12px; font-weight: 500; color: var(--subtle); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.tab[aria-selected="true"] { color: var(--brand); border-bottom-color: var(--brand); font-weight: 600; }
+.tab:hover { color: var(--fg); }
+
+.crumbs { font-size: 13px; color: var(--subtlest); }
+.ctx { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; font-size: 14px; color: var(--subtle); }
+.ctx b { color: var(--fg); font-weight: 600; }
+.steps { display: flex; flex-wrap: wrap; gap: 6px; }
+.step { font-size: 13px; padding: 4px 10px; border-radius: 999px; background: var(--neutral-bg); color: var(--subtle); }
+.step.on { background: var(--selected-bg); color: var(--selected-fg); font-weight: 600; }
+
+.grid { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr) minmax(0, 360px); align-items: start; }
+@media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.col { display: grid; gap: 16px; min-width: 0; }
+
+.card { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); display: grid; min-width: 0; }
+.card > header { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 14px 16px 10px; }
+.card > header h3 { font-size: 16px; font-weight: 600; }
+.card > header .count { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 6px; background: var(--neutral-bg); color: var(--subtle); }
+.card > header .sp { flex: 1; }
+.card .body { padding: 0 16px 16px; display: grid; gap: 12px; }
+.lock { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--discovery); background: var(--discovery-bg); border-radius: 8px; padding: 8px 10px; }
+.lock svg { flex: none; margin-top: 2px; }
+
+.items { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.items:empty { display: none; }
+.items li { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-top: 1px solid var(--border); }
+.items li:first-child { border-top: 0; }
+.items .main { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.items .title { font-weight: 600; overflow-wrap: anywhere; }
+.items .sub { font-size: 13px; color: var(--subtle); overflow-wrap: anywhere; }
+.empty { font-size: 14px; color: var(--subtlest); padding: 2px 0; }
+
+.pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 6px; vertical-align: 1px; }
+.pill.falta { background: var(--danger-bg); color: var(--danger); }
+.pill.saida { background: var(--warning-bg); color: var(--warning); }
+.pill.atraso { background: var(--neutral-bg); color: var(--subtle); }
+.pill.ativo { background: var(--success-bg); color: var(--success); }
+.pill.inativo { background: var(--neutral-bg); color: var(--subtlest); }
+.pill.novo { background: var(--selected-bg); color: var(--selected-fg); }
+
+.btn { min-height: 36px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--subtle); font-weight: 500; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.btn:hover { background: var(--sunken); }
+.btn.primary { background: var(--brand); border-color: var(--brand); color: var(--on-brand); font-weight: 600; }
+.btn.primary:hover { background: var(--brand-hover); border-color: var(--brand-hover); }
+.btn.subtle { border-color: transparent; background: transparent; }
+.btn.subtle:hover { background: var(--sunken); }
+.btn.icon { width: 32px; min-height: 32px; padding: 0; border-color: transparent; background: transparent; color: var(--subtlest); }
+.btn.icon:hover { background: var(--sunken); color: var(--fg); }
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
+
+.callout { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; border: 1px solid var(--warning); background: var(--warning-bg); color: var(--warning); border-radius: 10px; padding: 10px 12px; font-size: 14px; }
+.callout .txt { flex: 1 1 16rem; min-width: 0; }
+.callout b { font-weight: 600; }
+
+.form { display: grid; gap: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--sunken); padding: 12px; }
+.form h4 { font-size: 13px; font-weight: 600; color: var(--subtle); }
+.row2 { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); }
+.field { display: grid; gap: 4px; font-size: 13px; font-weight: 600; color: var(--subtle); min-width: 0; }
+.field .opt { font-weight: 400; color: var(--subtlest); }
+.input, .field select, .field textarea { min-height: 40px; border: 1px solid var(--border-strong); border-radius: 6px; padding: 0 10px; background: var(--surface); font-size: 15px; font-weight: 400; width: 100%; min-width: 0; }
+.field textarea { padding: 8px 10px; min-height: 64px; resize: vertical; }
+.input:focus, .field select:focus, .field textarea:focus { border-color: var(--brand); outline: 1px solid var(--brand); }
+.err { color: var(--danger); font-size: 12px; font-weight: 500; }
+.hint { font-size: 12px; font-weight: 400; color: var(--subtlest); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+
+.suggest { list-style: none; margin: 0; padding: 4px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); display: grid; gap: 2px; max-height: 15rem; overflow: auto; }
+.suggest:empty { display: none; }
+.suggest button { width: 100%; text-align: left; border: 0; background: none; border-radius: 6px; padding: 8px 10px; cursor: pointer; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.suggest button:hover, .suggest button:focus-visible { background: var(--selected-bg); color: var(--selected-fg); }
+.suggest .k { font-size: 12px; color: var(--subtlest); }
+.suggest button:hover .k { color: var(--selected-fg); }
+.suggest .newp { color: var(--brand); font-weight: 600; }
+
+.chosen { display: flex; gap: 10px; align-items: center; border: 2px solid var(--brand); background: var(--selected-bg); color: var(--selected-fg); border-radius: 8px; padding: 6px 6px 6px 12px; min-width: 0; }
+.chosen .t { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.chosen .t small { display: block; font-weight: 400; font-size: 12px; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 8px; }
+.optc { min-height: 44px; padding: 8px 12px; border-radius: 10px; border: 2px solid var(--border-strong); background: var(--surface); text-align: left; font-weight: 500; cursor: pointer; }
+.optc:hover { background: var(--sunken); }
+.optc[aria-checked="true"] { border-color: var(--brand); background: var(--selected-bg); color: var(--selected-fg); }
+
+.toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: var(--subtle); cursor: pointer; }
+.toggle input { width: 16px; height: 16px; accent-color: var(--brand); }
+
+.foot { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; border-top: 1px solid var(--border); padding-top: 14px; }
+.foot .sp { flex: 1; }
+.foot p { font-size: 13px; color: var(--subtle); flex: 1 1 16rem; min-width: 0; }
+
+aside { position: sticky; top: max(12px, env(safe-area-inset-top, 0px)); display: grid; gap: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 16px; box-shadow: var(--shadow); min-width: 0; }
+aside h2 { font-size: 14px; font-weight: 600; }
+aside > p { font-size: 13px; color: var(--subtle); }
+.sheet-wrap { overflow-x: auto; }
+.sheet { border-collapse: collapse; width: 100%; font: 400 12px/1.35 Calibri, "Carlito", "Segoe UI", sans-serif; color: var(--sheet-fg); background: var(--sheet-bg); }
+.sheet th, .sheet td { border: 1px solid var(--sheet-line); padding: 3px 6px; text-align: left; vertical-align: top; }
+.sheet th { background: var(--sheet-head); font-weight: 700; }
+.sheet td:first-child { font-weight: 700; white-space: nowrap; }
+.sheet td.v { font-weight: 700; }
+.sheet .wait { color: var(--subtlest); font-weight: 400; font-style: italic; }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-end; }
+.toolbar .field { flex: 1 1 14rem; }
+.toolbar .field.small { flex: 0 1 10rem; }
+.tablewrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+table.list { border-collapse: collapse; width: 100%; min-width: 44rem; font-size: 14px; }
+table.list th { text-align: left; font-size: 12px; font-weight: 600; color: var(--subtle); padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--sunken); }
+table.list td { padding: 8px 12px; border-top: 1px solid var(--border); vertical-align: middle; }
+table.list tr:first-child td { border-top: 0; }
+table.list td.n { text-align: right; font-variant-numeric: tabular-nums; }
+table.list tr.off td { color: var(--subtlest); }
+table.list .rowact { display: flex; gap: 4px; justify-content: flex-end; }
+.note { font-size: 13px; color: var(--subtle); display: grid; gap: 4px; }
+.note li { margin-left: 18px; }
+
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; box-shadow: var(--shadow); max-width: calc(100% - 32px); }
+@media (prefers-reduced-motion: no-preference) { .toast { animation: up .18s ease-out; } @keyframes up { from { opacity: 0; transform: translate(-50%, 6px); } } }
+</style>
+
+<div class="page">
+  <div class="intro">
+    <h1>Ocorrências do turno</h1>
+    <p>Protótipo de duas partes: a seção nova no passo 3 do Apontamento e o cadastro de colaboradores. Os dados são fictícios e nada é gravado. A linha Qualidade fica para depois.</p>
+  </div>
+
+  <div class="tabs" role="tablist" aria-label="Partes do protótipo">
+    <button class="tab" role="tab" id="tab-ap" aria-controls="view-ap" aria-selected="true" type="button">Apontamento · Conferir e terminar</button>
+    <button class="tab" role="tab" id="tab-co" aria-controls="view-co" aria-selected="false" type="button">Administração · Colaboradores</button>
+  </div>
+
+  <!-- ===================== Apontamento ===================== -->
+  <section id="view-ap" role="tabpanel" aria-labelledby="tab-ap" class="col">
+    <div class="ctx">
+      <div class="steps" aria-label="Passos do apontamento">
+        <span class="step">1 Turno</span><span class="step">2 Máquinas</span><span class="step on" aria-current="step">3 Conferir e terminar</span>
+      </div>
+      <span><b>15/10/2026</b> · Turno 1 · Regular</span>
+      <span>22 de 22 máquinas apontadas</span>
+    </div>
+
+    <div class="grid">
+      <div class="col">
+        <h2 style="font-size:18px;font-weight:700">Ocorrências do turno</h2>
+        <p style="color:var(--subtle);font-size:14px;margin-top:-8px">Valem para o turno inteiro. Nenhuma é obrigatória: se nada aconteceu, termine o turno.</p>
+
+        <!-- Materiais faltantes -->
+        <div class="card" id="card-mat">
+          <header>
+            <h3>Materiais faltantes</h3><span class="count" id="mat-count">0</span><span class="sp"></span>
+            <button class="btn" id="mat-add" type="button">+ Adicionar material</button>
+          </header>
+          <div class="body">
+            <div class="callout" id="mat-callout" hidden>
+              <span class="txt"><b>Bancada A Granél</b> marcou <b>Não produziu · Falta de material</b>. Qual material faltou?</span>
+              <button class="btn" id="mat-callout-btn" type="button">Informar o material</button>
+            </div>
+            <ul class="items" id="mat-list"></ul>
+            <p class="empty" id="mat-empty">Nenhum material faltou neste turno.</p>
+            <div class="form" id="mat-form" hidden>
+              <h4 id="mat-form-title">Adicionar material</h4>
+              <div id="mat-pick">
+                <label class="field">Material
+                  <input class="input" id="mat-q" autocomplete="off" placeholder="Código ou parte da descrição (ex.: 19189479, filme)" aria-describedby="mat-q-hint">
+                  <span class="hint" id="mat-q-hint">O Dash sugere os materiais que já apareceram nas OPs.</span>
+                </label>
+                <ul class="suggest" id="mat-sug" aria-label="Materiais encontrados"></ul>
+              </div>
+              <div class="chosen" id="mat-chosen" hidden></div>
+              <div class="row2" id="mat-new" hidden>
+                <label class="field">Código do material
+                  <input class="input mono" id="mat-code" inputmode="numeric" maxlength="18" placeholder="Só números">
+                  <span class="err" id="mat-code-err" hidden>Digite só números, até 18.</span>
+                </label>
+                <label class="field">Descrição
+                  <input class="input" id="mat-desc" placeholder="Como está na OP">
+                  <span class="err" id="mat-desc-err" hidden>Escreva a descrição do material.</span>
+                </label>
+              </div>
+              <div class="row2">
+                <label class="field"><span>Máquina afetada <span class="opt">(opcional)</span></span>
+                  <select id="mat-machine"></select>
+                </label>
+                <label class="field"><span>Observação <span class="opt">(opcional)</span></span>
+                  <input class="input" id="mat-obs" placeholder="Ex.: chegou só às 10h">
+                </label>
+              </div>
+              <div class="actions">
+                <button class="btn subtle" id="mat-cancel" type="button">Cancelar</button>
+                <button class="btn primary" id="mat-save" type="button">Adicionar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Falta de pessoas -->
+        <div class="card" id="card-pes">
+          <header>
+            <h3>Falta de pessoas</h3><span class="count" id="pes-count">0</span><span class="sp"></span>
+            <button class="btn" id="pes-add" type="button">+ Adicionar pessoa</button>
+          </header>
+          <div class="body">
+            <p class="lock"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M5 7V5a3 3 0 1 1 6 0v2h.5A1.5 1.5 0 0 1 13 8.5v5a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 13.5v-5A1.5 1.5 0 0 1 4.5 7H5Zm1.5 0h3V5a1.5 1.5 0 1 0-3 0v2Z"/></svg><span>Os nomes só aparecem para líderes e gestor. Nunca vão para o Modo TV nem para o ranking.</span></p>
+            <ul class="items" id="pes-list"></ul>
+            <p class="empty" id="pes-empty">Ninguém faltou neste turno.</p>
+            <div class="form" id="pes-form" hidden>
+              <h4 id="pes-form-title">Adicionar pessoa</h4>
+              <div id="pes-pick">
+                <label class="field">Colaborador
+                  <input class="input" id="pes-q" autocomplete="off" placeholder="Digite o nome ou a matrícula">
+                </label>
+                <label class="toggle" style="margin-top:6px"><input type="checkbox" id="pes-all"> Mostrar os outros turnos</label>
+                <ul class="suggest" id="pes-sug" aria-label="Colaboradores encontrados" style="margin-top:6px"></ul>
+              </div>
+              <div class="chosen" id="pes-chosen" hidden></div>
+              <div class="field" role="radiogroup" aria-labelledby="pes-kind-l">
+                <span id="pes-kind-l">O que aconteceu</span>
+                <div class="cards" id="pes-kind"></div>
+                <span class="err" id="pes-kind-err" hidden>Escolha o que aconteceu.</span>
+              </div>
+              <div class="row2">
+                <label class="field" id="pes-time-f" hidden><span><span id="pes-time-l">Horário</span> <span class="opt">(opcional)</span></span>
+                  <input class="input mono" id="pes-time" type="time">
+                </label>
+                <label class="field"><span>Observação <span class="opt">(opcional)</span></span>
+                  <input class="input" id="pes-obs" placeholder="Ex.: atestado, consulta médica">
+                </label>
+              </div>
+              <span class="err" id="pes-err" hidden>Escolha o colaborador na lista.</span>
+              <div class="actions">
+                <button class="btn subtle" id="pes-cancel" type="button">Cancelar</button>
+                <button class="btn primary" id="pes-save" type="button">Adicionar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="foot">
+          <p id="foot-sum"></p>
+          <button class="btn" id="reset" type="button">Recomeçar o exemplo</button>
+          <button class="btn primary" id="finish" type="button">Terminar turno</button>
+        </div>
+      </div>
+
+      <aside aria-label="Como sai no relatório do turno">
+        <h2>Como sai no relatório do turno</h2>
+        <p>O mesmo bloco da planilha, montado sozinho. Também aparece em Ocorrências, no Histórico do dia.</p>
+        <div class="sheet-wrap">
+          <table class="sheet">
+            <thead><tr><th scope="col">INFORMAÇÕES ADICIONAIS</th><th scope="col">INFORMAÇÕES</th></tr></thead>
+            <tbody>
+              <tr><td>QUALIDADE</td><td class="wait">em definição</td></tr>
+              <tr><td>MATERIAIS FALTANTES</td><td class="v" id="sh-mat"></td></tr>
+              <tr><td>FALTA DE PESSOAS</td><td class="v" id="sh-pes"></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ===================== Colaboradores ===================== -->
+  <section id="view-co" role="tabpanel" aria-labelledby="tab-co" class="col" hidden>
+    <div class="crumbs">Administração › Colaboradores</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px 16px;align-items:flex-end">
+      <div style="flex:1 1 20rem;min-width:0;display:grid;gap:2px">
+        <h2 style="font-size:20px;font-weight:700">Colaboradores</h2>
+        <p style="color:var(--subtle);font-size:14px">As pessoas que aparecem na Falta de pessoas do apontamento. Não precisam ter conta no Dash.</p>
+      </div>
+      <button class="btn primary" id="co-new" type="button">+ Novo colaborador</button>
+    </div>
+
+    <div class="form" id="co-form" hidden>
+      <h4 id="co-form-title">Novo colaborador</h4>
+      <div class="row2">
+        <label class="field">Nome
+          <input class="input" id="co-name" placeholder="Nome e sobrenome">
+          <span class="err" id="co-name-err" hidden></span>
+        </label>
+        <label class="field"><span>Matrícula <span class="opt">(opcional)</span></span>
+          <input class="input mono" id="co-badge" inputmode="numeric" placeholder="Só números">
+          <span class="err" id="co-badge-err" hidden>Digite só números.</span>
+        </label>
+        <label class="field">Turno
+          <select id="co-shift"><option value="1">Turno 1</option><option value="2">Turno 2</option><option value="3">Turno 3</option></select>
+        </label>
+        <label class="field"><span>Linha <span class="opt">(opcional)</span></span>
+          <select id="co-line"><option value="">Sem linha fixa</option><option>Montagem</option><option>Embalagem</option><option>Granel</option></select>
+        </label>
+      </div>
+      <div class="actions">
+        <button class="btn subtle" id="co-cancel" type="button">Cancelar</button>
+        <button class="btn primary" id="co-save" type="button">Cadastrar</button>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <label class="field">Buscar
+        <input class="input" id="co-q" placeholder="Nome ou matrícula">
+      </label>
+      <label class="field small">Turno
+        <select id="co-fshift"><option value="">Todos</option><option value="1">Turno 1</option><option value="2">Turno 2</option><option value="3">Turno 3</option></select>
+      </label>
+      <label class="toggle" style="min-height:40px"><input type="checkbox" id="co-off"> Mostrar inativos</label>
+    </div>
+
+    <div class="tablewrap">
+      <table class="list">
+        <thead><tr>
+          <th scope="col">Nome</th><th scope="col">Matrícula</th><th scope="col">Turno</th><th scope="col">Linha</th>
+          <th scope="col" style="text-align:right">Faltas no mês</th><th scope="col" style="text-align:right">Saídas e atrasos</th><th scope="col">Situação</th><th scope="col"><span class="sr" style="position:absolute;left:-9999px">Ações</span></th>
+        </tr></thead>
+        <tbody id="co-body"></tbody>
+      </table>
+    </div>
+    <p class="empty" id="co-empty" hidden>Ninguém encontrado. Confira a busca ou cadastre a pessoa.</p>
+
+    <ul class="note">
+      <li>Quem sai da empresa é <b>inativado</b>, não excluído: as ocorrências antigas continuam com o nome.</li>
+      <li>Só quem tem a permissão <b>Gerenciar colaboradores</b> (líderes e gestor) vê esta tela e as contagens.</li>
+      <li>O turno do cadastro só ordena a lista do apontamento: dá para registrar a falta de alguém de outro turno.</li>
+    </ul>
+  </section>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const norm = (s) => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+  const SHIFT = "1";
+  const MACHINES = ["Bancada A Granél", "Embaladora Horizontal N°1", "Embaladora Horizontal N°2", "Máquina de plugue Slin (Aumaq)", "Montagem Tomada 10A Linha 2", "Kit parafusos"];
+  const MATERIALS = [
+    ["19189479", "FILME PET+PE 0,5X270mm REF CONCEPT ITJ"],
+    ["10045821", "CAIXA PAPELÃO ONDULADO 300X200X150"],
+    ["12093344", "ETIQUETA ADESIVA 100X50 BRANCA"],
+    ["15500712", "PARAFUSO M3X8 PHILIPS ZB"],
+    ["13377410", "MOLA CONTATO TOMADA 10A"],
+    ["16620058", "SACO PLÁSTICO PE 150X250"],
+    ["11870234", "ESPELHO 4X2 BRANCO REFINATO"],
+  ];
+  const KINDS = [
+    { id: "falta", label: "Faltou", sheet: "faltou" },
+    { id: "saida", label: "Saiu mais cedo", sheet: "saiu mais cedo", time: "Saiu às" },
+    { id: "atraso", label: "Chegou atrasado", sheet: "chegou atrasado", time: "Chegou às" },
+  ];
+  const SEED_PEOPLE = () => [
+    { id: 1, name: "Gabriel Martins", badge: "40211", shift: "1", line: "Montagem", active: true, month: { falta: 0, other: 2 } },
+    { id: 2, name: "Ana Paula Ribeiro", badge: "40378", shift: "1", line: "Embalagem", active: true, month: { falta: 1, other: 0 } },
+    { id: 3, name: "Ana Clara Souza", badge: "40512", shift: "1", line: "Granel", active: true, month: { falta: 0, other: 0 } },
+    { id: 4, name: "Bruno Henrique Costa", badge: "40144", shift: "1", line: "Montagem", active: true, month: { falta: 0, other: 1 } },
+    { id: 5, name: "Juliana Ferreira", badge: "", shift: "1", line: "", active: true, month: { falta: 0, other: 0 } },
+    { id: 6, name: "Marcos Vinícius Alves", badge: "40299", shift: "1", line: "Embalagem", active: true, month: { falta: 2, other: 0 } },
+    { id: 7, name: "Patrícia Lopes", badge: "40633", shift: "2", line: "Montagem", active: true, month: { falta: 0, other: 0 } },
+    { id: 8, name: "Rafael Nunes", badge: "40701", shift: "2", line: "Granel", active: true, month: { falta: 1, other: 1 } },
+    { id: 9, name: "Diego Santos", badge: "40822", shift: "3", line: "Embalagem", active: true, month: { falta: 0, other: 0 } },
+    { id: 10, name: "Luciana Prado", badge: "39987", shift: "1", line: "Montagem", active: false, month: { falta: 0, other: 0 } },
+  ];
+
+  let people, mats, abs, nextId, calloutDone;
+  const reset = () => {
+    people = SEED_PEOPLE();
+    nextId = 11;
+    mats = [{ code: "19189479", desc: "FILME PET+PE 0,5X270mm REF CONCEPT ITJ", machine: "Embaladora Horizontal N°1", obs: "" }];
+    abs = [{ pid: 1, kind: "saida", time: "14:30", obs: "Consulta médica" }];
+    calloutDone = false;
+  };
+  reset();
+
+  /* ---------- abas ---------- */
+  const tabs = [["tab-ap", "view-ap"], ["tab-co", "view-co"]];
+  const showTab = (tid) => {
+    tabs.forEach(([t, v]) => { const on = t === tid; $(t).setAttribute("aria-selected", on); $(v).hidden = !on; });
+    if (tid === "tab-co") renderCo(); else renderAp();
+  };
+  tabs.forEach(([t]) => $(t).addEventListener("click", () => showTab(t)));
+  $("tab-ap").parentElement.addEventListener("keydown", (e) => {
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+    const next = $("tab-ap").getAttribute("aria-selected") === "true" ? "tab-co" : "tab-ap";
+    showTab(next); $(next).focus();
+  });
+
+  const toast = (msg) => { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => (t.hidden = true), 2600); };
+  const person = (id) => people.find((p) => p.id === id);
+  const kind = (id) => KINDS.find((k) => k.id === id);
+
+  /* ---------- materiais ---------- */
+  let matPick = null, matEdit = -1, matIsNew = false;
+  $("mat-machine").innerHTML = `<option value="">Turno inteiro, sem máquina</option>` + MACHINES.map((m) => `<option>${esc(m)}</option>`).join("");
+
+  const openMat = (machine = "", idx = -1) => {
+    matEdit = idx; matPick = null; matIsNew = false;
+    const cur = idx >= 0 ? mats[idx] : null;
+    $("mat-form").hidden = false; $("mat-add").hidden = true;
+    $("mat-form-title").textContent = cur ? "Editar material" : "Adicionar material";
+    $("mat-save").textContent = cur ? "Salvar" : "Adicionar";
+    $("mat-q").value = ""; $("mat-code").value = ""; $("mat-desc").value = "";
+    $("mat-machine").value = cur ? cur.machine : machine;
+    $("mat-obs").value = cur ? cur.obs : "";
+    ["mat-code-err", "mat-desc-err"].forEach((e) => ($(e).hidden = true));
+    if (cur) { matPick = { code: cur.code, desc: cur.desc }; }
+    paintMatPick();
+    if (!cur) $("mat-q").focus();
+  };
+  const closeMat = () => { $("mat-form").hidden = true; $("mat-add").hidden = false; $("mat-add").focus(); };
+  const paintMatPick = () => {
+    const picked = !!matPick && !matIsNew;
+    $("mat-pick").hidden = picked || matIsNew;
+    $("mat-chosen").hidden = !picked;
+    $("mat-new").hidden = !matIsNew;
+    if (picked) {
+      $("mat-chosen").innerHTML = `<span class="t"><span class="mono">${esc(matPick.code)}</span> · ${esc(matPick.desc)}<small>Material das OPs</small></span><button class="btn subtle" type="button" id="mat-change">Trocar</button>`;
+      $("mat-change").onclick = () => { matPick = null; paintMatPick(); $("mat-q").focus(); };
+    }
+    if (!picked && !matIsNew) suggestMat();
+  };
+  const suggestMat = () => {
+    const q = norm($("mat-q").value.trim());
+    const ul = $("mat-sug");
+    if (!q) { ul.innerHTML = ""; return; }
+    const hits = MATERIALS.filter(([c, d]) => c.includes(q) || norm(d).includes(q)).slice(0, 6);
+    ul.innerHTML = hits.map(([c, d]) => `<li><button type="button" data-c="${c}"><span class="mono">${c}</span><span>${esc(d)}</span></button></li>`).join("") +
+      `<li><button type="button" data-new="1"><span class="newp">Não está na lista: digitar código e descrição</span></button></li>`;
+    ul.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+      if (b.dataset.new) {
+        matIsNew = true; matPick = null;
+        const raw = $("mat-q").value.trim();
+        if (/^\d+$/.test(raw)) $("mat-code").value = raw; else $("mat-desc").value = raw.toUpperCase();
+        paintMatPick(); ($("mat-code").value ? $("mat-desc") : $("mat-code")).focus();
+      } else {
+        const m = MATERIALS.find(([c]) => c === b.dataset.c); matPick = { code: m[0], desc: m[1] }; paintMatPick(); $("mat-machine").focus();
+      }
+    }));
+  };
+  $("mat-q").addEventListener("input", suggestMat);
+  $("mat-q").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); const f = $("mat-sug").querySelector("button"); if (f) f.click(); } if (e.key === "Escape") closeMat(); });
+  $("mat-add").addEventListener("click", () => openMat());
+  $("mat-cancel").addEventListener("click", closeMat);
+  $("mat-callout-btn").addEventListener("click", () => openMat("Bancada A Granél"));
+  $("mat-save").addEventListener("click", () => {
+    let item;
+    if (matIsNew) {
+      const code = $("mat-code").value.trim(), desc = $("mat-desc").value.trim();
+      const okC = /^\d{1,18}$/.test(code), okD = desc.length > 0;
+      $("mat-code-err").hidden = okC; $("mat-desc-err").hidden = okD;
+      if (!okC || !okD) return;
+      item = { code, desc: desc.toUpperCase() };
+    } else if (matPick) item = { ...matPick };
+    else { $("mat-q").focus(); $("mat-q").setAttribute("aria-invalid", "true"); toast("Escolha um material da lista ou digite um novo."); return; }
+    item.machine = $("mat-machine").value; item.obs = $("mat-obs").value.trim();
+    if (matEdit >= 0) mats[matEdit] = item; else mats.push(item);
+    if (item.machine === "Bancada A Granél") calloutDone = true;
+    closeMat(); renderAp(); toast(matEdit >= 0 ? "Material atualizado." : "Material adicionado.");
+  });
+
+  /* ---------- pessoas ---------- */
+  let pesPick = null, pesKind = null, pesEdit = -1;
+  $("pes-kind").innerHTML = KINDS.map((k) => `<button class="optc" role="radio" aria-checked="false" type="button" data-k="${k.id}">${k.label}</button>`).join("");
+  $("pes-kind").querySelectorAll(".optc").forEach((b) => b.addEventListener("click", () => { pesKind = b.dataset.k; paintKind(); }));
+  const paintKind = () => {
+    $("pes-kind").querySelectorAll(".optc").forEach((b) => b.setAttribute("aria-checked", b.dataset.k === pesKind));
+    const k = kind(pesKind);
+    $("pes-time-f").hidden = !(k && k.time);
+    if (k && k.time) $("pes-time-l").textContent = k.time;
+    $("pes-kind-err").hidden = true;
+  };
+  const openPes = (idx = -1) => {
+    pesEdit = idx;
+    const cur = idx >= 0 ? abs[idx] : null;
+    pesPick = cur ? cur.pid : null; pesKind = cur ? cur.kind : null;
+    $("pes-form").hidden = false; $("pes-add").hidden = true;
+    $("pes-form-title").textContent = cur ? "Editar ocorrência" : "Adicionar pessoa";
+    $("pes-save").textContent = cur ? "Salvar" : "Adicionar";
+    $("pes-q").value = ""; $("pes-all").checked = false;
+    $("pes-time").value = cur ? cur.time : ""; $("pes-obs").value = cur ? cur.obs : "";
+    $("pes-err").hidden = true;
+    paintKind(); paintPesPick();
+    if (!cur) $("pes-q").focus();
+  };
+  const closePes = () => { $("pes-form").hidden = true; $("pes-add").hidden = false; $("pes-add").focus(); };
+  const paintPesPick = () => {
+    $("pes-pick").hidden = !!pesPick; $("pes-chosen").hidden = !pesPick;
+    if (pesPick) {
+      const p = person(pesPick);
+      const extra = [p.badge && `Matrícula ${p.badge}`, `Turno ${p.shift}`, p.line].filter(Boolean).join(" · ");
+      $("pes-chosen").innerHTML = `<span class="t">${esc(p.name)}<small>${esc(extra)}</small></span><button class="btn subtle" type="button" id="pes-change">Trocar</button>`;
+      $("pes-change").onclick = () => { pesPick = null; paintPesPick(); $("pes-q").focus(); };
+    } else suggestPes();
+  };
+  const suggestPes = () => {
+    const raw = $("pes-q").value.trim(), q = norm(raw);
+    const taken = new Set(abs.filter((_, i) => i !== pesEdit).map((a) => a.pid));
+    const all = $("pes-all").checked;
+    let list = people.filter((p) => p.active && !taken.has(p.id) && (all || p.shift === SHIFT || q));
+    if (q) list = list.filter((p) => norm(p.name).includes(q) || p.badge.includes(q));
+    // o turno do apontamento primeiro, depois por nome
+    list.sort((a, b) => (a.shift === SHIFT ? 0 : 1) - (b.shift === SHIFT ? 0 : 1) || a.name.localeCompare(b.name, "pt-BR"));
+    const ul = $("pes-sug");
+    let html = list.slice(0, 8).map((p) => `<li><button type="button" data-p="${p.id}"><span>${esc(p.name)}</span><span class="k">${[p.badge && "Mat. " + p.badge, "Turno " + p.shift, p.line].filter(Boolean).map(esc).join(" · ")}</span></button></li>`).join("");
+    if (raw.length >= 3 && !/^\d+$/.test(raw)) html += `<li><button type="button" data-new="1"><span class="newp">Cadastrar “${esc(raw)}” no Turno 1 e usar</span><span class="k">Só para líderes e gestor</span></button></li>`;
+    if (!html) html = `<li><span class="empty" style="display:block;padding:8px 10px">${q ? "Ninguém com esse nome. Digite o nome completo para cadastrar." : "Todos deste turno já estão na lista."}</span></li>`;
+    ul.innerHTML = html;
+    ul.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+      if (b.dataset.new) {
+        const name = raw.replace(/\s+/g, " ").replace(/(^|\s)\S/g, (c) => c.toUpperCase());
+        const p = { id: nextId++, name, badge: "", shift: SHIFT, line: "", active: true, month: { falta: 0, other: 0 }, fresh: true };
+        people.push(p); pesPick = p.id; toast(`${name} foi cadastrado em Colaboradores.`);
+      } else pesPick = Number(b.dataset.p);
+      $("pes-err").hidden = true; paintPesPick();
+      const first = $("pes-kind").querySelector(".optc"); if (first) first.focus();
+    }));
+  };
+  $("pes-q").addEventListener("input", suggestPes);
+  $("pes-all").addEventListener("change", suggestPes);
+  $("pes-q").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); const f = $("pes-sug").querySelector("button"); if (f) f.click(); } if (e.key === "Escape") closePes(); });
+  $("pes-add").addEventListener("click", () => openPes());
+  $("pes-cancel").addEventListener("click", closePes);
+  $("pes-save").addEventListener("click", () => {
+    $("pes-err").hidden = !!pesPick; $("pes-kind-err").hidden = !!pesKind;
+    if (!pesPick || !pesKind) return;
+    const item = { pid: pesPick, kind: pesKind, time: kind(pesKind).time ? $("pes-time").value : "", obs: $("pes-obs").value.trim() };
+    if (pesEdit >= 0) abs[pesEdit] = item; else abs.push(item);
+    closePes(); renderAp(); toast(pesEdit >= 0 ? "Ocorrência atualizada." : `${person(item.pid).name.split(" ")[0]} adicionado à Falta de pessoas.`);
+  });
+
+  /* ---------- render apontamento ---------- */
+  const trash = `<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M6 2h4a1 1 0 0 1 1 1v1h3v1.5h-1l-.7 8.1A1.5 1.5 0 0 1 10.8 15H5.2a1.5 1.5 0 0 1-1.5-1.4L3 5.5H2V4h3V3a1 1 0 0 1 1-1Zm.5 2h3v-.5h-3V4Zm-2 1.5.7 8h5.6l.7-8h-7Z"/></svg>`;
+  const pen = `<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M11.3 1.9a1.5 1.5 0 0 1 2.1 0l.7.7a1.5 1.5 0 0 1 0 2.1L6 12.8 2.5 13.5l.7-3.5 8.1-8.1Zm1 1.1L4.6 10.7l-.3 1 1-.3L13 3.7l-.7-.7Z"/></svg>`;
+  const two = (n) => String(n).padStart(2, "0");
+
+  function renderAp() {
+    $("mat-count").textContent = mats.length; $("pes-count").textContent = abs.length;
+    $("mat-empty").hidden = mats.length > 0; $("pes-empty").hidden = abs.length > 0;
+    $("mat-callout").hidden = calloutDone;
+
+    $("mat-list").innerHTML = mats.map((m, i) => `<li><div class="main"><span class="title"><span class="mono">${esc(m.code)}</span> · ${esc(m.desc)}</span><span class="sub">${esc(m.machine || "Turno inteiro")}${m.obs ? " · " + esc(m.obs) : ""}</span></div>
+      <button class="btn icon" type="button" data-ed="${i}" aria-label="Editar ${esc(m.code)}">${pen}</button><button class="btn icon" type="button" data-rm="${i}" aria-label="Tirar ${esc(m.code)}">${trash}</button></li>`).join("");
+    $("mat-list").querySelectorAll("[data-ed]").forEach((b) => b.addEventListener("click", () => openMat("", Number(b.dataset.ed))));
+    $("mat-list").querySelectorAll("[data-rm]").forEach((b) => b.addEventListener("click", () => { const m = mats.splice(Number(b.dataset.rm), 1)[0]; if (m.machine === "Bancada A Granél" && !mats.some((x) => x.machine === "Bancada A Granél")) calloutDone = false; renderAp(); toast(`Material ${m.code} retirado.`); }));
+
+    $("pes-list").innerHTML = abs.map((a, i) => { const p = person(a.pid), k = kind(a.kind);
+      return `<li><div class="main"><span class="title">${esc(p.name)} <span class="pill ${k.id}">${k.label}${a.time ? " · " + a.time : ""}</span></span><span class="sub">${[p.badge && "Matrícula " + p.badge, p.line, a.obs].filter(Boolean).map(esc).join(" · ") || "Sem observação"}</span></div>
+      <button class="btn icon" type="button" data-ed="${i}" aria-label="Editar ${esc(p.name)}">${pen}</button><button class="btn icon" type="button" data-rm="${i}" aria-label="Tirar ${esc(p.name)}">${trash}</button></li>`; }).join("");
+    $("pes-list").querySelectorAll("[data-ed]").forEach((b) => b.addEventListener("click", () => openPes(Number(b.dataset.ed))));
+    $("pes-list").querySelectorAll("[data-rm]").forEach((b) => b.addEventListener("click", () => { const a = abs.splice(Number(b.dataset.rm), 1)[0]; renderAp(); toast(`${person(a.pid).name} retirado da lista.`); }));
+
+    // bloco da planilha: "01 Colaborador saiu mais cedo – Gabriel"
+    $("sh-mat").innerHTML = mats.map((m) => esc(`${m.code} - ${m.desc}`)).join("<br>");
+    $("sh-pes").innerHTML = abs.map((a) => { const k = kind(a.kind); return esc(`01 Colaborador ${k.sheet}${a.time ? " às " + a.time : ""} – ${person(a.pid).name}`); }).join("<br>");
+
+    const parts = [];
+    if (mats.length) parts.push(`${mats.length} ${mats.length === 1 ? "material faltante" : "materiais faltantes"}`);
+    if (abs.length) parts.push(`${abs.length} ${abs.length === 1 ? "pessoa" : "pessoas"} na falta de pessoas`);
+    $("foot-sum").textContent = parts.length ? `O turno vai com ${parts.join(" e ")}.` : "Sem ocorrências neste turno.";
+  }
+  $("reset").addEventListener("click", () => { reset(); $("mat-form").hidden = true; $("mat-add").hidden = false; $("pes-form").hidden = true; $("pes-add").hidden = false; renderAp(); toast("Exemplo recomeçado."); });
+  $("finish").addEventListener("click", () => toast("Turno terminado. No protótipo, nada foi gravado."));
+
+  /* ---------- colaboradores ---------- */
+  let coEdit = null;
+  const monthOf = (p) => {
+    const today = abs.filter((a) => a.pid === p.id);
+    return { falta: p.month.falta + today.filter((a) => a.kind === "falta").length, other: p.month.other + today.filter((a) => a.kind !== "falta").length };
+  };
+  function renderCo() {
+    const q = norm($("co-q").value.trim()), fs = $("co-fshift").value, off = $("co-off").checked;
+    const rows = people.filter((p) => (off || p.active) && (!fs || p.shift === fs) && (!q || norm(p.name).includes(q) || p.badge.includes(q)))
+      .sort((a, b) => (b.active - a.active) || a.name.localeCompare(b.name, "pt-BR"));
+    $("co-empty").hidden = rows.length > 0;
+    $("co-body").innerHTML = rows.map((p) => { const m = monthOf(p);
+      return `<tr class="${p.active ? "" : "off"}"><td><b style="font-weight:600">${esc(p.name)}</b>${p.fresh ? ' <span class="pill novo">Cadastrado no apontamento</span>' : ""}</td>
+      <td class="mono">${esc(p.badge) || "–"}</td><td>Turno ${p.shift}</td><td>${esc(p.line) || "–"}</td>
+      <td class="n">${m.falta}</td><td class="n">${m.other}</td>
+      <td><span class="pill ${p.active ? "ativo" : "inativo"}">${p.active ? "Ativo" : "Inativo"}</span></td>
+      <td><div class="rowact"><button class="btn subtle" type="button" data-ed="${p.id}">Editar</button><button class="btn subtle" type="button" data-tg="${p.id}">${p.active ? "Inativar" : "Reativar"}</button></div></td></tr>`; }).join("");
+    $("co-body").querySelectorAll("[data-ed]").forEach((b) => b.addEventListener("click", () => openCo(Number(b.dataset.ed))));
+    $("co-body").querySelectorAll("[data-tg]").forEach((b) => b.addEventListener("click", () => {
+      const p = person(Number(b.dataset.tg)); p.active = !p.active;
+      if (!p.active) abs = abs.filter((a) => a.pid !== p.id);
+      renderCo(); toast(p.active ? `${p.name} reativado.` : `${p.name} inativado. Some da lista do apontamento.`);
+    }));
+  }
+  const openCo = (id = null) => {
+    coEdit = id; const p = id ? person(id) : null;
+    $("co-form").hidden = false; $("co-new").hidden = true;
+    $("co-form-title").textContent = p ? `Editar ${p.name}` : "Novo colaborador";
+    $("co-save").textContent = p ? "Salvar" : "Cadastrar";
+    $("co-name").value = p ? p.name : ""; $("co-badge").value = p ? p.badge : "";
+    $("co-shift").value = p ? p.shift : "1"; $("co-line").value = p ? p.line : "";
+    $("co-name-err").hidden = true; $("co-badge-err").hidden = true;
+    $("co-name").focus();
+  };
+  const closeCo = () => { $("co-form").hidden = true; $("co-new").hidden = false; $("co-new").focus(); };
+  $("co-new").addEventListener("click", () => openCo());
+  $("co-cancel").addEventListener("click", closeCo);
+  $("co-save").addEventListener("click", () => {
+    const name = $("co-name").value.trim().replace(/\s+/g, " "), badge = $("co-badge").value.trim(), shift = $("co-shift").value;
+    let msg = "";
+    if (name.split(" ").length < 2) msg = "Escreva nome e sobrenome, para não confundir pessoas com o mesmo nome.";
+    else if (people.some((p) => p.id !== coEdit && norm(p.name) === norm(name))) msg = "Já existe alguém com este nome. Confira na lista ou acrescente outro sobrenome.";
+    $("co-name-err").textContent = msg; $("co-name-err").hidden = !msg;
+    const okB = !badge || /^\d+$/.test(badge); $("co-badge-err").hidden = okB;
+    if (msg || !okB) return;
+    if (coEdit) Object.assign(person(coEdit), { name, badge, shift, line: $("co-line").value });
+    else people.push({ id: nextId++, name, badge, shift, line: $("co-line").value, active: true, month: { falta: 0, other: 0 } });
+    closeCo(); renderCo(); toast(coEdit ? "Cadastro atualizado." : `${name} cadastrado.`);
+  });
+  ["co-q", "co-fshift", "co-off"].forEach((id) => $(id).addEventListener(id === "co-q" ? "input" : "change", renderCo));
+
+  renderAp();
+})();
+</script>

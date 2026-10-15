@@ -6,6 +6,7 @@ import {
   CircleHelp,
   ClipboardList,
   Cog,
+  Contact,
   Boxes,
   Factory,
   PackageOpen,
@@ -67,6 +68,8 @@ import { MetasPage } from "@/features/metas/MetasPage";
 import { HistoryPage } from "@/features/history/HistoryPage";
 import { CalendarPage } from "@/features/calendar/CalendarPage";
 import { MachineRegistryPage } from "@/features/registry/MachineRegistryPage";
+import { CollaboratorsPage } from "@/features/occurrences/CollaboratorsPage";
+import { OccurrencesProvider } from "@/features/occurrences/OccurrencesProvider";
 import { RankingPage } from "@/features/analysis/RankingPage";
 import { ReworkPage } from "@/features/analysis/ReworkPage";
 import { FeedbacksPage } from "@/features/feedbacks/FeedbacksPage";
@@ -134,6 +137,7 @@ const NAV_SECTIONS: Array<{ title: string; items: NavEntry[] }> = [
     items: [
       { id: "usuarios", label: "Usuários", icon: Users },
       { id: "cadastro-maquinas", label: "Cadastro de máquinas", icon: Cog },
+      { id: "colaboradores", label: "Colaboradores", icon: Contact },
     ],
   },
 ];
@@ -235,9 +239,11 @@ function Gate() {
   return (
     <BackendGate>
       <OpsProvider>
-        <PreferencesProvider>
-          <Shell />
-        </PreferencesProvider>
+        <OccurrencesProvider>
+          <PreferencesProvider>
+            <Shell />
+          </PreferencesProvider>
+        </OccurrencesProvider>
       </OpsProvider>
     </BackendGate>
   );
@@ -414,6 +420,8 @@ function Shell() {
             <ReportsPage notify={notify} />
           ) : route === "cadastro-maquinas" ? (
             <MachineRegistryPage notify={notify} />
+          ) : route === "colaboradores" ? (
+            <CollaboratorsPage notify={notify} />
           ) : route === "usuarios" ? (
             <UsersPage notify={notify} />
           ) : route === "ajuda" ? (

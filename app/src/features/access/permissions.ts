@@ -25,6 +25,7 @@ export type Permission =
   | "alerts.manage"
   | "targets.manage"
   | "users.approve"
+  | "collaborators.manage"
   | "import.review"
   | "import.manage"
   | "system.admin";
@@ -53,6 +54,7 @@ export const PERMISSION_LABEL: Record<Permission, string> = {
   "alerts.manage": "Configurar alertas",
   "targets.manage": "Alterar metas",
   "users.approve": "Aprovar usuários e ajustar permissões",
+  "collaborators.manage": "Cadastrar colaboradores e ver as faltas por nome",
   "import.review": "Conferir a área de preparo da importação",
   "import.manage": "Criar, carregar e reverter lotes de importação",
   "system.admin": "Administração do sistema (auditoria, turnos)",
@@ -62,7 +64,7 @@ export const PERMISSION_LABEL: Record<Permission, string> = {
 export const PERMISSION_GROUPS: Array<{ title: string; codes: Permission[] }> = [
   { title: "Apontamento", codes: ["production.create", "production.edit_own", "production.edit", "production.delete", "production.bulk_edit", "production.bulk_delete", "work_orders.manage"] },
   { title: "Consulta", codes: ["dashboard.view", "history.view", "feedbacks.view", "targets.view", "reports.export", "tv_mode.view"] },
-  { title: "Gestão", codes: ["targets.manage", "machines.manage", "calendar.manage", "alerts.manage", "users.approve"] },
+  { title: "Gestão", codes: ["targets.manage", "machines.manage", "calendar.manage", "alerts.manage", "users.approve", "collaborators.manage"] },
   { title: "Importação e sistema", codes: ["import.review", "import.manage", "system.admin"] },
 ];
 
@@ -104,6 +106,7 @@ export const ROUTE_PERMISSION: Record<string, Permission> = {
   tv: "tv_mode.view",
   usuarios: "users.approve",
   "cadastro-maquinas": "machines.manage",
+  colaboradores: "collaborators.manage",
 };
 
 export const canOpen = (session: Session | null, route: string) => {

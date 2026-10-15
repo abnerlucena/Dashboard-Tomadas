@@ -73,6 +73,19 @@ const FAQ_GROUPS: Array<{ title: string; faq: Faq[] }> = [
         ],
       },
       {
+        q: "Como registro material que faltou ou alguém que faltou?",
+        a: [
+          "No último passo do apontamento, Conferir e terminar, fica a seção Ocorrências do turno. Nada ali é obrigatório.",
+          {
+            items: [
+              "Materiais faltantes: busque pelo código ou por parte da descrição. Se o material não aparecer, digite código e descrição. A máquina afetada é opcional.",
+              "Falta de pessoas: escolha a pessoa na lista e diga se faltou, saiu mais cedo ou chegou atrasada. O horário é opcional.",
+            ],
+          },
+          "Se uma máquina não produziu por falta de material, o Dash já pergunta qual material faltou. Os nomes só aparecem para líderes e gestor.",
+        ],
+      },
+      {
         q: "A luz caiu no meio do apontamento. Perdi tudo?",
         a: [
           "Não. O que você digitou e ainda não concluiu fica guardado neste computador por 48 horas. Ao abrir o Apontamento de novo, aparece um aviso: clique em Restaurar para continuar de onde parou.",
@@ -115,6 +128,14 @@ const FAQ_GROUPS: Array<{ title: string; faq: Faq[] }> = [
         q: "Como filtro o Ranking de máquinas?",
         a: [
           "Em Análises › Ranking de máquinas, escolha o período, as máquinas e o turno. O filtro de motivo só funciona quando o ranking é de retrabalho. Limpar filtros volta ao mês atual, com todas as máquinas e turnos.",
+        ],
+      },
+      {
+        q: "Como cadastro um colaborador?",
+        a: [
+          "Em Administração › Colaboradores, clique em Cadastrar colaborador e informe nome e sobrenome, o número de cadastro (opcional), o turno e a linha.",
+          "Quem sai da empresa é inativado, não apagado: as faltas antigas continuam com o nome. Líderes também podem cadastrar alguém na hora, pela busca da Falta de pessoas.",
+          "No Histórico, cada turno do dia mostra as ocorrências, com um botão para copiar no formato da planilha.",
         ],
       },
       {

@@ -72,6 +72,7 @@ const ROLES: Array<RoleOption & { permissions: Permission[]; accountType?: Sessi
       "alerts.manage",
       "targets.manage",
       "users.approve",
+      "collaborators.manage",
     ],
   },
   { id: 6, code: "shared_admin", name: "Admin (conta compartilhada)", permissions: ["system.admin"], accountType: "shared" },

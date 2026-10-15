@@ -44,6 +44,7 @@ import { useAccess } from "@/features/access/AccessContext";
 import { reloadBackendData } from "@/data/fromBackend";
 import type { UpdateEntryChanges } from "../../../../src/lib/repositories/types";
 import { mensagemDeErro } from "../../../../src/lib/erros";
+import { DayOccurrences } from "@/features/occurrences/DayOccurrences";
 import { EditRecordDialog } from "./EditRecordDialog";
 import { dayProgress } from "./dayProgress";
 import { originalOf, type EditOriginal } from "./editPlan";
@@ -668,6 +669,7 @@ export function HistoryPage({ notify, machineParam }: { notify: Notify; machineP
                 />
               }
             />
+            {!isWeekend(date) && !isFuture && <DayOccurrences date={toIsoDate(date)} shift={shiftFilter} notify={notify} />}
           </section>
         </div>
       </PageBody>

@@ -310,6 +310,11 @@ export interface MaterialShortageRecord {
   machineIds: number[];
   note: string | null;
   mine: boolean;
+  /**
+   * Até quando quem registrou pode corrigir ou apagar (24 h depois do registro,
+   * ISO). Quem tem `production.edit` corrige sempre. Nulo se a hora não veio.
+   */
+  editableUntil: string | null;
 }
 
 /** Com `id` = corrigir (as máquinas informadas substituem as que estavam). */

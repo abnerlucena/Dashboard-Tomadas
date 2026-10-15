@@ -7,7 +7,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 /* ---------- Legenda: o formato espelha a marca (barra = bloco, linha = traço) ---------- */
 export interface LegendItem {
   label: string;
-  shape: "rect" | "line" | "dashed";
+  shape: "rect" | "line" | "dashed" | "dotted";
   /** classe de fundo (rect/line) ou de borda (dashed) */
   colorClass: string;
 }
@@ -20,6 +20,7 @@ export function Legend({ items, className }: { items: LegendItem[]; className?: 
           {item.shape === "rect" && <span aria-hidden className={cn("size-100 rounded-xsmall", item.colorClass)} />}
           {item.shape === "line" && <span aria-hidden className={cn("h-splitter-line w-250 rounded-full", item.colorClass)} />}
           {item.shape === "dashed" && <span aria-hidden className={cn("w-250 border-t-thick border-dashed", item.colorClass)} />}
+          {item.shape === "dotted" && <span aria-hidden className={cn("w-250 border-t-thick border-dotted", item.colorClass)} />}
           {item.label}
         </li>
       ))}

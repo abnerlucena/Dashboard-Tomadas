@@ -831,20 +831,39 @@ export function shiftTotals(machines: Machine[]) {
   });
 }
 
-/** Série diária da fábrica no período (dias úteis) e acumulado vs meta */
+/**
+ * Meta que os apontamentos de um dia trouxeram (a mesma regra do cartão de atingimento):
+ * com o banco, a soma das metas gravadas nos turnos apontados (hora extra, dia anulado e
+ * parada planejada já chegam com 0); na demonstração, a meta diária só nos dias com apontamento.
+ * O recorte de turno já está na máquina (`targetEntries` / `dailyTarget`).
+ */
+export function recordedTargetOn(m: Machine, date: Date) {
+  if (m.backend) return (m.targetEntries ?? m.backend.targets).reduce((t, e) => t + (sameDay(e.date, date) ? e.target : 0), 0);
+  return m.daily.has(dayKey(date)) ? m.dailyTarget : 0;
+}
+
+/**
+ * Série diária da fábrica no período (dias úteis): realizado acumulado e as duas metas acumuladas.
+ * - `targetCumulative` (meta do calendário): a meta vigente em todos os dias úteis, apontados ou não.
+ * - `recordedTargetCumulative` (meta dos turnos apontados): só o que os apontamentos trouxeram;
+ *   com o banco, é a mesma base do cartão "Atingimento da meta". Nula nos dias que ainda não chegaram.
+ */
 export function plantSeries(machines: Machine[], range: DateRange = MONTH_RANGE) {
   // soma das metas diárias (já no recorte de turno de cada máquina)
   const dailyTarget = machines.reduce((s, m) => s + m.dailyTarget, 0);
   let cumulative = 0;
+  let recorded = 0;
   return workingDatesIn(range).map((date, i) => {
     const elapsed = date <= DATA_END;
     const value = elapsed ? machines.reduce((s, m) => s + (m.daily.get(dayKey(date)) ?? 0), 0) : null;
     if (value != null) cumulative += value;
+    if (elapsed) recorded += machines.reduce((s, m) => s + recordedTargetOn(m, date), 0);
     return {
       date,
       value,
       cumulative: elapsed ? cumulative : null,
       targetCumulative: Math.round(dailyTarget * (i + 1)),
+      recordedTargetCumulative: elapsed ? Math.round(recorded) : null,
       dailyTarget: Math.round(dailyTarget),
     };
   });

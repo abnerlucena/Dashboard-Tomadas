@@ -6,7 +6,8 @@ import type { LegendItem } from "@/components/data/Chart";
 /* Legendas em HTML (acima do gráfico): o formato espelha a marca */
 export const BURNUP_LEGEND: LegendItem[] = [
   { label: "Realizado acumulado", shape: "line", colorClass: "bg-chart-brand" },
-  { label: "Meta acumulada", shape: "dashed", colorClass: "border-chart-target" },
+  { label: "Meta dos turnos apontados", shape: "dashed", colorClass: "border-chart-target" },
+  { label: "Meta do calendário", shape: "dotted", colorClass: "border-chart-target" },
 ];
 
 export const DAILY_LEGEND: LegendItem[] = [

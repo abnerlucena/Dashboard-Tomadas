@@ -38,6 +38,7 @@ export function BurnupChart({ series, label, heightClass = "h-chart-large", vari
   const isTv = variant === "tv";
   const last = lastIndex(series, (p) => p.cumulative != null);
 
+  const pctOf = (a: number, b: number | null) => (b ? `${Math.round((a / b) * 100)}%` : "—");
   const rows = useCallback(
     (p: Point): TooltipRow[] => [
       ...(p.cumulative != null
@@ -49,18 +50,23 @@ export function BurnupChart({ series, label, heightClass = "h-chart-large", vari
             },
           ]
         : []),
+      ...(p.recordedTargetCumulative != null
+        ? [
+            {
+              value: formatNumber(p.recordedTargetCumulative),
+              label: `Meta dos apontados${p.cumulative != null ? ` · ${pctOf(p.cumulative, p.recordedTargetCumulative)}` : ""}`,
+              swatch: t.target,
+              dashed: true,
+            },
+          ]
+        : []),
       {
         value: formatNumber(p.targetCumulative),
-        label: "Meta acumulada",
+        label: `Meta do calendário${p.cumulative != null ? ` · ${pctOf(p.cumulative, p.targetCumulative)}` : ""}`,
         swatch: t.target,
-        dashed: true,
+        dotted: true,
       },
-      p.cumulative != null
-        ? {
-            value: p.targetCumulative ? `${Math.round((p.cumulative / p.targetCumulative) * 100)}%` : "—",
-            label: "da meta acumulada",
-          }
-        : { value: "—", label: "dia ainda não apontado" },
+      ...(p.cumulative == null ? [{ value: "—", label: "dia ainda não apontado" }] : []),
     ],
     [t],
   );
@@ -120,12 +126,22 @@ export function BurnupChart({ series, label, heightClass = "h-chart-large", vari
           areaStyle: { color: t.brand, opacity: t.areaOpacity },
         },
         {
-          name: "Meta acumulada",
+          // A base do atingimento: só os turnos que foram apontados
+          name: "Meta dos turnos apontados",
+          type: "line",
+          data: series.map((p) => p.recordedTargetCumulative),
+          symbol: "none",
+          silent: true,
+          lineStyle: { width: line, color: t.target, type: t.dash },
+        },
+        {
+          // A meta vigente em todos os dias úteis, apontados ou não: o tamanho da distância é o que faltou apontar
+          name: "Meta do calendário",
           type: "line",
           data: series.map((p) => p.targetCumulative),
           symbol: "none",
           silent: true,
-          lineStyle: { width: line, color: t.target, type: t.dash },
+          lineStyle: { width: line, color: t.target, type: "dotted" },
         },
       ],
     };
@@ -133,9 +149,9 @@ export function BurnupChart({ series, label, heightClass = "h-chart-large", vari
 
   const end = series[last];
   const summary = end
-    ? `${label}. Até ${formatShortDate(end.date)}: ${formatNumber(end.cumulative!)} realizados contra ${formatNumber(
-        end.targetCumulative,
-      )} previstos; meta do mês ${formatNumber(series[series.length - 1].targetCumulative)}.`
+    ? `${label}. Até ${formatShortDate(end.date)}: ${formatNumber(end.cumulative!)} realizados; meta dos turnos apontados ${formatNumber(
+        end.recordedTargetCumulative ?? 0,
+      )}; meta do calendário ${formatNumber(end.targetCumulative)} (período inteiro: ${formatNumber(series[series.length - 1].targetCumulative)}).`
     : label;
 
   return (

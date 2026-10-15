@@ -174,20 +174,24 @@ export function ChartsView({
           {...card}
           className="basis-full"
           title="Produção acumulada vs meta"
-          subtitle="Onde o período está em relação à meta, dia a dia"
+          subtitle="Duas metas: a dos turnos apontados (a base do atingimento) e a do calendário (todos os dias úteis). A distância entre elas é o que ficou sem apontamento."
           legend={BURNUP_LEGEND}
           table={
             <MiniTable
-              caption="Produção acumulada e meta acumulada por dia útil"
+              caption="Produção acumulada e as duas metas acumuladas por dia útil"
               columns={[
                 { header: "Dia" },
                 { header: "Realizado acumulado", align: "end" },
-                { header: "Meta acumulada", align: "end" },
-                { header: "% da meta", align: "end" },
+                { header: "Meta dos apontados", align: "end" },
+                { header: "% dos apontados", align: "end" },
+                { header: "Meta do calendário", align: "end" },
+                { header: "% do calendário", align: "end" },
               ]}
               rows={series.map((p) => [
                 formatShortDate(p.date),
                 p.cumulative != null ? formatNumber(p.cumulative) : "—",
+                p.recordedTargetCumulative != null ? formatNumber(p.recordedTargetCumulative) : "—",
+                p.cumulative != null && p.recordedTargetCumulative ? `${Math.round((p.cumulative / p.recordedTargetCumulative) * 100)}%` : "—",
                 formatNumber(p.targetCumulative),
                 p.cumulative != null && p.targetCumulative ? `${Math.round((p.cumulative / p.targetCumulative) * 100)}%` : "—",
               ])}

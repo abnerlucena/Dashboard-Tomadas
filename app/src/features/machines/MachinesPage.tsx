@@ -159,12 +159,12 @@ export function MachinesPage({
     [pool, shift, range],
   );
 
-  // Postos por demanda da linha (kits, bancadas, prensas): sem meta, ficam fora do atingimento, mas aparecem na página da linha com a produção
+  // Postos por demanda (kits, bancadas, prensas): sem meta, ficam fora do atingimento, mas aparecem com a produção
+  // no Dashboard (todos) e na página de cada linha (os dela)
   const demandRows = useMemo(() => {
-    if (!groupId) return [];
     const group = MACHINE_GROUPS.find((g) => g.id === groupId);
     const q = search.trim().toLowerCase();
-    return DEMAND_MACHINES.filter((m) => group?.machineIds.includes(m.id) && (shift === "all" || shift <= m.regime))
+    return DEMAND_MACHINES.filter((m) => (!group || group.machineIds.includes(m.id)) && (shift === "all" || shift <= m.regime))
       .map((m) => scopeMachine(m, shift, range))
       .filter((m) => !q || m.name.toLowerCase().includes(q) || m.lines.some((l) => l.toLowerCase().includes(q)))
       .sort((a, b) => b.produced - a.produced);
@@ -473,10 +473,7 @@ export function MachinesPage({
           {tableState === "ready" && (
             <p aria-live="polite" className="ml-auto font-body-small text-subtlest">
               {rows.length === pool.length ? plural(rows.length, "máquina com meta", "máquinas com meta") : `${rows.length} de ${pool.length} máquinas com meta`}
-              {demandCount > 0 &&
-                (groupId
-                  ? ` · ${plural(demandCount, "posto por demanda aparece", "postos por demanda aparecem")} abaixo, fora do atingimento`
-                  : ` · ${plural(demandCount, "centro por demanda fica", "centros por demanda ficam")} fora do atingimento`)}
+              {demandCount > 0 && ` · ${plural(demandCount, "posto por demanda aparece", "postos por demanda aparecem")} abaixo, fora do atingimento`}
             </p>
           )}
         </div>

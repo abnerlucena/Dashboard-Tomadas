@@ -1,6 +1,6 @@
 # Referência Técnica do Schema
 
-> Versão do schema: `v0.31.0` · Última atualização: 12/10/2026 · Status: **implementado no Supabase**, no projeto que virou o de produção (D55), com o histórico da planilha já carregado. A interface oficial é a de `app/` (D56; antes `prototype/`, D69). O sistema em uso na fábrica continua sendo o Google Sheets até a virada.
+> Versão do schema: `v0.32.0` · Última atualização: 15/10/2026 · Status: **implementado no Supabase**, no projeto que virou o de produção (D55), com o histórico da planilha já carregado. A interface oficial é a de `app/` (D56; antes `prototype/`, D69). O sistema em uso na fábrica continua sendo o Google Sheets até a virada.
 > SGBD: PostgreSQL (Supabase) · Schema: `public` (+ `auth`, gerenciado pelo Supabase)
 > Decisões citadas como `[Dxx]` estão em [03-decisoes.md](03-decisoes.md).
 
@@ -314,14 +314,64 @@ PK `(user_id, permission_code)` · Índice `(permission_code)`. Permissões efet
 
 Índices: `(occurred_at)`, `(table_name, record_id)`, `(actor_id)`. Append-only: sem políticas de `UPDATE`/`DELETE` **e** gatilhos `prevent_audit_log_changes`/`prevent_audit_log_truncate`, que recusam UPDATE, DELETE e TRUNCATE até para o dono do banco. `record_id` = `id` da linha, ou `user_id:permission_code` / `event_id:shift_id` nas tabelas de ligação. [D26]
 
+### 3.17 `collaborators` (migration 0042) [D70]
+Pessoas da fábrica, para registrar faltas por nome. **Separado das contas do Dash**: quem falta nem sempre tem conta.
+
+| Coluna | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `id` | `uuid` | PK | |
+| `name` | `text` | NN, CHECK nome e sobrenome, até 120 | UNIQUE por `chave_do_nome(name)`: sem acento, sem maiúscula, um espaço só |
+| `badge_number` | `text` | CHECK só números, até 12; UNIQUE quando preenchido | O "Cadastro" da pessoa na empresa |
+| `shift_id` | `smallint` | NN, FK `shifts` | Turno de costume: só ordena a lista do apontamento |
+| `process` | `text` | CHECK `assembly`/`packaging` | Linha |
+| `active` | `boolean` | NN, default `true` | **Nunca se apaga.** Inativar tira o nome das faltas antigas (D70) |
+| `created_by`, `updated_by` | `uuid` | FK `profiles` | |
+| `created_at`, `updated_at` | `timestamptz` | | |
+
+Gatilho `audit_row_change`.
+
+### 3.18 `shift_absences` (migration 0042) [D70]
+Quem faltou, saiu mais cedo ou chegou atrasado num turno. **Dado pessoal.**
+
+| Coluna | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `id` | `uuid` | PK | |
+| `production_date` | `date` | NN | |
+| `shift_id` | `smallint` | NN, FK `shifts` | |
+| `collaborator_id` | `uuid` | FK `collaborators` | **Nulo = a pessoa foi inativada** e a falta perdeu o nome. Continua contando no turno |
+| `kind` | `text` | NN, CHECK `absent`/`left_early`/`late` | Faltou, saiu mais cedo, chegou atrasado |
+| `at_time` | `time` | CHECK `shift_absences_time_check`: nulo em `absent` | Só o horário de saída ou de chegada |
+| `note` | `text` | CHECK 1 a 500 | Apagada junto com o nome ao inativar |
+| `created_by`, `updated_by` | `uuid` | FK `profiles` | |
+| `created_at`, `updated_at` | `timestamptz` | | |
+
+- UNIQUE parcial `(production_date, shift_id, collaborator_id) where collaborator_id is not null`: a mesma pessoa não entra duas vezes no turno.
+- **Sem gatilho de auditoria, de propósito** (D70): `audit_logs` guardaria para sempre uma cópia com o nome, contra a decisão de guardar só enquanto a pessoa for colaboradora.
+
+### 3.19 `material_shortages` e `material_shortage_machines` (migration 0042) [D70]
+
+| Coluna | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `id` | `uuid` | PK | |
+| `production_date`, `shift_id` | `date`, `smallint` | NN | O turno |
+| `material_code` | `text` | NN, CHECK só números, até 18 | O mesmo formato de `work_orders.material_code` |
+| `material_description` | `text` | NN, CHECK 1 a 200 | |
+| `note` | `text` | CHECK 1 a 500 | |
+| `created_by`, `updated_by`, `created_at`, `updated_at` | | | |
+
+- UNIQUE `(production_date, shift_id, material_code)`: o mesmo material uma vez por turno, com todas as máquinas afetadas.
+- `material_shortage_machines (material_shortage_id, machine_id)`: PK nos dois; `ON DELETE CASCADE`. Nenhuma, uma ou várias máquinas.
+- Gatilho `audit_row_change` em `material_shortages`.
+
 ## 4. Views ✅ implementadas em 20/09/2026
 
 | View | Retorna |
 |---|---|
 | `production_summary` | Colunas de `production_records` + `shift_name`, `machine_name`, `good_quantity` (ordens sem retrabalho), `rework_quantity`, `total_quantity`, `order_count`, `staffing_ratio` (= `operator_count / standard_operator_count`), `adjusted_target` (meta corrigida pela lotação, calculada para toda máquina como informação), **`effective_target`** (a meta com que comparar a produção, resolvida conforme a base — ver abaixo), `target_basis`, `is_excluded_day` (existe `excluded_day` na data, para o dia inteiro ou para o turno), `counts_toward_target` (= `work_mode = 'regular'` **e** não anulado **e** sem parada planejada), `stop_reason` e `stop_planned` [D11, D12, D16, D27, D39, D46, D47, D48, D67] |
 | `current_machine_targets` | `machine_id`, `target_id`, `quantity_per_shift`, `valid_from`, `created_by`, `created_at`, `basis` — meta vigente hoje (SP) por máquina: maior `valid_from <= hoje` |
+| `material_shortage_summary` | Um material faltante por linha, com `machine_ids integer[]` (vazio = nenhuma máquina) [D70] |
 
-Ambas criadas com `security_invoker = true`: respeitam o RLS de quem consulta.
+Todas criadas com `security_invoker = true`: respeitam o RLS de quem consulta.
 
 > **Regra de leitura para gráficos:** atingimento de meta = `sum(good_quantity) / sum(effective_target)` filtrando `counts_toward_target`. Produção total soma todas as linhas (inclusive hora extra).
 >
@@ -396,6 +446,14 @@ Ambas criadas com `security_invoker = true`: respeitam o RLS de quem consulta.
 | `approve_user(p_user_id, p_role_id, p_permissions text[] = null)` | `users.approve` | Ativa, aplica o perfil e copia (ou ajusta) as permissões [D22] |
 | `identify_shared_session(p_badge_number) → text` | conta `shared` ativa | Crachá de usuário `personal` ativo; grava `shared_account_sessions`; devolve o nome |
 | `bootstrap_admin(p_email, p_role_code = 'manager')` | só o dono do banco | Instalação: ativa o primeiro gestor. Sem execução para `anon`/`authenticated` |
+| `create_collaborator(p_name, p_shift_id, p_badge_number = null, p_process = null) → uuid` | `collaborators.manage` | Nome e sobrenome; nome (sem acento/maiúscula) e cadastro únicos [D70] |
+| `update_collaborator(p_id, p_name, p_shift_id, p_badge_number, p_process)` | `collaborators.manage` | Nulo mantém; `''` apaga cadastro e linha |
+| `set_collaborator_active(p_id, p_active) → integer` | `collaborators.manage` | **Inativar tira o nome e a observação das faltas da pessoa, sem volta.** Devolve quantas [D70] |
+| `save_shift_absence(p_production_date, p_shift_id, p_collaborator_id, p_kind, p_at_time = null, p_note = null, p_id = null) → uuid` | registrar: `production.create` ∨ `production.edit` ∨ `collaborators.manage`; corrigir: `collaborators.manage` ∨ quem registrou, em 24 h | Colaborador ativo; "faltou" sem horário; uma vez por turno |
+| `remove_shift_absence(p_id)` | `collaborators.manage` ∨ quem registrou, em 24 h | |
+| `list_shift_absences(p_from, p_to) → table` | `collaborators.manage` ∨ `production.create` ∨ `production.edit` ∨ `history.view` | Até 400 dias. **Sem `collaborators.manage`: sem nome, colaborador, horário e observação**; o `id` só das próprias, em 24 h [D70] |
+| `save_material_shortage(p_production_date, p_shift_id, p_material_code, p_material_description, p_machine_ids = '{}', p_note = null, p_id = null) → uuid` | registrar: `production.create` ∨ `production.edit`; corrigir: `production.edit` ∨ quem registrou, em 24 h | Corrigir substitui as máquinas |
+| `remove_material_shortage(p_id)` | `production.edit` ∨ quem registrou, em 24 h | |
 
 Funções que escrevem usam `SECURITY DEFINER` com `search_path = ''` e checagem explícita de permissão. Execução revogada de `public`/`anon` e concedida a `authenticated`. Mensagens de erro em português (códigos `42501` sem permissão, `23505` duplicidade, `22023` parâmetro inválido, `P0002` não encontrado).
 
@@ -419,6 +477,9 @@ RLS habilitado em **todas** as 16 tabelas de `public` (conferido no banco: 0 sem
 | `shared_account_sessions` | própria conta ∨ `system.admin` | — (RPC) | — | — |
 | `notifications` | `recipient_id = auth.uid()` | — (gatilho) | próprio, **só a coluna `read_at`** | — |
 | `audit_logs` | `system.admin` | — (gatilho) | — (bloqueado por gatilho) | — (bloqueado por gatilho) |
+| `collaborators` | `production.create` ∨ `collaborators.manage` | — (RPC) | — (RPC) | — |
+| `shift_absences` | **só `collaborators.manage`** (os demais: `list_shift_absences`, sem nome) [D70] | — (RPC) | — (RPC) | — (RPC) |
+| `material_shortages`, `material_shortage_machines` | `history.view` ∨ `production.create` | — (RPC) | — (RPC) | — (RPC) |
 
 "ativo" = `is_active_user()`. Nas políticas as funções aparecem como `(select public.f())`, para serem avaliadas uma vez por consulta. Views usam `security_invoker = true` e herdam estas regras.
 
@@ -446,7 +507,13 @@ RLS habilitado em **todas** as 16 tabelas de `public` (conferido no banco: 0 sem
 | `alerts.manage` | Gestão | | | | ✓ | ✓ | ✓ | |
 | `targets.manage` | Gestão | | | | | ✓ | ✓ | |
 | `users.approve` | Gestão | | | | | ✓ | ✓ | |
+| `collaborators.manage` | Gestão | | | | | ✓ | ✓ | |
+| `work_orders.manage` | Apontamento | | | ✓ | ✓ | ✓ | ✓ | |
+| `import.review` | Sistema | | | | | | ✓ | |
+| `import.manage` | Sistema | | | | | | ✓ | |
 | `system.admin` | Sistema | | | | | ✓ | ✓ | |
+
+São **22** permissões. `work_orders.manage` (0036) e as duas de importação (0016) entraram na tabela em 15/10/2026, junto com `collaborators.manage` (0042, D70).
 
 ## 9. Mapeamento do sistema legado (Google Sheets) — *histórico*
 

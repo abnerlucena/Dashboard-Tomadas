@@ -231,6 +231,98 @@ export interface TargetHistoryItem {
   createdAt: string;
 }
 
+// ─── Ocorrências do turno (D70) ──────────────────────────────────────────────
+// Materiais que faltaram e pessoas que faltaram, saíram mais cedo ou chegaram
+// atrasadas, por turno (data + turno). Falta por nome é dado pessoal: só quem
+// tem `collaborators.manage` (gestor, admin) recebe o nome.
+
+export type AbsenceKind = "absent" | "left_early" | "late";
+
+/** Pessoa da fábrica, para registrar faltas. Separado das contas do Dash. */
+export interface CollaboratorRecord {
+  id: string;
+  /** Nome e sobrenome (o banco exige os dois). */
+  name: string;
+  /** O "Cadastro" da pessoa na empresa: só números, até 12. */
+  badgeNumber: string | null;
+  /** Turno de costume: só ordena a lista do apontamento. */
+  shiftId: number;
+  process: MachineProcess | null;
+  /** Quem saiu da empresa é inativado, nunca apagado. */
+  active: boolean;
+}
+
+export interface NewCollaborator {
+  name: string;
+  shiftId: number;
+  badgeNumber?: string;
+  process?: MachineProcess;
+}
+
+/** Ausente = mantém. `badgeNumber: ""` e `process: null` apagam. */
+export interface CollaboratorChanges {
+  name?: string;
+  shiftId?: number;
+  badgeNumber?: string;
+  process?: MachineProcess | null;
+}
+
+/**
+ * Uma falta. Para quem NÃO tem `collaborators.manage`, vêm nulos o nome, o
+ * colaborador, o horário e a observação: só conta. E o `id` vem só nas que
+ * a própria pessoa registrou há menos de 24 h, para poder desfazer.
+ * Colaborador inativado: as faltas dele perdem o nome (D70).
+ */
+export interface ShiftAbsenceRecord {
+  id: string | null;
+  date: string;
+  shiftId: number;
+  kind: AbsenceKind;
+  /** "hh:mm": saída ou chegada. "Faltou" não tem. */
+  time: string | null;
+  note: string | null;
+  collaboratorId: string | null;
+  collaboratorName: string | null;
+  /** Fui eu que registrei. */
+  mine: boolean;
+}
+
+/** Com `id` = corrigir. */
+export interface ShiftAbsenceInput {
+  id?: string;
+  date: string;
+  shiftId: number;
+  collaboratorId: string;
+  kind: AbsenceKind;
+  /** "hh:mm". Só em "saiu mais cedo" e "chegou atrasado". */
+  time?: string | null;
+  note?: string | null;
+}
+
+export interface MaterialShortageRecord {
+  id: string;
+  date: string;
+  shiftId: number;
+  /** Só números, até 18 (como nas OPs). */
+  materialCode: string;
+  materialDescription: string;
+  /** Máquinas que ficaram sem o material: nenhuma, uma ou várias. */
+  machineIds: number[];
+  note: string | null;
+  mine: boolean;
+}
+
+/** Com `id` = corrigir (as máquinas informadas substituem as que estavam). */
+export interface MaterialShortageInput {
+  id?: string;
+  date: string;
+  shiftId: number;
+  materialCode: string;
+  materialDescription: string;
+  machineIds?: number[];
+  note?: string | null;
+}
+
 export interface DataSource {
   kind: DataSourceKind;
 
@@ -384,6 +476,28 @@ export interface DataSource {
     /** Escrever na conversa. O operador não escreve; OP concluída não aceita. */
     postMessage(id: string, text: string, session: Session | null): Promise<void>;
     markRead(id: string, session: Session | null): Promise<void>;
+  };
+
+  /** Ocorrências do turno e cadastro de colaboradores (D70). Só modo Supabase. */
+  occurrences: {
+    /** Quem aponta ou tem `collaborators.manage`. Inclui os inativos. */
+    listCollaborators(session: Session | null): Promise<CollaboratorRecord[]>;
+    /** `collaborators.manage`. Devolve o id. */
+    createCollaborator(input: NewCollaborator, session: Session | null): Promise<string>;
+    updateCollaborator(id: string, changes: CollaboratorChanges, session: Session | null): Promise<void>;
+    /**
+     * Inativar = a pessoa saiu da empresa: as faltas dela PERDEM O NOME, sem
+     * volta (D70). Devolve quantas perderam. Reativar não devolve o nome.
+     */
+    setCollaboratorActive(id: string, active: boolean, session: Session | null): Promise<number>;
+    /** Período de até 400 dias, `from` e `to` em aaaa-mm-dd. */
+    listShiftOccurrences(from: string, to: string, session: Session | null): Promise<{ absences: ShiftAbsenceRecord[]; shortages: MaterialShortageRecord[] }>;
+    /** Registrar: quem aponta. Corrigir: `collaborators.manage`, ou quem registrou, em 24 h. Devolve o id. */
+    saveAbsence(input: ShiftAbsenceInput, session: Session | null): Promise<string>;
+    removeAbsence(id: string, session: Session | null): Promise<void>;
+    /** Registrar: quem aponta. Corrigir: `production.edit`, ou quem registrou, em 24 h. Devolve o id. */
+    saveShortage(input: MaterialShortageInput, session: Session | null): Promise<string>;
+    removeShortage(id: string, session: Session | null): Promise<void>;
   };
 
 }

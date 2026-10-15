@@ -13,6 +13,141 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      collaborators: {
+        Row: {
+          active: boolean
+          badge_number: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          process: string | null
+          shift_id: number
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          active?: boolean
+          badge_number?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          process?: string | null
+          shift_id: number
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          active?: boolean
+          badge_number?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          process?: string | null
+          shift_id?: number
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      material_shortage_machines: {
+        Row: {
+          machine_id: number
+          material_shortage_id: string
+        }
+        Insert: {
+          machine_id: number
+          material_shortage_id: string
+        }
+        Update: {
+          machine_id?: number
+          material_shortage_id?: string
+        }
+        Relationships: []
+      }
+      material_shortages: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          material_code: string
+          material_description: string
+          note: string | null
+          production_date: string
+          shift_id: number
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          material_code: string
+          material_description: string
+          note?: string | null
+          production_date: string
+          shift_id: number
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          material_code?: string
+          material_description?: string
+          note?: string | null
+          production_date?: string
+          shift_id?: number
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      shift_absences: {
+        Row: {
+          at_time: string | null
+          collaborator_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          note: string | null
+          production_date: string
+          shift_id: number
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          at_time?: string | null
+          collaborator_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind: string
+          note?: string | null
+          production_date: string
+          shift_id: number
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          at_time?: string | null
+          collaborator_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          note?: string | null
+          production_date?: string
+          shift_id?: number
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           action: string
@@ -978,6 +1113,20 @@ export type Database = {
       }
     }
     Views: {
+      material_shortage_summary: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string | null
+          machine_ids: number[] | null
+          material_code: string | null
+          material_description: string | null
+          note: string | null
+          production_date: string | null
+          shift_id: number | null
+        }
+        Relationships: []
+      }
       work_order_conversation: {
         Row: {
           id: string | null
@@ -1061,6 +1210,64 @@ export type Database = {
       }
     }
     Functions: {
+      create_collaborator: {
+        Args: { p_name: string; p_shift_id: number; p_badge_number?: string; p_process?: string }
+        Returns: string
+      }
+      list_shift_absences: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          id: string | null
+          production_date: string
+          shift_id: number
+          kind: string
+          at_time: string | null
+          note: string | null
+          collaborator_id: string | null
+          collaborator_name: string | null
+          is_mine: boolean | null
+        }[]
+      }
+      remove_material_shortage: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
+      remove_shift_absence: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
+      save_material_shortage: {
+        Args: {
+          p_production_date: string
+          p_shift_id: number
+          p_material_code: string
+          p_material_description: string
+          p_machine_ids?: number[]
+          p_note?: string
+          p_id?: string
+        }
+        Returns: string
+      }
+      save_shift_absence: {
+        Args: {
+          p_production_date: string
+          p_shift_id: number
+          p_collaborator_id: string
+          p_kind: string
+          p_at_time?: string
+          p_note?: string
+          p_id?: string
+        }
+        Returns: string
+      }
+      set_collaborator_active: {
+        Args: { p_id: string; p_active: boolean }
+        Returns: number
+      }
+      update_collaborator: {
+        Args: { p_id: string; p_name?: string; p_shift_id?: number; p_badge_number?: string; p_process?: string }
+        Returns: undefined
+      }
       update_machine: {
         Args: {
           p_id: number

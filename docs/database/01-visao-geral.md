@@ -167,6 +167,26 @@ turno.
 - Os **feriados nacionais** serão importados automaticamente todo ano; estaduais, municipais e da
   empresa são cadastrados pelo gestor.
 
+### 7.1 Ocorrências do turno (desde 15/10/2026)
+
+Junto com o apontamento, o turno registra o que a planilha chamava de "Informações adicionais":
+
+- **Materiais que faltaram**: código, descrição e as máquinas que ficaram sem ele.
+- **Pessoas que faltaram, saíram mais cedo ou chegaram atrasadas**, escolhidas de um **cadastro de
+  colaboradores** (separado das contas do Dash: quem falta nem sempre tem conta).
+
+Falta por nome é **dado pessoal**. Por isso [D70]:
+
+| | Quem |
+|---|---|
+| Registra | quem aponta |
+| **Vê o nome** de quem faltou | **só gestor e admin** |
+| Vê quantas pessoas faltaram no turno | quem aponta ou vê o histórico |
+| Desfaz o que registrou | quem registrou, nas primeiras 24 h |
+
+E o nome **só fica guardado enquanto a pessoa for colaboradora**: ao inativá-la no cadastro, as faltas
+dela continuam contando no turno, mas **perdem o nome, sem volta**.
+
 ## 8. Cadastro e aprovação de usuários
 
 ```mermaid

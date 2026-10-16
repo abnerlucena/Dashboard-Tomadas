@@ -892,14 +892,18 @@ export function plantSeries(machines: Machine[], range: DateRange = MONTH_RANGE)
 }
 
 /** Meta de um dia (fábrica ou recorte): com o banco, a soma das metas apontadas; na demonstração, a meta por dia */
-export function targetOn(machines: Machine[], date: Date) {
+export function targetOn(machines: Machine[], date: Date, shift: Shift | "all" = "all") {
   return machines.reduce(
     (s, m) =>
       s +
       (m.backend
-        ? m.backend.targets.reduce((t, e) => t + (sameDay(e.date, date) ? e.target : 0), 0)
+        ? m.backend.targets.reduce((t, e) => t + (sameDay(e.date, date) && (shift === "all" || e.shift === shift) ? e.target : 0), 0)
         : m.hasTarget && !isWeekendDate(date)
-          ? m.dailyTarget
+          ? shift === "all"
+            ? m.dailyTarget
+            : shift <= m.regime
+              ? Math.round(m.dailyTarget / m.regime)
+              : 0
           : 0),
     0,
   );

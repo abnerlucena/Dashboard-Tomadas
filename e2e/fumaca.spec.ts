@@ -280,6 +280,19 @@ test("histórico: o dia mostra a meta do dia, e ela acompanha o filtro de máqui
   await expect(selo).not.toHaveText(todas ?? "");
 });
 
+test("histórico: o filtro de turno muda as unidades e a meta do resumo do dia", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await page.goto("/#/historico");
+  const selo = page.getByText(/% da meta (diária|do turno \d) de [\d.]+/);
+  await expect(selo).toContainText("meta diária");
+  const dia = await selo.textContent();
+  await page.getByRole("radio", { name: "Turno 1" }).click();
+  await expect(selo).toContainText("meta do turno 1");
+  await expect(selo).not.toHaveText(dia ?? "");
+  await page.getByRole("radio", { name: "Todos" }).first().click();
+  await expect(selo).toContainText("meta diária");
+});
+
 test("histórico: tirar máquinas da conta, devolver e deixar só algumas", async ({ page }) => {
   await entrar(page, "gestor@demo.weg");
   const painel = page.getByRole("dialog", { name: "Escolher as máquinas da conta" });

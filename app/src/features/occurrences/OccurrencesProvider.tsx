@@ -1,134 +1,134 @@
-import { useCallback, useMemo, useState, type ReactNode } from "react";
-import { DATA_ORIGIN, ELAPSED_DATES, MACHINES, toIsoDate, type Shift } from "@/data/machines";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { mensagemDeErro } from "../../../../src/lib/erros";
+import { DATA_END, DATA_ORIGIN, toIsoDate } from "@/data/machines";
+import { useAccess } from "@/features/access/AccessContext";
 import { useOps } from "@/features/ops/OpsStore";
-import { tidyName, uniqueMaterials, type Absence, type Collaborator, type CollaboratorDraft, type Material, type MaterialShortage } from "./occurrences";
+import { tidyName, uniqueMaterials, type Absence, type Collaborator, type MaterialShortage } from "./occurrences";
+import { DEMO_CONSUMABLES, backendApi, demoApi, type AbsenceInput, type OccurrencesApi } from "./occurrencesApi";
 import { OccurrencesCtx, type OccurrencesState } from "./OccurrencesStore";
 
+/** O banco aceita até 400 dias por leitura: a tela carrega os 400 até hoje (o Histórico e as contagens cabem nisso) */
+const WINDOW_DAYS = 399;
+
 /**
- * Fonte das ocorrências do turno e do cadastro de colaboradores.
- * Na demonstração, em memória (some ao recarregar a página). Com o banco, fica
- * indisponível até a sessão de banco entregar as tabelas (nota de 15/10/2026):
- * as telas escondem a seção e o menu Colaboradores.
+ * Fonte das ocorrências do turno e do cadastro de colaboradores. Com o banco,
+ * o contrato `occurrences` (D70); na demonstração (e no mock), a fonte em
+ * memória com as mesmas regras. Recarrega depois de cada escrita.
  */
 export function OccurrencesProvider({ children }: { children: ReactNode }) {
+  const { client, session, can } = useAccess();
   const { ops } = useOps();
-  const demo = DATA_ORIGIN === "demo";
-  const [collaborators, setCollaborators] = useState<Collaborator[]>(() => (demo ? SEED_COLLABORATORS : []));
-  const [absences, setAbsences] = useState<Absence[]>(() => (demo ? seedAbsences() : []));
-  const [shortages, setShortages] = useState<MaterialShortage[]>(() => (demo ? seedShortages() : []));
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+  const live = client.kind === "supabase" && !!client.reads?.occurrences;
+  const api = useMemo<OccurrencesApi>(
+    () => (live ? backendApi(client.reads!.occurrences, () => sessionRef.current) : demoApi(() => sessionRef.current)),
+    // A sessão muda de objeto a cada renovação de token: a fonte lê a atual pela ref
+    [live, client],
+  );
+
+  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+  const [absences, setAbsences] = useState<Absence[]>([]);
+  const [shortages, setShortages] = useState<MaterialShortage[]>([]);
+  const [status, setStatus] = useState<OccurrencesState["status"]>("loading");
+  const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  /**
+   * Quem não é gestor não recebe o nome das faltas. Logo depois de registrar, a
+   * página ainda sabe quem foi: guarda aqui (só na memória) para a pessoa
+   * conferir o que acabou de lançar. Ao recarregar, vale a regra do banco.
+   */
+  const memory = useRef(new Map<string, Pick<Absence, "collaboratorId" | "name" | "time" | "note">>());
+
+  const end = toIsoDate(DATA_ORIGIN === "backend" ? new Date() : DATA_END);
+  const start = useMemo(() => {
+    const d = new Date(`${end}T12:00:00`);
+    d.setDate(d.getDate() - WINDOW_DAYS);
+    return toIsoDate(d);
+  }, [end]);
+
+  const load = useCallback(async () => {
+    const [people, occ] = await Promise.all([api.listCollaborators(), api.listShiftOccurrences(start, end)]);
+    setCollaborators(people);
+    setAbsences(
+      occ.absences.map((a) => {
+        const known = a.id && !a.name ? memory.current.get(a.id) : undefined;
+        return known ? { ...a, ...known } : a;
+      }),
+    );
+    setShortages(occ.shortages);
+  }, [api, start, end]);
+
+  useEffect(() => {
+    let alive = true;
+    setStatus("loading");
+    load()
+      .then(() => alive && setStatus("ready"))
+      .catch((e) => {
+        if (!alive) return;
+        setError(mensagemDeErro(e, "Não foi possível carregar as ocorrências."));
+        setStatus("error");
+      });
+    return () => {
+      alive = false;
+    };
+  }, [load, attempt]);
 
   const materials = useMemo(
     () =>
       uniqueMaterials([
         ...ops.map((op) => ({ code: op.material, description: op.product.toUpperCase() })),
-        ...(demo ? CONSUMABLES : []),
+        ...(live ? [] : DEMO_CONSUMABLES),
         ...shortages.map((s) => ({ code: s.materialCode, description: s.materialDescription })),
       ]),
-    [ops, shortages, demo],
+    [ops, shortages, live],
   );
 
-  const addCollaborator = useCallback(async (d: CollaboratorDraft) => {
-    const c: Collaborator = { id: `c${Date.now()}`, name: tidyName(d.name), badge: d.badge.trim() || null, shift: d.shift, line: d.line, active: true };
-    setCollaborators((list) => [...list, c]);
-    return c;
-  }, []);
-  const updateCollaborator = useCallback(async (id: string, d: CollaboratorDraft) => {
-    setCollaborators((list) => list.map((c) => (c.id === id ? { ...c, name: tidyName(d.name), badge: d.badge.trim() || null, shift: d.shift, line: d.line } : c)));
-  }, []);
-  const setCollaboratorActive = useCallback(async (id: string, active: boolean) => {
-    setCollaborators((list) => list.map((c) => (c.id === id ? { ...c, active } : c)));
-  }, []);
-  const saveAbsence = useCallback(async (a: Omit<Absence, "id"> & { id?: string }) => {
-    setAbsences((list) => (a.id ? list.map((x) => (x.id === a.id ? { ...a, id: a.id! } : x)) : [...list, { ...a, id: `a${Date.now()}` }]));
-  }, []);
-  const removeAbsence = useCallback(async (id: string) => setAbsences((list) => list.filter((x) => x.id !== id)), []);
-  const saveShortage = useCallback(async (s: Omit<MaterialShortage, "id"> & { id?: string }) => {
-    setShortages((list) => (s.id ? list.map((x) => (x.id === s.id ? { ...s, id: s.id! } : x)) : [...list, { ...s, id: `s${Date.now()}` }]));
-  }, []);
-  const removeShortage = useCallback(async (id: string) => setShortages((list) => list.filter((x) => x.id !== id)), []);
+  /** Escreve e recarrega; o erro do banco sobe para a tela */
+  const write = useCallback(
+    async <T,>(fn: () => Promise<T>) => {
+      const out = await fn();
+      await load();
+      return out;
+    },
+    [load],
+  );
 
   const value = useMemo<OccurrencesState>(
     () => ({
-      available: demo,
+      available: status === "ready",
+      status,
+      error,
+      retry: () => setAttempt((n) => n + 1),
+      canSeeNames: can("collaborators.manage"),
       collaborators,
       absences,
       shortages,
       materials,
-      addCollaborator,
-      updateCollaborator,
-      setCollaboratorActive,
-      saveAbsence,
-      removeAbsence,
-      saveShortage,
-      removeShortage,
+      addCollaborator: async (d) => {
+        const id = await write(() => api.createCollaborator(d));
+        return { id, name: tidyName(d.name), badge: d.badge.trim() || null, shift: d.shift, process: d.process, active: true };
+      },
+      updateCollaborator: (id, d) => write(() => api.updateCollaborator(id, d)),
+      setCollaboratorActive: (id, active) => write(() => api.setCollaboratorActive(id, active)),
+      saveAbsence: async (a: AbsenceInput) => {
+        await write(async () => {
+          const id = await api.saveAbsence(a);
+          const name = collaborators.find((c) => c.id === a.collaboratorId)?.name ?? null;
+          memory.current.set(id, { collaboratorId: a.collaboratorId, name, time: a.time, note: a.note });
+          return id;
+        });
+      },
+      removeAbsence: async (id) => {
+        await write(() => api.removeAbsence(id));
+        memory.current.delete(id);
+      },
+      saveShortage: async (s) => {
+        await write(() => api.saveShortage(s));
+      },
+      removeShortage: (id) => write(() => api.removeShortage(id)),
     }),
-    [demo, collaborators, absences, shortages, materials, addCollaborator, updateCollaborator, setCollaboratorActive, saveAbsence, removeAbsence, saveShortage, removeShortage],
+    [status, error, can, collaborators, absences, shortages, materials, write, api],
   );
   return <OccurrencesCtx.Provider value={value}>{children}</OccurrencesCtx.Provider>;
-}
-
-/* ---------- Dados de demonstração (fictícios) ---------- */
-
-const SEED_COLLABORATORS: Collaborator[] = (
-  [
-    ["Gabriel Martins", "40211", 1, "Montagem"],
-    ["Ana Paula Ribeiro", "40378", 1, "Embalagem"],
-    ["Ana Clara Souza", "40512", 1, "Granel"],
-    ["Bruno Henrique Costa", "40144", 1, "Montagem"],
-    ["Juliana Ferreira", null, 1, null],
-    ["Marcos Vinícius Alves", "40299", 1, "Embalagem"],
-    ["Fernanda Oliveira", "40455", 1, "Montagem"],
-    ["Patrícia Lopes", "40633", 2, "Montagem"],
-    ["Rafael Nunes", "40701", 2, "Granel"],
-    ["Carla Mendes", "40688", 2, "Embalagem"],
-    ["Thiago Rocha", "40719", 2, "Montagem"],
-    ["Diego Santos", "40822", 3, "Embalagem"],
-    ["Eduardo Pereira", "40850", 3, "Montagem"],
-    ["Luciana Prado", "39987", 1, "Montagem", false],
-  ] as Array<[string, string | null, Shift, Collaborator["line"], boolean?]>
-).map(([name, badge, shift, line, active], i) => ({ id: `c${i + 1}`, name, badge, shift, line, active: active ?? true }));
-
-/** Consumíveis de embalagem que não aparecem como material de OP */
-const CONSUMABLES: Material[] = [
-  { code: "19189479", description: "FILME PET+PE 0,5X270mm REF CONCEPT ITJ" },
-  { code: "10045821", description: "CAIXA PAPELÃO ONDULADO 300X200X150" },
-  { code: "12093344", description: "ETIQUETA ADESIVA 100X50 BRANCA" },
-  { code: "16620058", description: "SACO PLÁSTICO PE 150X250" },
-  { code: "15500712", description: "PARAFUSO M3X8 PHILIPS ZB" },
-];
-
-/** Os últimos dias com dados, do mais recente para trás */
-const recent = (n: number) => toIsoDate(ELAPSED_DATES[Math.max(0, ELAPSED_DATES.length - 1 - n)]);
-const machineIds = (...parts: string[]) => parts.flatMap((part) => MACHINES.find((m) => m.name.includes(part))?.id ?? []);
-
-function seedAbsences(): Absence[] {
-  const rows: Array<[number, Shift, string, Absence["kind"], string | null, string | null]> = [
-    [0, 1, "c1", "left_early", "14:30", "Consulta médica"],
-    [0, 1, "c2", "absent", null, null],
-    [1, 1, "c6", "absent", null, "Atestado"],
-    [2, 2, "c9", "late", "15:10", null],
-    [3, 1, "c6", "absent", null, null],
-    [4, 1, "c4", "left_early", "12:00", null],
-    [5, 2, "c9", "absent", null, null],
-    [6, 1, "c1", "late", "05:40", null],
-    [8, 1, "c1", "left_early", "13:00", null],
-  ];
-  return rows.map(([d, shift, collaboratorId, kind, time, note], i) => ({ id: `a${i + 1}`, date: recent(d), shift, collaboratorId, kind, time, note }));
-}
-
-function seedShortages(): MaterialShortage[] {
-  const rows: Array<[number, Shift, string, string, string[], string | null]> = [
-    [0, 1, "19189479", "FILME PET+PE 0,5X270mm REF CONCEPT ITJ", machineIds("horizontal nº 1", "horizontal nº 2"), null],
-    [2, 1, "10045821", "CAIXA PAPELÃO ONDULADO 300X200X150", [], "Chegou às 10h"],
-    [4, 2, "19189479", "FILME PET+PE 0,5X270mm REF CONCEPT ITJ", machineIds("horizontal nº 1"), null],
-  ];
-  return rows.map(([d, shift, materialCode, materialDescription, machines, note], i) => ({
-    id: `s${i + 1}`,
-    date: recent(d),
-    shift,
-    materialCode,
-    materialDescription,
-    machineIds: machines,
-    note,
-  }));
 }

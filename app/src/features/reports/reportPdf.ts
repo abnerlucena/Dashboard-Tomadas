@@ -1,7 +1,7 @@
 import {
   LINES,
   WORKING_DAYS,
-  goodQuantity,
+  goodQuantity, countedQuantity,
   machineById,
   statusFor,
   STATUS_META,
@@ -107,7 +107,8 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
   const target = sum(machines, (m) => scopedTarget(m, input.shifts, input.range));
   // Atingimento só com as máquinas que têm meta (as "por demanda" produzem, mas não entram na conta)
   const withTarget = new Set(machines.filter((m) => m.hasTarget).map((m) => m.id));
-  const producedWithTarget = goodQuantity(orders.filter((o) => withTarget.has(o.machineId)));
+  // só a produção que conta para a meta (fora hora extra, dia anulado, parada planejada)
+  const producedWithTarget = countedQuantity(orders.filter((o) => withTarget.has(o.machineId)));
   let y = 0;
 
   /* ---------- Cabeçalho ---------- */

@@ -17,6 +17,43 @@ Formato de cada entrada:
 
 ---
 
+## [0.32.0] — 15/10/2026 — Ocorrências do turno e cadastro de colaboradores
+- Status: **Implementado** — aplicada no Supabase em 15/10/2026
+- Migration: `20261015100000_ocorrencias_do_turno.sql` (0042)
+- Decisões: D70 (nova), D22, D24, D62
+
+### Adicionado
+- Tabelas **`collaborators`**, **`shift_absences`**, **`material_shortages`** e
+  **`material_shortage_machines`**, com RLS. View `material_shortage_summary`.
+- Permissão **`collaborators.manage`** (Gestão), para gestor e admin, propagada a
+  quem já estava aprovado. São **22** permissões.
+- Funções: `create_collaborator`, `update_collaborator`, `set_collaborator_active`,
+  `save_shift_absence`, `remove_shift_absence`, `list_shift_absences`,
+  `save_material_shortage`, `remove_material_shortage`; de apoio,
+  `chave_do_nome`, `pode_registrar_ocorrencia` e `foi_eu_ha_pouco`.
+- Suíte `17_ocorrencias_do_turno.sql` (22 casos). Total: **258 casos**, todos passando.
+
+### Regras (D70)
+- O nome de quem faltou: **só gestor e admin**. Os demais recebem só a contagem.
+- Inativar o colaborador **tira o nome das faltas dele, sem volta**.
+- A falta por nome não vai para a auditoria.
+
+### Contrato
+- Repositório **`occurrences`** em `types.ts`, com os tipos `CollaboratorRecord`,
+  `ShiftAbsenceRecord`, `MaterialShortageRecord` e os de entrada.
+- Mock: `collaborators.manage` no catálogo e nos perfis Gestor e Admin.
+
+### Documentação
+- Catálogo de permissões da referência completado (faltavam `work_orders.manage` e
+  as duas de importação). `INSTALAR.md` conta 22.
+
+### Impacto no frontend
+- A interface troca a fonte de demonstração pelo contrato. Diferenças em relação ao
+  que ela propôs: falta sem nome para quem não é gestor, e inativar tira o nome.
+  Nota: `2026-10-15-resposta-do-banco-ocorrencias-do-turno.md`.
+
+---
+
 ## [0.31.0] — 12/10/2026 — OP não informada: apontamento sem número de OP
 - Status: **Implementado** — aplicada no Supabase em 12/10/2026
 - Migration: `20261012100000_op_nao_informada.sql` (0041)

@@ -16,7 +16,7 @@ const codigos = async (id: string, s: Awaited<ReturnType<typeof comoGestor>>) =>
 describe("catálogo de permissões", () => {
   it("traz código e descrição em português", async () => {
     const catalogo = await mockUsers.listPermissions(await comoGestor());
-    expect(catalogo.length).toBe(21);
+    expect(catalogo.length).toBe(22);
     expect(catalogo.find(p => p.code === "targets.manage")?.description).toBe("Alterar metas");
   });
 });
@@ -112,5 +112,13 @@ describe("permissão das OPs no mock, como no banco", () => {
     expect(tecnico.permissions).toContain("work_orders.manage");
     expect((await comoGestor()).permissions).toContain("work_orders.manage");
     expect((await comoOperador()).permissions).not.toContain("work_orders.manage");
+  });
+});
+
+describe("cadastro de colaboradores (D70)", () => {
+  it("só gestor e admin têm collaborators.manage, como no banco", async () => {
+    const s = await comoGestor();
+    expect(await codigos("u-gestor", s)).toContain("collaborators.manage");
+    expect(await codigos("u-operador", s)).not.toContain("collaborators.manage");
   });
 });

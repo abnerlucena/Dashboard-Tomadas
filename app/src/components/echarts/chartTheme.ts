@@ -134,6 +134,8 @@ export interface TooltipRow {
   label: string;
   swatch?: string;
   dashed?: boolean;
+  /** traço pontilhado (ex.: meta do calendário no acumulado) */
+  dotted?: boolean;
 }
 
 /** HTML do tooltip: valor em destaque, rótulo depois (mesmo padrão do resto do app). */
@@ -143,14 +145,14 @@ export function tooltipHtml(title: string, rows: TooltipRow[]) {
       (r) =>
         `<li class="flex items-center gap-100">${
           r.swatch
-            ? `<span class="w-150 shrink-0 ${r.dashed ? "border-t-thick border-dashed" : "h-splitter-line rounded-full"}" style="${
-                r.dashed ? `border-color:${r.swatch}` : `background:${r.swatch}`
+            ? `<span class="w-150 shrink-0 ${r.dotted ? "border-t-thick border-dotted" : r.dashed ? "border-t-thick border-dashed" : "h-splitter-line rounded-full"}" style="${
+                r.dashed || r.dotted ? `border-color:${r.swatch}` : `background:${r.swatch}`
               }"></span>`
             : ""
-        }<span class="font-semibold tabular-nums text-default">${r.value}</span><span class="font-body-small text-subtle">${r.label}</span></li>`,
+        }<span class="shrink-0 font-semibold tabular-nums text-default">${r.value}</span><span class="min-w-0 font-body-small text-subtle">${r.label}</span></li>`,
     )
     .join("");
-  return `<div class="w-chart-tooltip rounded-medium bg-surface-overlay p-150 shadow-overlay"><p class="pb-075 font-body-small text-subtlest">${title}</p><ul class="flex flex-col gap-050">${items}</ul></div>`;
+  return `<div class="min-w-chart-tooltip max-w-[20rem] rounded-medium bg-surface-overlay p-150 shadow-overlay"><p class="pb-075 font-body-small text-subtlest">${title}</p><ul class="flex flex-col gap-050">${items}</ul></div>`;
 }
 
 /** Mesma informação do tooltip, em texto corrido, para o leitor de tela */

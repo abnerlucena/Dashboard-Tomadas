@@ -1,22 +1,29 @@
 import { createContext, useContext } from "react";
 import type { Shift } from "@/data/machines";
 import type { Absence, Collaborator, CollaboratorDraft, Material, MaterialShortage } from "./occurrences";
+import type { AbsenceInput, ShortageInput } from "./occurrencesApi";
 
 export interface OccurrencesState {
-  /** false com o banco, até ele ter as tabelas: as telas escondem a seção e o cadastro */
+  /** false até a fonte responder (ou se ela falhar): as telas mostram o estado */
   available: boolean;
+  status: "loading" | "ready" | "error";
+  error: string | null;
+  retry: () => void;
+  /** collaborators.manage: vê os nomes nas faltas, cadastra e inativa */
+  canSeeNames: boolean;
   collaborators: Collaborator[];
   absences: Absence[];
   shortages: MaterialShortage[];
   /** materiais conhecidos: os das OPs e os que já faltaram */
   materials: Material[];
+  /** As escritas lançam o erro do banco (mensagem pronta): a tela mostra como veio */
   addCollaborator: (d: CollaboratorDraft) => Promise<Collaborator>;
   updateCollaborator: (id: string, d: CollaboratorDraft) => Promise<void>;
-  setCollaboratorActive: (id: string, active: boolean) => Promise<void>;
-  /** sem `id` cadastra; com `id` substitui */
-  saveAbsence: (a: Omit<Absence, "id"> & { id?: string }) => Promise<void>;
+  /** inativar devolve quantas faltas perderam o nome */
+  setCollaboratorActive: (id: string, active: boolean) => Promise<number>;
+  saveAbsence: (a: AbsenceInput) => Promise<void>;
   removeAbsence: (id: string) => Promise<void>;
-  saveShortage: (s: Omit<MaterialShortage, "id"> & { id?: string }) => Promise<void>;
+  saveShortage: (s: ShortageInput) => Promise<void>;
   removeShortage: (id: string) => Promise<void>;
 }
 

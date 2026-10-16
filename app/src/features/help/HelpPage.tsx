@@ -82,7 +82,7 @@ const FAQ_GROUPS: Array<{ title: string; faq: Faq[] }> = [
               "Falta de pessoas: escolha a pessoa na lista e diga se faltou, saiu mais cedo ou chegou atrasada. O horário é opcional.",
             ],
           },
-          "Se uma máquina não produziu por falta de material, o Dash já pergunta qual material faltou. Os nomes só aparecem para líderes e gestor.",
+          "Se uma máquina não produziu por falta de material, o Dash já pergunta qual material faltou. Depois de registrar, os nomes só aparecem para o gestor. Quem registrou pode desfazer em até 24 horas.",
         ],
       },
       {
@@ -134,7 +134,7 @@ const FAQ_GROUPS: Array<{ title: string; faq: Faq[] }> = [
         q: "Como cadastro um colaborador?",
         a: [
           "Em Administração › Colaboradores, clique em Cadastrar colaborador e informe nome e sobrenome, o número de cadastro (opcional), o turno e a linha.",
-          "Quem sai da empresa é inativado, não apagado: as faltas antigas continuam com o nome. Líderes também podem cadastrar alguém na hora, pela busca da Falta de pessoas.",
+          "Inative só quem saiu da empresa: as faltas da pessoa perdem o nome, sem volta, e continuam contando no turno. Para afastamento ou férias, não inative. O gestor também pode cadastrar alguém na hora, pela busca da Falta de pessoas.",
           "No Histórico, cada turno do dia mostra as ocorrências, com um botão para copiar no formato da planilha.",
         ],
       },

@@ -31,7 +31,8 @@ export function ShiftsView({ machines, state, focus, activeId, onRowActivate, em
   const noData = state === "error" || state === "empty";
 
   const kpis: KpiItem[] = totals.map((t) => {
-    const percent = t.target ? Math.round((t.produced / t.target) * 100) : 0;
+    // atingimento: só a produção que conta para a meta (a produção do turno continua toda)
+    const percent = t.target ? Math.round((t.counted / t.target) * 100) : 0;
     const meta = STATUS_META[statusFor(percent)];
     return {
       id: `t${t.shift}`,

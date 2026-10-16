@@ -7,7 +7,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 /* ---------- Legenda: o formato espelha a marca (barra = bloco, linha = traço) ---------- */
 export interface LegendItem {
   label: string;
-  shape: "rect" | "line" | "dashed";
+  shape: "rect" | "line" | "dashed" | "dotted";
   /** classe de fundo (rect/line) ou de borda (dashed) */
   colorClass: string;
 }
@@ -20,6 +20,7 @@ export function Legend({ items, className }: { items: LegendItem[]; className?: 
           {item.shape === "rect" && <span aria-hidden className={cn("size-100 rounded-xsmall", item.colorClass)} />}
           {item.shape === "line" && <span aria-hidden className={cn("h-splitter-line w-250 rounded-full", item.colorClass)} />}
           {item.shape === "dashed" && <span aria-hidden className={cn("w-250 border-t-thick border-dashed", item.colorClass)} />}
+          {item.shape === "dotted" && <span aria-hidden className={cn("w-250 border-t-thick border-dotted", item.colorClass)} />}
           {item.label}
         </li>
       ))}
@@ -90,10 +91,12 @@ interface ChartCardProps {
   /** Recarregando: mantém o quadro anterior com opacidade reduzida (sem skeleton, sem salto) */
   isRefetching?: boolean;
   className?: string;
+  /** controles próprios do gráfico, ao lado do Gráfico/Tabela (ex.: qual meta comparar) */
+  actions?: ReactNode;
   children: ReactNode;
 }
 
-export function ChartCard({ title, subtitle, legend, table, isLoading, isRefetching, className, children }: ChartCardProps) {
+export function ChartCard({ title, subtitle, legend, table, isLoading, isRefetching, className, actions, children }: ChartCardProps) {
   const [view, setView] = useState<"chart" | "table">("chart");
   const titleId = useId();
   return (
@@ -108,6 +111,8 @@ export function ChartCard({ title, subtitle, legend, table, isLoading, isRefetch
           </h3>
           {subtitle && <p className="mt-025 font-body-small text-subtlest">{subtitle}</p>}
         </div>
+        <div className="flex flex-wrap items-center gap-100">
+        {actions}
         <SegmentedControl
           label={`Modo de exibição: ${title}`}
           value={view}
@@ -117,6 +122,7 @@ export function ChartCard({ title, subtitle, legend, table, isLoading, isRefetch
             { value: "table", label: "Tabela", icon: Table2 },
           ]}
         />
+        </div>
       </header>
       {legend && view === "chart" && !isLoading && <Legend items={legend} />}
       {isLoading ? (

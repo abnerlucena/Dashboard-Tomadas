@@ -119,6 +119,11 @@ export interface ProductionOrder {
   note: OrderNote | null;
   /** Só com dados do banco: o apontamento (máquina + dia + turno + regime) a que esta linha pertence */
   record?: ProductionRecordInfo;
+  /**
+   * Só com dados do banco: o apontamento conta para a meta (`counts_toward_target`).
+   * Falso em hora extra, dia ou turno anulado e parada planejada. Ausente = conta.
+   */
+  counts?: boolean;
 }
 
 /** O apontamento no banco: um por máquina + dia + turno + regime (D10, D27); as linhas acima são as ordens dele */
@@ -168,8 +173,16 @@ export interface Machine {
   /** turnos em que o centro trabalha (2 = T1 e T2; 3 = os três) */
   regime: 2 | 3;
   days: number;
+  /** produção boa (sem retrabalho), inclusive a que não conta para a meta */
   produced: number;
+  /**
+   * Produção boa dos turnos que CONTAM para a meta (counts_toward_target): fora
+   * hora extra, dia ou turno anulado e parada planejada. É o numerador do
+   * atingimento (02-referencia-tecnica). Na demonstração, igual a `produced`.
+   */
+  counted: number;
   target: number;
+  /** atingimento: `counted` ÷ `target`, em % */
   percent: number;
   status: Status;
   dailyTarget: number;
@@ -178,6 +191,8 @@ export interface Machine {
   /** últimos 14 dias úteis até a referência */
   trend: DayPoint[];
   byShift: Record<Shift, number>;
+  /** `counted` por turno */
+  countedByShift: Record<Shift, number>;
   ordersByShift: Record<Shift, number>;
   /** minutos de produção por turno no mês (para peças/minuto) */
   minutesByShift: Record<Shift, number>;
@@ -423,6 +438,8 @@ function buildMachine(raw: RawCenter, index: number): Machine {
     regime: raw.regime,
     days: daily.size,
     produced,
+    // na demonstração não há hora extra nem dia anulado: tudo conta
+    counted: produced,
     target,
     percent,
     status: statusFor(percent),
@@ -430,6 +447,7 @@ function buildMachine(raw: RawCenter, index: number): Machine {
     daily,
     trend: trendFrom(daily),
     byShift,
+    countedByShift: { ...byShift },
     ordersByShift,
     minutesByShift,
     lastEntry: { date: last.date, shift: lastShift },
@@ -732,6 +750,8 @@ export const opLabel = (o: Pick<ProductionOrder, "opId">) => {
 
 /** Produção de um conjunto de apontamentos: só a boa, retrabalho fica de fora (D11) */
 export const goodQuantity = (orders: ProductionOrder[]) => orders.reduce((s, o) => s + (o.rework ? 0 : o.quantity), 0);
+/** Produção boa só dos apontamentos que contam para a meta (o numerador do atingimento) */
+export const countedQuantity = (orders: ProductionOrder[]) => orders.reduce((s, o) => s + (o.rework || o.counts === false ? 0 : o.quantity), 0);
 
 /**
  * Recorta o centro por turno e por período: produção, dias, ordens, turnos,
@@ -751,6 +771,7 @@ function computeScope(m: Machine, shift: Shift | "all", range: DateRange): Machi
   const orders = (m.backend?.orders ?? m.orders).filter((o) => inScope(o.date, o.shift));
   const daily = new Map<number, number>();
   const byShift: Record<Shift, number> = { 1: 0, 2: 0, 3: 0 };
+  const countedByShift: Record<Shift, number> = { 1: 0, 2: 0, 3: 0 };
   const ordersByShift: Record<Shift, number> = { 1: 0, 2: 0, 3: 0 };
   const minutesByShift: Record<Shift, number> = { 1: 0, 2: 0, 3: 0 };
   let last: ProductionOrder | null = null;
@@ -761,8 +782,10 @@ function computeScope(m: Machine, shift: Shift | "all", range: DateRange): Machi
     if (o.rework) continue;
     daily.set(dayKey(o.date), (daily.get(dayKey(o.date)) ?? 0) + o.quantity);
     byShift[o.shift] += o.quantity;
+    if (o.counts !== false) countedByShift[o.shift] += o.quantity;
   }
   const produced = byShift[1] + byShift[2] + byShift[3];
+  const counted = countedByShift[1] + countedByShift[2] + countedByShift[3];
 
   const targetByShift: Record<Shift, number> = { 1: 0, 2: 0, 3: 0 };
   let targetEntries: TargetEntry[] | undefined;
@@ -774,12 +797,14 @@ function computeScope(m: Machine, shift: Shift | "all", range: DateRange): Machi
     for (const s of SHIFTS) if (shift === "all" || s === shift) targetByShift[s] = Math.round(m.targetByShift[s] * share);
   }
   const target = Math.round(targetByShift[1] + targetByShift[2] + targetByShift[3]);
-  const percent = target ? Math.round((produced / target) * 100) : 0;
+  // Atingimento: só a produção que conta, contra a meta dos turnos que contam
+  const percent = target ? Math.round((counted / target) * 100) : 0;
   return {
     ...m,
     orders,
     daily,
     produced,
+    counted,
     target,
     targetByShift,
     targetEntries,
@@ -791,6 +816,7 @@ function computeScope(m: Machine, shift: Shift | "all", range: DateRange): Machi
       .slice(-14)
       .map((date) => ({ date, value: daily.get(dayKey(date)) ?? null })),
     byShift,
+    countedByShift,
     ordersByShift,
     minutesByShift,
     lastEntry: last ? { date: last.date, shift: last.shift } : null,
@@ -803,13 +829,15 @@ export const scopeToShift = (m: Machine, shift: Shift | "all") => scopeMachine(m
 /** Totais do recorte; `workingDays` = dias úteis do período (taxa de apontamento) */
 export function aggregate(machines: Machine[], workingDays = WORKING_DAYS) {
   const produced = machines.reduce((s, m) => s + m.produced, 0);
+  const counted = machines.reduce((s, m) => s + m.counted, 0);
   const target = machines.reduce((s, m) => s + m.target, 0);
   const days = machines.reduce((s, m) => s + m.days, 0);
   return {
     count: machines.length,
     produced,
+    counted,
     target,
-    percent: target ? Math.round((produced / target) * 100) : 0,
+    percent: target ? Math.round((counted / target) * 100) : 0,
     entryRate: machines.length ? Math.round((days / (machines.length * Math.max(1, workingDays))) * 100) : 0,
   };
 }
@@ -822,6 +850,8 @@ export function shiftTotals(machines: Machine[]) {
     return {
       shift,
       produced,
+      /** a parte da produção que conta para a meta (numerador do atingimento do turno) */
+      counted: machines.reduce((s, m) => s + m.countedByShift[shift], 0),
       orders: machines.reduce((s, m) => s + m.ordersByShift[shift], 0),
       target: Math.round(machines.reduce((s, m) => s + m.targetByShift[shift], 0)),
       /** peças por minuto de produção (0 quando o tempo não é conhecido) */
@@ -831,7 +861,18 @@ export function shiftTotals(machines: Machine[]) {
   });
 }
 
-/** Série diária da fábrica no período (dias úteis) e acumulado vs meta */
+/**
+ * Meta que os apontamentos de um dia trouxeram (a mesma regra do cartão de atingimento):
+ * com o banco, a soma das metas gravadas nos turnos apontados (hora extra, dia anulado e
+ * parada planejada já chegam com 0); na demonstração, a meta diária só nos dias com apontamento.
+ * O recorte de turno já está na máquina (`targetEntries` / `dailyTarget`).
+ */
+export function recordedTargetOn(m: Machine, date: Date) {
+  if (m.backend) return (m.targetEntries ?? m.backend.targets).reduce((t, e) => t + (sameDay(e.date, date) ? e.target : 0), 0);
+  return m.daily.has(dayKey(date)) ? m.dailyTarget : 0;
+}
+
+/** Série diária da fábrica no período (dias úteis) e acumulado vs meta do calendário */
 export function plantSeries(machines: Machine[], range: DateRange = MONTH_RANGE) {
   // soma das metas diárias (já no recorte de turno de cada máquina)
   const dailyTarget = machines.reduce((s, m) => s + m.dailyTarget, 0);
@@ -873,12 +914,14 @@ export let COMPARISON_CUTOFF: Date | null = new Date(YEAR, MONTH, 20);
 
 /** Produção e meta do mês padrão até uma data (sem data: o recorte inteiro) */
 export function progressUntil(m: Machine, cutoff: Date | null = null) {
-  if (!cutoff) return { produced: m.produced, target: m.target };
-  const produced = goodQuantity(m.orders.filter((o) => o.date <= cutoff));
+  if (!cutoff) return { produced: m.produced, counted: m.counted, target: m.target };
+  const until = m.orders.filter((o) => o.date <= cutoff);
+  const produced = goodQuantity(until);
+  const counted = countedQuantity(until);
   const target = m.targetEntries
     ? m.targetEntries.reduce((s, e) => s + (e.date <= cutoff ? e.target : 0), 0)
     : m.target * (workingDatesIn({ from: MONTH_RANGE.from, to: cutoff }).length / Math.max(1, WORKING_DAYS));
-  return { produced, target };
+  return { produced, counted, target };
 }
 
 /* ============================================================
@@ -953,6 +996,7 @@ export function installBackendData(d: BackendData) {
       regime: raw.regime,
       days: 0,
       produced: 0,
+      counted: 0,
       target: 0,
       percent: 0,
       status: "critical",
@@ -960,6 +1004,7 @@ export function installBackendData(d: BackendData) {
       daily: new Map(),
       trend: [],
       byShift: { ...empty },
+      countedByShift: { ...empty },
       ordersByShift: { ...empty },
       minutesByShift: { ...empty },
       lastEntry: null,

@@ -5,7 +5,7 @@ dependem de outra ter acontecido antes, e quando a ordem está errada o banco
 **não dá erro**: ele simplesmente fica incompleto, em silêncio.
 
 Conferido em 01/10/2026, com 28 migrations. Contagem de permissões revista em
-05/10/2026 (21, com a das OPs). A ordem continua valendo com as 37 de hoje: tudo
+05/10/2026 (21, com a das OPs) e em 15/10/2026 (22, com `collaborators.manage`). A ordem continua valendo com as 37 de hoje: tudo
 depois da 13 vai depois do seed.
 
 **Cada migration roda uma vez só.** Elas não são idempotentes (a primeira falha
@@ -60,12 +60,12 @@ zero linhas e **não levanta erro nenhum**. O banco fica de pé, parecendo
 completo, e só na hora de carregar o histórico alguém descobre que o
 administrador não tem `import.manage`.
 
-Como conferir depois (tem de dar 21 e 21):
+Como conferir depois (tem de dar 22 e 22):
 
 ```sql
-select count(*) from public.permissions;                              -- 21
+select count(*) from public.permissions;                              -- 22
 select count(*) from public.role_permissions rp
-  join public.roles r on r.id = rp.role_id where r.code = 'admin';    -- 21
+  join public.roles r on r.id = rp.role_id where r.code = 'admin';    -- 22
 ```
 
 ---
@@ -90,7 +90,7 @@ Ou seja: rodar as duas depois do seed é seguro, e é o caminho certo.
 | Seção | Conteúdo |
 |---|---|
 | Perfis | 7 (`operator` … `tv_display`) |
-| Permissões | **18** — as outras 3 vêm de migrations: `import.review` e `import.manage` da 16, `work_orders.manage` da 36 (`20261004110000`) |
+| Permissões | **18** — as outras 4 vêm de migrations: `import.review` e `import.manage` da 16, `work_orders.manage` da 36 (`20261004110000`), `collaborators.manage` da 42 (`20261015100000`) |
 | Permissões por perfil | a matriz da seção 8 da referência técnica |
 | Máquinas | os 22 centros reais, com nome final, processo, capacidade e lotação |
 | Metas | as acordadas com o gestor: Tomadas 12.500, Plugue 6.500, Interruptores 4.500, A Granél 25.000 **por pessoa**, e 0 para os 10 centros por demanda |
@@ -104,7 +104,7 @@ nunca sobrescreve meta — meta é histórico (D13).
 
 ```sql
 select count(*) from public.machines where status = 'active';   -- 22
-select count(*) from public.permissions;                        -- 21
+select count(*) from public.permissions;                        -- 22
 select count(*) from public.roles;                              --  7
 select count(*) from public.calendar_events;                    -- 28 (2026+2027)
 select count(*) from public.shifts;                             --  3
@@ -118,5 +118,5 @@ E, depois do passo 6, que o administrador saiu com tudo:
 
 ```sql
 select count(*) from public.user_permissions
- where user_id = (select id from auth.users where lower(email) = lower('<e-mail>'));   -- 21
+ where user_id = (select id from auth.users where lower(email) = lower('<e-mail>'));   -- 22
 ```

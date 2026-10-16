@@ -55,6 +55,18 @@ export const mockDataSource: DataSource = {
     postMessage: semBanco,
     markRead: semBanco,
   },
+  // A demonstração da interface tem a própria fonte (OccurrencesProvider).
+  occurrences: {
+    async listCollaborators() { return []; },
+    createCollaborator: semBanco,
+    updateCollaborator: semBanco,
+    setCollaboratorActive: semBanco,
+    async listShiftOccurrences() { return { absences: [], shortages: [] }; },
+    saveAbsence: semBanco,
+    removeAbsence: semBanco,
+    saveShortage: semBanco,
+    removeShortage: semBanco,
+  },
 };
 
 export { resetarMock } from "./acesso";

@@ -17,6 +17,7 @@ const LazyCombo = lazy(() => load().then((m) => ({ default: m.ComboChart })));
 const LazyHBars = lazy(() => load().then((m) => ({ default: m.HBars })));
 
 type BurnupProps = ComponentProps<typeof LazyBurnup>;
+export type { BurnupBasis } from "./Charts";
 
 export function BurnupChart(props: BurnupProps) {
   return (

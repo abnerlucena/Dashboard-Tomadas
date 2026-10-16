@@ -649,8 +649,11 @@ test("ocorrências do turno: material da máquina parada, falta de pessoa, cadas
   await expect(materiais.getByRole("list", { name: "Máquinas escolhidas" })).toContainText(maquina);
   await materiais.getByLabel(/Máquinas afetadas/).selectOption({ label: "Embaladora horizontal nº 1" });
   await expect(materiais.getByRole("list", { name: "Máquinas escolhidas" })).toContainText("Embaladora horizontal nº 1");
+  // o filme 19189479 já está neste turno: não aparece de novo (o mesmo material entra uma vez por turno)
   await page.getByRole("combobox", { name: "Material" }).fill("filme");
-  await page.getByRole("option", { name: /19189479/ }).click();
+  await expect(page.getByRole("option", { name: /19189479/ })).toHaveCount(0);
+  await page.getByRole("combobox", { name: "Material" }).fill("etiqueta");
+  await page.getByRole("option", { name: /12093344/ }).click();
   await materiais.getByRole("button", { name: "Adicionar", exact: true }).click();
   await expect(materiais.getByText(`${maquina}, Embaladora horizontal nº 1`)).toBeVisible();
   await expect(materiais.getByRole("button", { name: "Informar o material" })).toHaveCount(0);
@@ -695,4 +698,60 @@ test("filtro de período aceita a data digitada", async ({ page }) => {
   await expect(ate).toHaveValue("25/03/2026");
   await ate.press("Enter");
   await expect(page.getByRole("button", { name: /^Período: 20 – 25 mar/ })).toBeVisible();
+});
+
+test("ocorrências: o operador não vê os nomes registrados antes, só o que acabou de lançar", async ({ page }) => {
+  await entrar(page, "operador@demo.weg");
+  await iniciarTurno(page);
+  await page.getByRole("button", { name: /Conferir e terminar/ }).first().click();
+  const pessoas = page.getByRole("region", { name: "Falta de pessoas" });
+  // as do turno (registradas por outra pessoa): só o tipo, sem nome e sem corrigir
+  await expect(pessoas.getByText("Nome visível só para o gestor").first()).toBeVisible();
+  await expect(pessoas.getByRole("button", { name: /^Editar Nome visível/ })).toHaveCount(0);
+  await expect(pessoas.getByText("Gabriel Martins")).toHaveCount(0);
+  // o que ele lança agora aparece com o nome e dá para desfazer
+  await pessoas.getByRole("button", { name: "Adicionar pessoa" }).click();
+  await page.getByRole("combobox", { name: "Colaborador" }).fill("fernanda");
+  await page.getByRole("option", { name: /Fernanda Oliveira/ }).click();
+  await pessoas.getByRole("radio", { name: "Faltou" }).click();
+  await pessoas.getByRole("button", { name: "Adicionar", exact: true }).click();
+  await expect(pessoas.getByText("Fernanda Oliveira")).toBeVisible();
+  await expect(pessoas.getByRole("button", { name: "Tirar Fernanda Oliveira" })).toBeVisible();
+  // e não oferece cadastrar gente nova (só o gestor)
+  await pessoas.getByRole("button", { name: "Adicionar pessoa" }).click();
+  await page.getByRole("combobox", { name: "Colaborador" }).fill("pessoa nova");
+  await expect(page.getByRole("option", { name: /Cadastrar/ })).toHaveCount(0);
+});
+
+test("colaboradores: inativar avisa quantas faltas perdem o nome, e elas perdem", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await page.evaluate(() => (window.location.hash = "#/colaboradores"));
+  const linha = page.getByRole("row", { name: /Gabriel Martins/ });
+  await expect(linha).toContainText("saídas ou atrasos");
+  await linha.getByRole("button", { name: /Inativar/ }).click();
+  const dialogo = page.getByRole("dialog", { name: "Inativar o colaborador?" });
+  await expect(dialogo).toContainText("faltas registradas vão perder o nome");
+  await dialogo.getByRole("button", { name: /^Inativar e tirar o nome de \d+ faltas$/ }).click();
+  await page.getByRole("radio", { name: /^Todos \(/ }).click();
+  await expect(page.getByRole("row", { name: /Gabriel Martins/ })).toContainText("Nenhuma");
+  // no Histórico do dia, a falta continua, sem o nome
+  await page.evaluate(() => (window.location.hash = "#/historico"));
+  await expect(page.getByRole("region", { name: "Ocorrências do turno" }).getByText("Sem nome (colaborador inativado)").first()).toBeVisible();
+});
+
+test("acumulado vs meta: duas leituras com a mesma base dos dois lados, e o resumo que explica a distância", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await page.getByText("Gráficos", { exact: true }).first().click();
+  const card = page.getByRole("region", { name: "Produção acumulada vs meta" });
+  await expect(card.getByText("Atingimento", { exact: true })).toBeVisible();
+  await expect(card.getByText("Meta coberta por apontamento")).toBeVisible();
+  await expect(card.getByText("Fora da meta", { exact: true })).toBeVisible();
+  // padrão: turnos apontados (a conta do atingimento)
+  await expect(card.getByText("Meta dos turnos apontados", { exact: true })).toBeVisible();
+  await card.getByRole("radio", { name: "Calendário" }).click();
+  await expect(card.getByText("Meta do calendário", { exact: true })).toBeVisible();
+  await expect(card.getByText("Meta dos turnos apontados", { exact: true })).toHaveCount(0);
+  // a tabela segue a leitura escolhida
+  await card.getByRole("radio", { name: "Tabela" }).click();
+  await expect(card.getByRole("columnheader", { name: "Produção total" })).toBeVisible();
 });

@@ -23,6 +23,7 @@ cada execução acontece dentro de uma transação que termina em `rollback`
 | `14_motivo_do_retrabalho.sql` | Motivo do retrabalho na OP (migration 0039): grava sem espaços nas pontas, retrabalho sem motivo é aceito, o motivo só vale para retrabalho (descartado nas outras OPs e travado na tabela), corrigir o apontamento troca e tira o motivo |
 | `15_maquina_que_nao_produziu.sql` | "Não produziu" (migration 0040): parada não planejada conta para a meta e a planejada sai; parada e peças não andam juntas; lançar peças tira a parada; máquina por pessoa parada não exige nº de pessoas; corrigir a parada e a marcação |
 | `16_op_nao_informada.sql` | OP não informada (migration 0041): vazio, "0" e "000" gravam nulo sem criar OP; nenhuma "OP 0" junta máquinas; número digitado continua conferido; completar o número depois; "só zeros" recusado na aba OPs |
+| `17_ocorrencias_do_turno.sql` | Ocorrências do turno (migration 0042): cadastro de colaboradores (nome e sobrenome, nome e cadastro únicos, só gestor); faltas (uma por turno, "faltou" sem horário); **só o gestor vê o nome**, os demais só contam; quem registrou desfaz em 24 h; inativar tira o nome; materiais com várias máquinas; a falta por nome não vai para a auditoria |
 
 ## Como rodar (SQL Editor do Supabase)
 

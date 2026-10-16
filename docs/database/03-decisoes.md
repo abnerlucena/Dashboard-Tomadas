@@ -76,6 +76,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D67 | "Não produziu": motivo da parada no apontamento; só a parada planejada sai da meta | Aprovada | 09/10/2026 |
 | D68 | OP não informada: o apontamento grava sem número, sem inventar a "OP 0" | Aprovada | 12/10/2026 |
 | D69 | A pasta da interface deixa de se chamar `prototype/` e passa a `app/` | Aprovada | 14/10/2026 |
+| D70 | Ocorrências do turno: faltas por nome só para o gestor, e só enquanto a pessoa for colaboradora | Aprovada | 15/10/2026 |
 
 ---
 
@@ -1478,3 +1479,35 @@ máquina**.
   o Git acompanha a renomeação na maior parte dos casos. Quem tem o arquivo
   ignorado `capacityBaseline.local.ts` precisa movê-lo à mão para
   `app/src/features/capacity/`.
+
+### D70 — Ocorrências do turno: faltas por nome só para o gestor, e só enquanto a pessoa for colaboradora
+- **Status:** Aprovada (15/10/2026), pelo gestor.
+- **Contexto:** a pedido do gestor da fábrica, o apontamento passou a registrar
+  materiais faltantes e falta de pessoas por nome, como o bloco "Informações
+  adicionais" da planilha (nota da interface 2026-10-15-ocorrencias-do-turno.md).
+  Os nomes vêm de um cadastro de colaboradores novo, separado das contas do Dash.
+  **Frequência por nome é dado pessoal (LGPD)**, e a interface deixou três
+  perguntas para o banco.
+- **Quem vê o nome:** **só gestor e admin** (permissão nova
+  `collaborators.manage`). Alternativas: incluir quem registrou (a sugestão da
+  interface), ou liberar para todos que apontam. O gestor escolheu a mais
+  restrita. Consequências:
+  - os demais leem pela `list_shift_absences`, que devolve a ocorrência sem
+    nome, colaborador, horário e observação: só conta;
+  - quem registrou não volta a ver o nome, mas pode **desfazer ou corrigir nas
+    primeiras 24 h** (recebe o `id` só das próprias), como o `edit_own` (D24).
+- **Por quanto tempo:** **enquanto a pessoa for colaboradora.** Alternativas: 12
+  meses, ou sem prazo até falar com o RH. Na prática:
+  - inativar o colaborador (saiu da empresa) **tira o nome e a observação de
+    todas as faltas dele, sem volta**. As faltas continuam contando no turno;
+  - reativar a pessoa não devolve o nome às faltas antigas;
+  - a falta por nome **não vai para `audit_logs`**, que guardaria uma cópia para
+    sempre. O cadastro de colaboradores e os materiais faltantes vão.
+- **Saiu mais cedo / chegou atrasado:** guarda **só o horário**. Os minutos
+  perdidos, se um dia forem necessários, saem do horário e do turno.
+- **Materiais faltantes** não são dado pessoal: veem quem vê o histórico ou
+  aponta. O mesmo material entra uma vez por turno, com todas as máquinas
+  afetadas.
+- **O nome do colaborador é único** sem acento, sem maiúscula e sem espaços a
+  mais, e exige nome e sobrenome. O banco não tem a extensão `unaccent`; a
+  função `chave_do_nome` troca as letras acentuadas do português.

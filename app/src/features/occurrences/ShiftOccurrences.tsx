@@ -7,11 +7,15 @@ import { Lozenge } from "@/components/ui/Lozenge";
 import { OptionCards } from "@/components/ui/OptionCards";
 import { TextField, inputBase } from "@/components/ui/TextField";
 import { useAccess } from "@/features/access/AccessContext";
+import { PROCESS_LABEL } from "@/features/registry/registry";
+import { mensagemDeErro } from "../../../../src/lib/erros";
 import { cn, type Notify } from "@/lib/utils";
 import {
   ABSENCE_KINDS,
   ABSENCE_META,
+  canFixShortage,
   isMaterialCode,
+  machineName,
   searchCollaborators,
   searchMaterials,
   tidyName,
@@ -95,15 +99,16 @@ function Card({
   );
 }
 
-function ItemRow({ title, sub, onEdit, onRemove, label }: { title: ReactNode; sub: ReactNode; onEdit: () => void; onRemove: () => void; label: string }) {
+/** Sem `onEdit`/`onRemove`, a linha fica só para leitura (o banco não deixa corrigir) */
+function ItemRow({ title, sub, onEdit, onRemove, label }: { title: ReactNode; sub: ReactNode; onEdit?: () => void; onRemove?: () => void; label: string }) {
   return (
     <li className="flex items-start gap-100 border-t py-100 first:border-t-0 first:pt-0">
       <div className="flex min-w-0 flex-1 flex-col gap-025">
         <span className="break-words font-medium text-default">{title}</span>
         <span className="break-words font-body-small text-subtle">{sub}</span>
       </div>
-      <IconButton icon={Pencil} label={`Editar ${label}`} spacing="compact" onClick={onEdit} />
-      <IconButton icon={Trash2} label={`Tirar ${label}`} spacing="compact" onClick={onRemove} />
+      {onEdit && <IconButton icon={Pencil} label={`Editar ${label}`} spacing="compact" onClick={onEdit} />}
+      {onRemove && <IconButton icon={Trash2} label={`Tirar ${label}`} spacing="compact" onClick={onRemove} />}
     </li>
   );
 }
@@ -241,8 +246,8 @@ function MachinePicker({ id, value, onChange }: { id: string; value: string[]; o
         <ul aria-label="Máquinas escolhidas" className="flex flex-wrap gap-050">
           {value.map((mid) => (
             <li key={mid} className="flex items-center gap-025 rounded-medium bg-selected py-025 pl-100 pr-025 font-body-small text-selected">
-              {machineById(mid).name}
-              <IconButton icon={X} label={`Tirar ${machineById(mid).name}`} spacing="compact" showTooltip={false} onClick={() => onChange(value.filter((x) => x !== mid))} />
+              {machineName(mid)}
+              <IconButton icon={X} label={`Tirar ${machineName(mid)}`} spacing="compact" showTooltip={false} onClick={() => onChange(value.filter((x) => x !== mid))} />
             </li>
           ))}
         </ul>
@@ -289,6 +294,9 @@ function MaterialsCard({
   notify: Notify;
 }) {
   const { materials, saveShortage, removeShortage } = useOccurrences();
+  const { can } = useAccess();
+  // Corrigir ou apagar: quem edita apontamentos, ou quem registrou, até as 24 h (editableUntil)
+  const canFix = (s: MaterialShortage) => canFixShortage(s, can("production.edit"));
   const [form, setForm] = useState<MaterialForm | null>(null);
   const [touched, setTouched] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -321,21 +329,29 @@ function MaterialsCard({
     if (invalid) return;
     const material = form.typing ? { code: form.code.trim(), description: form.description.trim().toUpperCase() } : form.picked!;
     setSaving(true);
-    await saveShortage({
-      id: form.id,
-      date,
-      shift,
-      materialCode: material.code,
-      materialDescription: material.description,
-      machineIds: form.machineIds,
-      note: form.note.trim() || null,
-    });
+    try {
+      await saveShortage({
+        id: form.id,
+        date,
+        shift,
+        materialCode: material.code,
+        materialDescription: material.description,
+        machineIds: form.machineIds,
+        note: form.note.trim() || null,
+      });
+    } catch (e) {
+      setSaving(false);
+      notify("Não foi possível salvar", mensagemDeErro(e), "error");
+      return;
+    }
     setSaving(false);
     notify(form.id ? "Material atualizado" : "Material faltante registrado", `${material.code} · ${material.description}`);
     close();
   };
 
-  const results = form && !form.picked && !form.typing ? searchMaterials(materials, form.query) : [];
+  // O mesmo material entra uma vez por turno (com todas as máquinas): o já registrado não aparece de novo
+  const registered = new Set(items.filter((x) => x.id !== form?.id).map((x) => x.materialCode));
+  const results = form && !form.picked && !form.typing ? searchMaterials(materials.filter((m) => !registered.has(m.code)), form.query) : [];
   const q = form?.query.trim() ?? "";
   const options: ComboOption[] = [
     ...results.map((m) => ({
@@ -391,19 +407,30 @@ function MaterialsCard({
                   <span className="font-code">{s.materialCode}</span> · {s.materialDescription}
                 </>
               }
-              sub={[s.machineIds.map((id) => machineById(id).name).join(", ") || "Sem máquina informada", s.note].filter(Boolean).join(" · ")}
-              onEdit={() =>
-                open({
-                  id: s.id,
-                  picked: { code: s.materialCode, description: s.materialDescription },
-                  machineIds: s.machineIds,
-                  note: s.note ?? "",
-                })
+              sub={[s.machineIds.map(machineName).join(", ") || "Sem máquina informada", s.note].filter(Boolean).join(" · ")}
+              onEdit={
+                canFix(s)
+                  ? () =>
+                      open({
+                        id: s.id,
+                        picked: { code: s.materialCode, description: s.materialDescription },
+                        machineIds: s.machineIds,
+                        note: s.note ?? "",
+                      })
+                  : undefined
               }
-              onRemove={async () => {
-                await removeShortage(s.id);
-                notify("Material retirado", `${s.materialCode} saiu das ocorrências do turno.`);
-              }}
+              onRemove={
+                canFix(s)
+                  ? async () => {
+                      try {
+                        await removeShortage(s.id);
+                        notify("Material retirado", `${s.materialCode} saiu das ocorrências do turno.`);
+                      } catch (e) {
+                        notify("Não foi possível tirar", mensagemDeErro(e), "error");
+                      }
+                    }
+                  : undefined
+              }
             />
           ))}
         </ul>
@@ -484,16 +511,17 @@ function MaterialsCard({
 type PersonForm = { id?: string; collaboratorId: string | null; query: string; allShifts: boolean; kind: AbsenceKind | null; time: string; note: string };
 
 function PeopleCard({ date, shift, items, notify }: { date: string; shift: Shift; items: Absence[]; notify: Notify }) {
-  const { collaborators, saveAbsence, removeAbsence, addCollaborator } = useOccurrences();
-  const { can } = useAccess();
-  const canRegister = can("collaborators.manage");
+  const { collaborators, saveAbsence, removeAbsence, addCollaborator, canSeeNames } = useOccurrences();
+  const canRegister = canSeeNames;
   const [form, setForm] = useState<PersonForm | null>(null);
   const [touched, setTouched] = useState(false);
   const [saving, setSaving] = useState(false);
   const addRef = useRef<HTMLButtonElement>(null);
   const set = (patch: Partial<PersonForm>) => setForm((f) => (f ? { ...f, ...patch } : f));
   const byId = useMemo(() => new Map(collaborators.map((c) => [c.id, c])), [collaborators]);
-  const nameOf = (id: string) => byId.get(id)?.name ?? "Colaborador removido";
+  const nameOf = (id: string | null) => (id && byId.get(id)?.name) || "Colaborador";
+  /** O nome de uma falta: o banco só manda para o gestor; inativar apaga o nome (D70) */
+  const labelOf = (a: Absence) => a.name ?? (canSeeNames ? "Sem nome (colaborador inativado)" : "Nome visível só para o gestor");
 
   const open = (patch: Partial<PersonForm> = {}) => {
     setTouched(false);
@@ -515,31 +543,37 @@ function PeopleCard({ date, shift, items, notify }: { date: string; shift: Shift
     if (errors.who || errors.kind) return;
     setSaving(true);
     const timed = !!ABSENCE_META[form.kind!].timeLabel;
-    await saveAbsence({
-      id: form.id,
-      date,
-      shift,
-      collaboratorId: form.collaboratorId!,
-      kind: form.kind!,
-      time: timed && form.time ? form.time : null,
-      note: form.note.trim() || null,
-    });
+    try {
+      await saveAbsence({
+        id: form.id,
+        date,
+        shift,
+        collaboratorId: form.collaboratorId!,
+        kind: form.kind!,
+        time: timed && form.time ? form.time : null,
+        note: form.note.trim() || null,
+      });
+    } catch (e) {
+      setSaving(false);
+      notify("Não foi possível salvar", mensagemDeErro(e), "error");
+      return;
+    }
     setSaving(false);
     notify(form.id ? "Ocorrência atualizada" : "Falta registrada", `${nameOf(form.collaboratorId!)}: ${ABSENCE_META[form.kind!].label.toLowerCase()}.`);
     close();
   };
 
   // A mesma pessoa não entra duas vezes no turno
-  const taken = new Set(items.filter((a) => a.id !== form?.id).map((a) => a.collaboratorId));
+  const taken = new Set(items.filter((a) => a.id !== form?.id).flatMap((a) => (a.collaboratorId ? [a.collaboratorId] : [])));
   const results = form && !form.collaboratorId ? searchCollaborators(collaborators, form.query, shift, { allShifts: form.allShifts, exclude: taken }) : [];
   const typed = tidyName(form?.query ?? "");
   const canCreate =
-    !!form && canRegister && !form.collaboratorId && typed.split(" ").length >= 2 && !validateCollaborator({ name: typed, badge: "", shift, line: null }, collaborators);
+    !!form && canRegister && !form.collaboratorId && typed.split(" ").length >= 2 && !validateCollaborator({ name: typed, badge: "", shift, process: null }, collaborators);
   const options: ComboOption[] = [
     ...results.slice(0, 8).map((c) => ({
       key: c.id,
       label: c.name,
-      hint: [c.badge && `Cadastro ${c.badge}`, `Turno ${c.shift}`, c.line].filter(Boolean).join(" · "),
+      hint: [c.badge && `Cadastro ${c.badge}`, `Turno ${c.shift}`, c.process && PROCESS_LABEL[c.process]].filter(Boolean).join(" · "),
       onPick: () => set({ collaboratorId: c.id }),
     })),
     ...(canCreate
@@ -550,9 +584,13 @@ function PeopleCard({ date, shift, items, notify }: { date: string; shift: Shift
             label: `Cadastrar “${typed}” no turno ${shift} e usar`,
             hint: "Entra em Colaboradores; cadastro e linha dá para completar lá",
             onPick: async () => {
-              const c = await addCollaborator({ name: typed, badge: "", shift, line: null });
-              set({ collaboratorId: c.id });
-              notify("Colaborador cadastrado", `${c.name} agora está em Colaboradores.`);
+              try {
+                const c = await addCollaborator({ name: typed, badge: "", shift, process: null });
+                set({ collaboratorId: c.id });
+                notify("Colaborador cadastrado", `${c.name} agora está em Colaboradores.`);
+              } catch (e) {
+                notify("Não foi possível cadastrar", mensagemDeErro(e), "error");
+              }
             },
           },
         ]
@@ -576,28 +614,45 @@ function PeopleCard({ date, shift, items, notify }: { date: string; shift: Shift
     >
       {items.length > 0 ? (
         <ul className="flex flex-col">
-          {items.map((a) => {
-            const c = byId.get(a.collaboratorId);
+          {items.map((a, i) => {
+            const c = a.collaboratorId ? byId.get(a.collaboratorId) : undefined;
             const meta = ABSENCE_META[a.kind];
+            // Corrigir precisa saber quem é: o gestor sempre; quem registrou, em 24 h e enquanto a página lembra o nome
+            const canEdit = !!a.id && !!a.collaboratorId && (canSeeNames || a.mine);
+            const id = a.id;
             return (
               <ItemRow
-                key={a.id}
-                label={nameOf(a.collaboratorId)}
+                key={a.id ?? `x${i}`}
+                label={labelOf(a)}
                 title={
                   <span className="flex flex-wrap items-center gap-x-100 gap-y-025">
-                    {nameOf(a.collaboratorId)}
+                    <span className={cn(!a.name && "text-subtle")}>{labelOf(a)}</span>
                     <Lozenge appearance={meta.appearance}>
                       {meta.label}
                       {a.time ? ` · ${a.time}` : ""}
                     </Lozenge>
                   </span>
                 }
-                sub={[c?.badge && `Cadastro ${c.badge}`, c?.line, a.note].filter(Boolean).join(" · ") || "Sem observação"}
-                onEdit={() => open({ id: a.id, collaboratorId: a.collaboratorId, kind: a.kind, time: a.time ?? "", note: a.note ?? "" })}
-                onRemove={async () => {
-                  await removeAbsence(a.id);
-                  notify("Retirado da lista", `${nameOf(a.collaboratorId)} saiu da falta de pessoas do turno.`);
-                }}
+                sub={
+                  a.name
+                    ? [c?.badge && `Cadastro ${c.badge}`, c?.process && PROCESS_LABEL[c.process], a.note].filter(Boolean).join(" · ") || "Sem observação"
+                    : a.mine && id
+                      ? "Registrada por você: dá para desfazer em até 24 horas"
+                      : "Registrada no turno"
+                }
+                onEdit={canEdit ? () => open({ id: id!, collaboratorId: a.collaboratorId, kind: a.kind, time: a.time ?? "", note: a.note ?? "" }) : undefined}
+                onRemove={
+                  id
+                    ? async () => {
+                        try {
+                          await removeAbsence(id);
+                          notify("Retirado da lista", `${labelOf(a)} saiu da falta de pessoas do turno.`);
+                        } catch (e) {
+                          notify("Não foi possível tirar", mensagemDeErro(e), "error");
+                        }
+                      }
+                    : undefined
+                }
               />
             );
           })}
@@ -612,7 +667,7 @@ function PeopleCard({ date, shift, items, notify }: { date: string; shift: Shift
           {picked ? (
             <Chosen
               title={picked.name}
-              hint={[picked.badge && `Cadastro ${picked.badge}`, `Turno ${picked.shift}`, picked.line].filter(Boolean).join(" · ")}
+              hint={[picked.badge && `Cadastro ${picked.badge}`, `Turno ${picked.shift}`, picked.process && PROCESS_LABEL[picked.process]].filter(Boolean).join(" · ")}
               onChange={() => set({ collaboratorId: null, query: "" })}
             />
           ) : (
@@ -628,7 +683,7 @@ function PeopleCard({ date, shift, items, notify }: { date: string; shift: Shift
                   form.query.trim()
                     ? canRegister
                       ? "Ninguém com esse nome. Digite nome e sobrenome para cadastrar."
-                      : "Ninguém com esse nome. Peça a um líder para cadastrar a pessoa em Colaboradores."
+                      : "Ninguém com esse nome. Peça ao gestor para cadastrar a pessoa em Colaboradores."
                     : form.allShifts
                       ? "Todos já estão na lista deste turno."
                       : `Ninguém do turno ${shift} sobrando. Marque “Mostrar os outros turnos” ou busque pelo nome.`

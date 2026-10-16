@@ -264,6 +264,22 @@ test("histórico da máquina abre o Histórico já filtrado", async ({ page }) =
   await expect(page.getByRole("button", { name: "Máquinas: Todas" })).toBeVisible();
 });
 
+test("histórico: o dia mostra a meta do dia, e ela acompanha o filtro de máquinas", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await page.goto("/#/historico");
+  const selo = page.getByText(/% da meta diária de [\d.]+/);
+  await expect(selo).toBeVisible();
+  const todas = await selo.textContent();
+  // com menos máquinas na conta, a meta do dia encolhe junto com a produção
+  await page.getByRole("button", { name: "Máquinas: Todas" }).click();
+  const painel = page.getByRole("dialog", { name: "Escolher as máquinas da conta" });
+  await painel.getByRole("button", { name: "Desmarcar todas" }).click();
+  await painel.getByLabel("Buscar máquina").fill("Composé");
+  await painel.getByRole("button", { name: "Só as encontradas" }).click();
+  await painel.getByRole("button", { name: "Concluir" }).click();
+  await expect(selo).not.toHaveText(todas ?? "");
+});
+
 test("histórico: tirar máquinas da conta, devolver e deixar só algumas", async ({ page }) => {
   await entrar(page, "gestor@demo.weg");
   const painel = page.getByRole("dialog", { name: "Escolher as máquinas da conta" });

@@ -183,7 +183,7 @@ const FAQ_GROUPS: Array<{ title: string; faq: Faq[] }> = [
         q: "Por que algumas máquinas não aparecem no atingimento?",
         a: [
           "Kit parafusos, bancadas e prensas trabalham por demanda e não têm meta. Por isso ficam fora do atingimento e dos gráficos de meta.",
-          "Elas continuam no Apontamento, nas OPs, nos Feedbacks e nas linhas. Na Montagem, aparecem numa lista própria, Postos por demanda, com a produção.",
+          "Elas continuam no Apontamento, nas OPs e nos Feedbacks. No Dashboard e na página de cada linha, aparecem numa lista própria, Postos por demanda, com a produção.",
         ],
       },
       {

@@ -339,6 +339,19 @@ test("ranking tem os filtros do Retrabalho: período, máquinas, turno e motivo"
   expect(await linhas.count()).toBe(antes);
 });
 
+test("o Dashboard mostra todos os postos por demanda, com a produção, fora do atingimento", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await page.evaluate(() => (window.location.hash = "#/dashboard"));
+  const postos = page.getByRole("table", { name: /^Postos por demanda/ });
+  await expect(page.getByRole("heading", { name: "Postos por demanda", level: 2 })).toBeVisible();
+  // de todas as linhas, não só da Montagem
+  await expect(postos.getByText("Embaladora kit parafusos nº 1")).toBeVisible();
+  await expect(postos.getByText("Prensa Tox")).toBeVisible();
+  await expect(page.getByText(/postos por demanda aparecem abaixo, fora do atingimento/)).toBeVisible();
+  // e não entram na tabela das máquinas com meta
+  await expect(page.getByRole("table", { name: /^Máquinas/ }).getByText("Prensa Tox")).toHaveCount(0);
+});
+
 test("a aba Montagem mostra também os postos por demanda, fora do atingimento", async ({ page }) => {
   await entrar(page, "gestor@demo.weg");
   await page.goto("/#/linha-montagem");

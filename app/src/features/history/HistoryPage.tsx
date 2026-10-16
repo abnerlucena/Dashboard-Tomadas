@@ -100,14 +100,14 @@ export function HistoryPage({ notify, machineParam }: { notify: Notify; machineP
   const allIds = useMemo(() => MACHINES.map((m) => m.id), []);
   const [included, setIncluded] = useState<Set<string>>(() => parseMachineFilter(machineParam, allIds));
   const filtered = included.size !== allIds.length;
-  const dayTarget = (d: Date) => targetOn(filtered ? MACHINES.filter((m) => included.has(m.id)) : MACHINES, d);
+  const dayTarget = (d: Date, shift: Shift | "all" = "all") => targetOn(filtered ? MACHINES.filter((m) => included.has(m.id)) : MACHINES, d, shift);
   // Dia aberto (data completa: o calendário navega entre os meses da janela de dados)
   const [date, setDate] = useState<Date>(() => (filtered ? lastDayOf(ALL_ORDERS, included) : DATA_END));
   const year = date.getFullYear();
   const month = date.getMonth();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dialog, setDialog] = useState<Dialog>(null);
-  // Filtro de turno da tabela do dia (o resumo do dia continua com todos)
+  // Filtro de turno do dia: a tabela, as unidades e a meta do resumo (o calendário e o gráfico por turno seguem com o dia todo)
   const [shiftFilter, setShiftFilter] = useState<Shift | "all">("all");
 
   const byDay = useMemo(() => {
@@ -138,8 +138,8 @@ export function HistoryPage({ notify, machineParam }: { notify: Notify; machineP
   // Produção = só a boa (D11); o retrabalho continua listado, com a marca
   // % da meta: só as máquinas com meta contra a meta delas; o total de unidades soma todas
   const hasTarget = (id: string) => machineById(id).hasTarget;
-  const openTarget = dayTarget(date);
-  const { total: dayTotal, percent } = dayProgress(allDayOrders, openTarget, hasTarget);
+  const openTarget = dayTarget(date, shiftFilter);
+  const { total: dayTotal, percent } = dayProgress(dayOrders, openTarget, hasTarget);
   const dayPct = percent ?? 0;
   const visibleTotal = goodQuantity(dayOrders);
   const byShift = Object.fromEntries(SHIFTS.map((sh) => [sh, goodQuantity(allDayOrders.filter((o) => o.shift === sh))])) as Record<Shift, number>;
@@ -548,16 +548,16 @@ export function HistoryPage({ notify, machineParam }: { notify: Notify; machineP
                 {allDayOrders.length > 0 && (
                   <p className="flex flex-wrap items-center gap-100 text-subtle">
                     <span>
-                      <span className="font-semibold tabular-nums text-default">{formatNumber(dayTotal)}</span> unidades em {plural(allDayOrders.length)}
+                      <span className="font-semibold tabular-nums text-default">{formatNumber(dayTotal)}</span> unidades em {plural(dayOrders.length)}
                       {filtered && <span className="text-subtlest"> · só as {included.size} máquinas da conta</span>}
                     </span>
                     {openTarget > 0 ? (
                       <Lozenge appearance={STATUS_META[statusFor(dayPct)].appearance}>
-                        {dayPct}% da meta diária de {formatNumber(openTarget)}
+                        {dayPct}% da meta {shiftFilter === "all" ? "diária" : `do ${SHIFT_META[shiftFilter].label.toLowerCase()}`} de {formatNumber(openTarget)}
                         <span className="sr-only"> ({STATUS_META[statusFor(dayPct)].label})</span>
                       </Lozenge>
                     ) : (
-                      <Lozenge appearance="neutral">sem meta no dia</Lozenge>
+                      <Lozenge appearance="neutral">{shiftFilter === "all" ? "sem meta no dia" : "sem meta no turno"}</Lozenge>
                     )}
                   </p>
                 )}

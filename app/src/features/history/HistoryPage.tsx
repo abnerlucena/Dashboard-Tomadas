@@ -553,7 +553,8 @@ export function HistoryPage({ notify, machineParam }: { notify: Notify; machineP
                     </span>
                     {openTarget > 0 ? (
                       <Lozenge appearance={STATUS_META[statusFor(dayPct)].appearance}>
-                        {dayPct}% da meta diária · {STATUS_META[statusFor(dayPct)].label}
+                        {dayPct}% da meta diária de {formatNumber(openTarget)}
+                        <span className="sr-only"> ({STATUS_META[statusFor(dayPct)].label})</span>
                       </Lozenge>
                     ) : (
                       <Lozenge appearance="neutral">sem meta no dia</Lozenge>

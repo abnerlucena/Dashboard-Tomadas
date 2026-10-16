@@ -379,7 +379,10 @@ export function MachinesPage({
       aside: noData ? undefined : <Lozenge appearance={status.appearance}>{status.label}</Lozenge>,
       footer: noData
         ? "Sem dados no período"
-        : `Meta ${shiftLabel ? `do ${shiftLabel.toLowerCase()}` : monthView ? "do mês" : "do período"}: ${formatNumber(totals.target)}`,
+        : `Meta ${shiftLabel ? `do ${shiftLabel.toLowerCase()}` : monthView ? "do mês" : "do período"}: ${formatNumber(totals.target)}${
+            // hora extra, dia anulado e parada planejada: entram na produção, não no atingimento
+            totals.produced > totals.counted ? ` · ${formatNumber(totals.produced - totals.counted)} peças fora da meta` : ""
+          }`,
     },
     {
       id: "rate",

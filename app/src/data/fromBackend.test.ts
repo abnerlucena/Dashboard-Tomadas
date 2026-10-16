@@ -188,7 +188,9 @@ describe("installBackendData", () => {
     // setembro: produção boa 9.900 + 12.100 + 1.000 (hora extra conta na produção, não na meta)
     expect(m.produced).toBe(23000);
     expect(m.target).toBe(22000);
-    expect(m.percent).toBe(105);
+    // atingimento só com o que conta (counts_toward_target): 22.000 ÷ 22.000, a hora extra fica fora
+    expect(m.counted).toBe(22000);
+    expect(m.percent).toBe(100);
     expect(m.byShift[2]).toBe(1000);
     expect(m.targetByShift[2]).toBe(0);
 

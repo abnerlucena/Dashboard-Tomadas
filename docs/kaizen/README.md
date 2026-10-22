@@ -44,6 +44,19 @@ turnos-máquina com produção. Foi o que se encontrou:
 | Meta do grupo valendo para cada máquina, e meta nova sobrescrevendo a antiga | todas | não havia histórico de metas |
 | Nenhum nº de OP | todos | não dava para saber de qual ordem veio a produção |
 
+### Retrabalho contado duas vezes
+
+O lote reprovado que voltava à máquina era apontado de novo na planilha, como
+produção nova. Em 2026, foram 177 defeitos de janeiro a outubro (painel Power BI
+"Defeitos Internos Tomadas e Interruptores", Itajaí). Pela estimativa da equipe,
+27,4 desses lotes voltaram à máquina. Com uma média de 9.500 peças por ordem, são
+**260.300 peças contadas em dobro de janeiro a outubro**. Projetando novembro e
+dezembro pela média (2,74 lotes por mês), o ano fecha em **≈ 312 mil peças**, mais
+de um dia inteiro de produção dos turnos 1 e 2. São valores estimados: a faixa
+honesta é de 310 a 320 mil. Detalhe por não conformidade em
+[`nao-conformidades-retorno-a-maquina.xlsx`](nao-conformidades-retorno-a-maquina.xlsx)
+e na imagem [`impacto-retrabalho-contado-duas-vezes.png`](impacto-retrabalho-contado-duas-vezes.png).
+
 ### Causas (5 porquês, resumido)
 
 1. **Por que** o atingimento dava trabalho e era pouco confiável? Porque era
@@ -124,6 +137,7 @@ Quantitativos (medir antes e depois):
 | Tempo para fechar o relatório do mês | [preencher] h | [preencher] min |
 | Registros com erro ou texto no lugar de número | 17 casos em 9 meses, só os achados na migração | 0 (o sistema recusa) |
 | Tempo até a gestão ver o atingimento do dia | [preencher] | no mesmo turno |
+| Peças de retrabalho contadas como produção | ≈ 312 mil em 2026 (estimativa) | 0 (retrabalho fica fora da produção boa) |
 
 ## Padronização
 
